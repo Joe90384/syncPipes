@@ -1,0 +1,106 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+
+namespace Oxide.Plugins
+{
+    partial class SyncPipes
+    {
+        /// <summary>
+        /// Get a custom attributes from an enum value
+        /// </summary>
+        /// <typeparam name="TAttribute">Custom Attribute to fetch</typeparam>
+        /// <param name="value">Enum value to get custom attribute from</param>
+        /// <returns>The custom attribute if it exists on the enum value or null if it doesn't</returns>
+        private static KeyValuePair<Enum, TAttribute> GetAttribute<TAttribute>(Enum value)
+            where TAttribute : Attribute
+        {
+            var enumType = value.GetType();
+            var name = Enum.GetName(enumType, value);
+            return new KeyValuePair<Enum, TAttribute>(value, enumType.GetField(name).GetCustomAttribute<TAttribute>(false));
+        }
+
+        /// <summary>
+        /// Base class for language attributes
+        /// </summary>
+        abstract class LanguageAttribute : Attribute
+        {
+            protected LanguageAttribute(string text)
+            {
+                Text = text;
+            }
+
+            public string Text { get; }
+        }
+
+        /// <summary>
+        /// Helper for Overlay Messages to indicate the message type and allow the overlay helpers to render them correctly
+        /// </summary>
+        class MessageTypeAttribute : Attribute
+        {
+            public MessageTypeAttribute(MessageType type)
+            {
+                Type = type;
+            }
+            public MessageType Type { get; }
+        }
+
+        /// <summary>
+        /// Will be used to get the text for the english language pack
+        /// </summary>
+        class EnglishAttribute : LanguageAttribute
+        {
+            public EnglishAttribute(string text) : base(text) { }
+        }
+
+        // This will treat the first stirng.format replace as the chat command "{0}"
+        /// <summary>
+        /// Indicated this item is a Chat command.
+        /// The first string.Format "{0}" will be replaced with the chat command string.
+        /// All args will continue normally from "{1}"
+        /// </summary>
+        class ChatCommandAttribute : Attribute { }
+
+        /// <summary>
+        /// Indicated this item is a Binding command.
+        /// The first string.Format "{0}" will be replaced with the binding key.
+        /// All args will continue normally from "{1}"
+        /// </summary>
+        class BindingCommandAttribute : Attribute { }
+
+        /// <summary>
+        /// This attribute holds the details of a container entity
+        /// </summary>
+        class StorageAttribute : Attribute
+        {
+            public StorageAttribute(string shortname, string url, float xOffset = 0, float yOffset = 0, float zOffset = 0, bool partialUrl = true)
+            {
+                ShortName = shortname;
+                Url = url;
+                PartialUrl = partialUrl;
+                Offset = new Vector3(xOffset, yOffset, zOffset);
+            }
+
+            /// <summary>
+            /// The url or partial url of an container entity
+            /// </summary>
+            public readonly string Url;
+
+            /// <summary>
+            /// The shortname of a container entity. Currently not used but may be useful for debugging
+            /// </summary>
+            public readonly string ShortName;
+
+            /// <summary>
+            /// Indicates if this is attribute contains a full or partial url
+            /// </summary>
+            public readonly bool PartialUrl;
+
+            /// <summary>
+            /// In game offset of the pipe end points
+            /// </summary>
+            public readonly Vector3 Offset;
+        }
+    }
+}
