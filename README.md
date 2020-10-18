@@ -1,4 +1,4 @@
-![Logo](images/Logo.png)
+![Logo](https://github.com/Joe90384/syncPipes/blob/main/images/logo.png?raw=true)
 
 Before I go into detail on what this plugin can do I'd like to say a big thank you to TheGreatJ who made the amazing jPipes plugin, which this is based on.
 
@@ -55,7 +55,7 @@ Each pipe has a menu that you can open by hitting it with a wooden hammer.
 
 For a pipe that just goes between normal containers (eg. furnaces, oil refineries etc.) you will get the following menu:
 
-![basicMenu](images\basicMenu.jpg)
+![basicMenu](https://github.com/Joe90384/syncPipes/blob/main/images/basicMenu.jpg?raw=true)
 
 The top bar (in green) shows the source and destination containers with items moving from left to right. The number of '>' between them shows the rate of items moving through the pipe. 
 
@@ -76,7 +76,7 @@ At the top right of the screen is an info panel that give you an overview of the
 
 If the second container is a recycler, mining quarry or pump jack you would get the following menu with more options
 
-![autoStart](images\autoStart.jpg)
+![autoStart](https://github.com/Joe90384/syncPipes/blob/main/images/autoStart.jpg?raw=true)
 
 This now gives you additional options. This will only apply if it is the destination of the pipe.
 
@@ -88,7 +88,7 @@ This now gives you additional options. This will only apply if it is the destina
 
 The final menu you will only see if the second container is a furnace or refinery and the server also has the [Furnace Splitter](https://umod.org/plugins/furnace-splitter) mod installed
 
-![furnaceSplitter](images\furnaceSplitter.jpg)
+![furnaceSplitter](https://github.com/Joe90384/syncPipes/blob/main/images/furnaceSplitter.jpg?raw=true)
 
 This gives you the final options
 
@@ -150,7 +150,7 @@ Each pipe has a priority. The first item in the container will be selected and g
 
 By combining the filter with the priority we can set up some advance sorting to allow items to be processed and sent to their correct destination with multiple routes and splits along the way.
 
-![Pipe Filtering](images\advancedSorting.png)
+![Pipe Filtering](https://github.com/Joe90384/syncPipes/blob/main/images/advancedSorting.png?raw=true)
 
 In This example you have a single container, on the left hand side, that you put everything into. The items then travel along the line of splitter boxes. If there is an appropriate container the item will be moved into it. Otherwise it will go into the container on the right hand side. This allows you to see what you might have missed from your sorting or could be connected to another set of filter pipes. 
 
@@ -223,10 +223,10 @@ Each number corresponds to the 5 different building materials in the the game fr
   Each number corresponds to the 5 different building materials in the game from lowest to highest grade:
 
   1. Twigs
-    2. Wood
-    3. Stone
-    4. Metal
-    5. High Quality
+        2. Wood
+            3. Stone
+                4. Metal
+                    5. High Quality
 
 #### maxPipeDist
 
