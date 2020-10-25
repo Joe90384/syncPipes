@@ -102,7 +102,7 @@ namespace Oxide.Plugins
             var seedDirectory = seedFile.Directory;
             var outputDirectory = Environment.ExpandEnvironmentVariables(args[1]);
             var outputFile =  Path.Combine(outputDirectory, seedFile.Name);
-            var deployFile = Path.Combine(@"..\..\..\deploy", seedFile.Name);
+            var deployFile = Path.Combine(@"..\..\..\", seedFile.Name);
 
             Console.WriteLine("Seed file: {0}", seedFile.FullName);
             Console.WriteLine("Output file: {0}", outputFile);
