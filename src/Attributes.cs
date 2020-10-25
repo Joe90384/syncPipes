@@ -1,30 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
-        /// <summary>
-        /// Get a custom attributes from an enum value
-        /// </summary>
-        /// <typeparam name="TAttribute">Custom Attribute to fetch</typeparam>
-        /// <param name="value">Enum value to get custom attribute from</param>
-        /// <returns>The custom attribute if it exists on the enum value or null if it doesn't</returns>
-        private static KeyValuePair<Enum, TAttribute> GetAttribute<TAttribute>(Enum value)
-            where TAttribute : Attribute
-        {
-            var enumType = value.GetType();
-            var name = Enum.GetName(enumType, value);
-            return new KeyValuePair<Enum, TAttribute>(value, enumType.GetField(name).GetCustomAttribute<TAttribute>(false));
-        }
-
         /// <summary>
         /// Base class for language attributes
         /// </summary>
-        abstract class LanguageAttribute : Attribute
+        public class LanguageAttribute : Attribute
         {
             protected LanguageAttribute(string text)
             {
@@ -34,10 +18,13 @@ namespace Oxide.Plugins
             public string Text { get; }
         }
 
+        [AttributeUsage(AttributeTargets.Enum)]
+        public class EnumWithLanguageAttribute : Attribute { }
+
         /// <summary>
         /// Helper for Overlay Messages to indicate the message type and allow the overlay helpers to render them correctly
         /// </summary>
-        class MessageTypeAttribute : Attribute
+        public class MessageTypeAttribute : Attribute
         {
             public MessageTypeAttribute(MessageType type)
             {
@@ -49,9 +36,10 @@ namespace Oxide.Plugins
         /// <summary>
         /// Will be used to get the text for the english language pack
         /// </summary>
-        class EnglishAttribute : LanguageAttribute
+        public class EnglishAttribute : LanguageAttribute
         {
             public EnglishAttribute(string text) : base(text) { }
+            public const string Language = "en";
         }
 
         // This will treat the first stirng.format replace as the chat command "{0}"
@@ -60,19 +48,19 @@ namespace Oxide.Plugins
         /// The first string.Format "{0}" will be replaced with the chat command string.
         /// All args will continue normally from "{1}"
         /// </summary>
-        class ChatCommandAttribute : Attribute { }
+        public class ChatCommandAttribute : Attribute { }
 
         /// <summary>
         /// Indicated this item is a Binding command.
         /// The first string.Format "{0}" will be replaced with the binding key.
         /// All args will continue normally from "{1}"
         /// </summary>
-        class BindingCommandAttribute : Attribute { }
+        public class BindingCommandAttribute : Attribute { }
 
         /// <summary>
         /// This attribute holds the details of a container entity
         /// </summary>
-        class StorageAttribute : Attribute
+        public class StorageAttribute : Attribute
         {
             public StorageAttribute(string shortname, string url, float xOffset = 0, float yOffset = 0, float zOffset = 0, bool partialUrl = true)
             {
@@ -102,5 +90,6 @@ namespace Oxide.Plugins
             /// </summary>
             public readonly Vector3 Offset;
         }
+
     }
 }

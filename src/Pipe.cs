@@ -8,9 +8,9 @@ using Random = System.Random;
 
 namespace Oxide.Plugins
 {
-    internal partial class SyncPipes
+    public partial class SyncPipes
     {
-        private class Pipe
+        public class Pipe
         {
             /// <summary>
             /// This is the serializable data format for creating, loading or saving pipes with
@@ -136,6 +136,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// Allowed priority values of the pipe
             /// </summary>
+            [EnumWithLanguage]
             public enum PipePriority
             {
                 [English("Highest")]
@@ -160,6 +161,7 @@ namespace Oxide.Plugins
             /// Then will indicate any errors.
             /// </summary>
             [Flags]
+            [EnumWithLanguage]
             public enum Status
             {
                 [MessageType(MessageType.Info)]

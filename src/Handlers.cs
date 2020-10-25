@@ -1,6 +1,9 @@
-﻿namespace Oxide.Plugins
+﻿using System;
+using System.Collections.Generic;
+
+namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         /// This class holds all the handlers for various events that the player can carry out like hitting containers or pipes

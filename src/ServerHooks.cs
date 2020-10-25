@@ -1,6 +1,6 @@
 ﻿namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         /// Hook: Initialize syncPipes when the server starts up

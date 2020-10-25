@@ -5,7 +5,7 @@ using Oxide.Core.Libraries.Covalence;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         /// Hook: Ensure the player is removed from the PlayerHelper's Players list when they disconnect
@@ -20,7 +20,7 @@ namespace Oxide.Plugins
         /// <summary>
         /// Player helper holds additional information and methods for a player that is needed for syncPipes to work correctly
         /// </summary>
-        class PlayerHelper
+        public class PlayerHelper
         {
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe

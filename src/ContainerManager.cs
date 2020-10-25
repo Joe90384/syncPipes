@@ -6,14 +6,14 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    internal partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         ///     This is attached to a Storage Container to act as the controller for moving items through pipes.
         ///     This then allows for items to move through pipes in a more synchronous manner.
         ///     Items can be split evenly between all pipes of the same priority.
         /// </summary>
-        private class ContainerManager : MonoBehaviour
+        public class ContainerManager : MonoBehaviour
         {
             /// <summary>
             /// This is the serializable data format fro loading or saving container manager data

@@ -4,8 +4,20 @@ using System.Linq;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
+
+        // All enums that need chat command substitution
+        private static Dictionary<Enum, bool> _chatCommands;
+
+        // All enums that need binding command substitution
+        private static Dictionary<Enum, bool> _bindingCommands;
+
+        // All enums that have a message type (mainly for overlay text)
+        private static Dictionary<Enum, MessageType> _messageTypes;
+
+        private static Dictionary<string, Dictionary<string, string>> _languages;
+
         /// <summary>
         /// Message type for helping with overlay messages
         /// </summary>
@@ -20,6 +32,7 @@ namespace Oxide.Plugins
         /// <summary>
         /// All messages sent to the players chat screen
         /// </summary>
+        [EnumWithLanguage]
         public enum Chat
         {
 			[BindingCommand]
@@ -66,48 +79,14 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
         /// </summary>
         static class LocalizationHelpers
         {
-            /// <summary>
-            /// Combine all the Enums used for localizations into a single list
-            /// </summary>
-            /// <param name="enums"></param>
-            /// <returns></returns>
-            static List<Enum> GetLanguageEnums(params Type[] enums) => enums.SelectMany(a=>Enum.GetValues(a).OfType<Enum>()).ToList();
-
-            // All enums that need chat command substitution
-            private static Dictionary<Enum, bool> _chatCommands;
-
-            // All enums that need binding command substitution
-            private static Dictionary<Enum, bool> _bindingCommands;
-
-            // All enums that have a message type (mainly for overlay text)
-            private static Dictionary<Enum, MessageType> _messageTypes;
 
             /// <summary>
             /// Prepare and register all enums as messages with Oxide
             /// </summary>
             public static void Register()
 			{
-				var languageEnums = GetLanguageEnums(
-                    typeof(Overlay),
-                    typeof(PipeMenu.ControlLabel),
-                    typeof(PipeMenu.Button),
-                    typeof(PipeMenu.InfoLabel),
-                    typeof(PipeMenu.HelpLabel),
-                    typeof(Pipe.PipePriority),
-					typeof(Pipe.Status),
-					typeof(Chat)
-                );
-                _chatCommands = languageEnums.Select(GetAttribute<ChatCommandAttribute>)
-                    .Where(a => a.Value != null).ToDictionary(a => a.Key, a => true);
-                _bindingCommands = languageEnums.Select(GetAttribute<BindingCommandAttribute>)
-                    .Where(a => a.Value != null).ToDictionary(a => a.Key, a => true);
-                _messageTypes = languageEnums.Select(GetAttribute<MessageTypeAttribute>)
-                    .Where(a => a.Value != null).ToDictionary(a => a.Key, a => a.Value.Type);
-
-
-				var english = languageEnums.Select(GetAttribute<EnglishAttribute>).Where(a => a.Value != null).ToDictionary(a => $"{a.Key.GetType().Name}.{a.Key}", a => a.Value);
-
-				Instance.lang.RegisterMessages(english.ToDictionary(a=>a.Key, a=>a.Value.Text), Instance);
+                foreach (var language in _languages)
+                    Instance.lang.RegisterMessages(language.Value, Instance, language.Key);
             }
 
             /// <summary>

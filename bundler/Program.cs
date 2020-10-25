@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using Oxide.Plugins;
 
 namespace Combine_Partial_Classes
 {
@@ -22,14 +23,72 @@ namespace Oxide.Plugins
 \{(?<Comments>(?:\r\n.*)*)
 .*(?<Info>\[Info.*\])
 .*partial class (?<Class>[a-zA-Z_-]*) *: RustPlugin
-.*\{(?<Content>(?:\r\n.*)*)
+.*\{(?<PreInit>(?:\r\n.*)*)
+.*Init\(\)
+.*\{(?<Init>(?:\r\n[^\}]*)*)\}(?<PostInit>(?:\r\n.*)*)
 .*\}
 .*\}", 
                 RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
 
+        /// <summary>
+        /// Combine all the Enums used for localizations into a single list
+        /// </summary>
+        /// <param name="enums"></param>
+        /// <returns></returns>
+        static List<Enum> GetLanguageEnums(params Type[] enums) => enums.SelectMany(a => Enum.GetValues(a).OfType<Enum>()).ToList();
+
+        private static string GenerateCommandTypes<T>(List<Enum> languageEnums)
+        where T : Attribute
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(" = new Dictionary<Enum, bool> {");
+            foreach (var commandData in languageEnums.Select(GetAttribute<T>).Where(a=>a.Value != null))
+            {
+                var type = commandData.Key.GetType();
+                sb.AppendLine($"                {{{type.DeclaringType.FullName.Replace("+", ".")}.{commandData.Key.GetType().Name}.{commandData.Key},true}},");
+            }
+            sb.AppendLine("            };");
+            return sb.ToString();
+        }
+
+        private static string GenerateMessageTypes(List<Enum> languageEnums)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(" = new Dictionary<Enum, MessageType> {");
+            foreach (var messageType in languageEnums.Select(GetAttribute<SyncPipes.MessageTypeAttribute>)
+                .Where(a => a.Value != null))
+            {
+                var type = messageType.Key.GetType();
+                sb.AppendLine($"                {{{type.DeclaringType.FullName.Replace("+", ".")}.{messageType.Key.GetType().Name}.{messageType.Key}, MessageType.{messageType.Value.Type}}},");
+            }
+            sb.AppendLine("            };");
+            return sb.ToString();
+        }
+
+        private static string GenerateLanguage(List<Enum> languageEnums, Type type)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("                    {");
+            foreach (var english in languageEnums.Select(a=> GetAttribute<SyncPipes.LanguageAttribute>(a, type))
+                .Where(a => a.Value != null))
+            {
+                sb.AppendLine($"                        {{\"{english.Key.GetType().Name}.{english.Key}\", \"{english.Value.Text.Replace("\r", "").Replace("\n", "\\n")}\"}},");
+            }
+
+            sb.AppendLine("                    }");
+            return sb.ToString();
+        }
+
         static void Main(string[] args)
         {
+            var types = typeof(SyncPipes).Assembly.GetTypes();
+
+            var langEnum = types.Where(a => a.GetCustomAttribute<SyncPipes.EnumWithLanguageAttribute>() != null).ToArray();
+
+
+            var languageEnums = GetLanguageEnums(langEnum);
+
             #region check args and get settings
             if (args.Length < 1)
             {
@@ -63,13 +122,17 @@ namespace Oxide.Plugins
             #endregion
 
             #region variables
-            var usings = new List<string>();
+            var usings = new List<string>
+            {
+                "System",
+                "System.Collections.Generic"
+            };
             var info = "";
             var primaryClass = "";
             var classComments = "";
             var partialClassContents = new Dictionary<string, string>();
             #endregion
-
+            
             #region Load Seed file
             using (var sr = new StreamReader(seedFile.FullName))
             {
@@ -85,7 +148,42 @@ namespace Oxide.Plugins
                     info = classRead.Groups["Info"]?.Value;
                     primaryClass = classRead.Groups["Class"]?.Value;
                     classComments = classRead.Groups["Comments"]?.Value;
-                    partialClassContents.Add(seedFile.Name.Replace(seedFile.Extension, ""), classRead.Groups["Content"]?.Value);
+                    var sb = new StringBuilder();
+                    sb.AppendLine(classRead.Groups["PreInit"]?.Value);
+                    sb.AppendLine("        void Init()");
+                    sb.AppendLine("        {");
+                    sb.AppendLine("            #region static data declarations");
+                    sb.AppendLine($"            _chatCommands{GenerateCommandTypes<SyncPipes.ChatCommandAttribute>(languageEnums)}");
+                    sb.AppendLine($"            _bindingCommands{GenerateCommandTypes<SyncPipes.BindingCommandAttribute>(languageEnums)}");
+                    sb.AppendLine($"            _messageTypes{GenerateMessageTypes(languageEnums)}");
+                    sb.AppendLine("            _languages = new Dictionary<string, Dictionary<string, string>>");
+                    var languages = types.Where(a => a.BaseType == typeof(SyncPipes.LanguageAttribute)).ToArray();
+                    foreach (var language in languages)
+                    {
+                        var lang = language.GetField("Language").GetRawConstantValue().ToString();
+                        sb.AppendLine("            {");
+                        sb.AppendLine("                {");
+                        sb.AppendLine($"                   \"{lang}\",");
+                        sb.AppendLine("                    new Dictionary<string, string>");
+                        sb.Append(GenerateLanguage(languageEnums, language));
+                        sb.AppendLine("                }");
+                        sb.AppendLine("            };");
+                    }
+                    sb.AppendLine();
+                    sb.AppendLine($"            _storageDetails = new Dictionary<{nameof(SyncPipes.Storage)}, {nameof(SyncPipes.StorageData)}>");
+                    sb.AppendLine("            {");
+                    foreach (var storageData in Enum.GetValues(typeof(SyncPipes.Storage)).OfType<SyncPipes.Storage>()
+                        .ToDictionary(a => a, a => GetAttribute<SyncPipes.StorageAttribute>(a).Value))
+                    {
+                        sb.AppendLine($"                {{{nameof(SyncPipes.Storage)}.{storageData.Key}, new StorageData(\"{storageData.Value.ShortName}\", \"{storageData.Value.Url}\", new Vector3({storageData.Value.Offset.x}f, {storageData.Value.Offset.y}f, {storageData.Value.Offset.z}f), {(storageData.Value.PartialUrl ? "true" : "false")})}},");
+                    }
+                    sb.AppendLine("            };");
+                    sb.AppendLine("            #endregion");
+                    sb.AppendLine(classRead.Groups["Init"]?.Value);
+                    sb.AppendLine("        }");
+
+                    sb.AppendLine(classRead.Groups["PostInit"]?.Value);
+                    partialClassContents.Add(seedFile.Name.Replace(seedFile.Extension, ""), sb.ToString());
                 }
             }
             #endregion
@@ -134,6 +232,26 @@ namespace Oxide.Plugins
             #endregion
 
             File.Copy(deployFile, outputFile, true);
+        }
+
+
+        /// <summary>
+        /// Get a custom attributes from an enum value
+        /// </summary>
+        /// <typeparam name="TAttribute">Custom Attribute to fetch</typeparam>
+        /// <param name="value">Enum value to get custom attribute from</param>
+        /// <returns>The custom attribute if it exists on the enum value or null if it doesn't</returns>
+        private static KeyValuePair<Enum, TAttribute> GetAttribute<TAttribute>(Enum value)
+            where TAttribute : Attribute
+        {
+            return GetAttribute<TAttribute>(value, typeof(TAttribute));
+        }
+
+        private static KeyValuePair<Enum, TAttribute> GetAttribute<TAttribute>(Enum value, Type attributeType) where TAttribute : Attribute
+        {
+            var enumType = value.GetType();
+            var name = Enum.GetName(enumType, value);
+            return new KeyValuePair<Enum, TAttribute>(value, enumType.GetField(name).GetCustomAttribute(attributeType, false) as TAttribute);
         }
     }
 }

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
 		/// <summary>
 		/// This enum stores all known containers that can connect to the pipes.
@@ -132,20 +132,52 @@ namespace Oxide.Plugins
 			[Storage("unknown.container", "https://i.imgur.com/cayN7SQ.png", partialUrl: false)]
 			Default = 0
 		}
-
-        static class StorageHelper
+		
+        public class StorageData
         {
-			// This stores an indexed form of the Storage enum list
-            private static Dictionary<Storage, StorageAttribute> _storageDetails;
-
-			/// <summary>
-			/// Converts the enum list into an Dictionary of Storage Attributes by the Storage enum
-			/// </summary>
-            static StorageHelper()
+            public StorageData(string shortName, string url, Vector3 offset, bool partialUrl = true)
             {
-                _storageDetails = Enum.GetValues(typeof(Storage)).OfType<Storage>()
-                    .ToDictionary(a => a, a => GetAttribute<StorageAttribute>(a).Value);
+                ShortName = shortName;
+                Url = url;
+                PartialUrl = partialUrl;
+                Offset = offset;
             }
+
+            /// <summary>
+            /// The url or partial url of an container entity
+            /// </summary>
+            public readonly string Url;
+
+            /// <summary>
+            /// The shortname of a container entity. Currently not used but may be useful for debugging
+            /// </summary>
+            public readonly string ShortName;
+
+            /// <summary>
+            /// Indicates if this is attribute contains a full or partial url
+            /// </summary>
+            public readonly bool PartialUrl;
+
+            /// <summary>
+            /// In game offset of the pipe end points
+            /// </summary>
+            public readonly Vector3 Offset;
+		}
+
+        // This stores an indexed form of the Storage enum list
+		private static Dictionary<Storage, StorageData> _storageDetails;
+
+		static class StorageHelper
+        {
+
+			///// <summary>
+			///// Converts the enum list into an Dictionary of Storage Attributes by the Storage enum
+			///// </summary>
+   //         static StorageHelper()
+   //         {
+   //             _storageDetails = Enum.GetValues(typeof(Storage)).OfType<Storage>()
+   //                 .ToDictionary(a => a, a => GetAttribute<StorageAttribute>(a).Value);
+   //         }
 
 			/// <summary>
 			/// Return the image url of the requested entity
@@ -191,7 +223,7 @@ namespace Oxide.Plugins
 			/// </summary>
 			/// <param name="storageEntity"></param>
 			/// <returns>The pipe details of the storage entity</returns>
-            private static StorageAttribute GetDetails(BaseEntity storageEntity)
+            private static StorageData GetDetails(BaseEntity storageEntity)
             {
                 if (storageEntity == null) return null;
                 var storageItem = (Storage) storageEntity.prefabID;

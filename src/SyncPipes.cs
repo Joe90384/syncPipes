@@ -3,7 +3,7 @@
 namespace Oxide.Plugins
 {
     [Info("syncPipes", "Joe 90", "0.9.0")]
-    partial class SyncPipes : RustPlugin
+    public partial class SyncPipes : RustPlugin
     {
         /// <summary>
         /// The instance of syncPipes on the server to allow child classes to access it

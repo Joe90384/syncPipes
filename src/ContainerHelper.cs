@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-	partial class SyncPipes
+    public partial class SyncPipes
 	{
         /// <summary>
         /// This helps find containers and the required information needed to attach pipes
@@ -63,7 +63,7 @@ namespace Oxide.Plugins
         /// <summary>
         /// Entity Types
         /// </summary>
-        enum ContainerType
+        public enum ContainerType
         {
             General,
             Oven,

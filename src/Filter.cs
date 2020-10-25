@@ -4,13 +4,13 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    internal partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         /// This represents the filter for a pipe.
         /// It creates a virtual loot container with the correct items.
         /// </summary>
-        private class PipeFilter
+        public class PipeFilter
         {
             /// <summary>
             /// All items in the virtual filter container

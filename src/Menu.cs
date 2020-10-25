@@ -4,16 +4,17 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     { 
         /// <summary>
         /// The Pipes Control Menu
         /// </summary>
-        class PipeMenu
+        public class PipeMenu
         {
             /// <summary>
             /// Pipe Menu Buttons
             /// </summary>
+            [EnumWithLanguage]
             public enum Button
             {
                 [English("Turn On")]
@@ -33,6 +34,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// Pipe Menu Info Panel Labels
             /// </summary>
+            [EnumWithLanguage]
             public enum InfoLabel
             {
                 [English("Pipe Info")]
@@ -56,6 +58,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// Pipe Menu Control Labels
             /// </summary>
+            [EnumWithLanguage]
             public enum ControlLabel
             {
                 [English("<size=30>sync</size><size=38><color=#fc5a03>Pipes</color></size>")]
@@ -97,6 +100,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// Pipe Menu Help Labels
             /// </summary>
+            [EnumWithLanguage]
             public enum HelpLabel
             {
                 [ChatCommand]

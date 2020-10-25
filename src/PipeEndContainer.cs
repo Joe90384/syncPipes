@@ -3,13 +3,13 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
         /// <summary>
         /// This class holds all the parameters to do with the containers at each end of the pipe.
         /// This makes swapping direction easier as you just swap these objects
         /// </summary>
-        private class PipeEndContainer
+        public class PipeEndContainer
         {
             // The pipe this goes with
             private readonly Pipe _pipe;

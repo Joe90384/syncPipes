@@ -4,12 +4,13 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    partial class SyncPipes
+    public partial class SyncPipes
     {
 
         /// <summary>
         /// All Overlay Text Messages
         /// </summary>
+        [EnumWithLanguage]
         public enum Overlay
         {
             Blank = -1, // Used to indicate not message (mainly for sub text)
