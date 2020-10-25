@@ -22,6 +22,7 @@ namespace Combine_Partial_Classes
 namespace Oxide.Plugins
 \{(?<Comments>(?:\r\n.*)*)
 .*(?<Info>\[Info.*\])
+.*(?<Description>\[Description.*\])
 .*partial class (?<Class>[a-zA-Z_-]*) *: RustPlugin
 .*\{(?<PreInit>(?:\r\n.*)*)
 .*Init\(\)
@@ -128,6 +129,7 @@ namespace Oxide.Plugins
                 "System.Collections.Generic"
             };
             var info = "";
+            var description = "";
             var primaryClass = "";
             var classComments = "";
             var partialClassContents = new Dictionary<string, string>();
@@ -146,6 +148,7 @@ namespace Oxide.Plugins
                 if (classRead.Success)
                 {
                     info = classRead.Groups["Info"]?.Value;
+                    description = classRead.Groups["Description"]?.Value;
                     primaryClass = classRead.Groups["Class"]?.Value;
                     classComments = classRead.Groups["Comments"]?.Value;
                     var sb = new StringBuilder();
@@ -218,6 +221,7 @@ namespace Oxide.Plugins
                 sw.WriteLine("namespace Oxide.Plugins");
                 sw.WriteLine($"{{{classComments}");
                 sw.WriteLine($"    {info}");
+                sw.WriteLine($"    {description}");
                 sw.WriteLine($"    class {primaryClass} : RustPlugin");
                 sw.WriteLine("    {");
                 foreach (var content in partialClassContents)
