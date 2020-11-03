@@ -119,7 +119,7 @@ namespace Oxide.Plugins
                 {
                     foreach (var permissionKey in PermissionLevels.Keys)
                     {
-                        Instance.permission.RegisterPermission($"{PluginName}.level.{permissionKey}", Instance);
+                        Instance.permission.RegisterPermission($"{Instance.Name}.level.{permissionKey}", Instance);
                     }
                 }
             }

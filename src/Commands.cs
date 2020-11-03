@@ -44,7 +44,7 @@ namespace Oxide.Plugins
                 if (playerHelper == null) return;
                 if(!playerHelper.IsUser)
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
-                switch (args.FirstOrDefault())
+                switch (args.FirstOrDefault()?.ToLower())
                 {
                     case null:
                     case "p":
@@ -318,7 +318,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         public class SyncPipesConsoleCommandAttribute : ConsoleCommandAttribute
         {
-            public SyncPipesConsoleCommandAttribute(string command) : base($"{PluginName}.{command}") { }
+            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipes).ToLower()}.{command}") { }
         }
     }
 }

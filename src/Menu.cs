@@ -141,7 +141,7 @@ The more you upgrade your pipe the more filter slots you'll have.")]
             /// <returns>Fully formed string for the command to be run</returns>
             private string MakeCommand(string commandName, params object[] args)
             {
-                var command = $"{PluginName}.{commandName} {_pipe.Id} {string.Join(" ", args)}";
+                var command = $"{Instance.Name.ToLower()}.{commandName} {_pipe.Id} {string.Join(" ", args)}";
                 return command;
             }
 

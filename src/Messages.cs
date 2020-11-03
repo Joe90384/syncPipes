@@ -16,8 +16,6 @@ namespace Oxide.Plugins
         // All enums that have a message type (mainly for overlay text)
         private static Dictionary<Enum, MessageType> _messageTypes;
 
-        private static Dictionary<string, Dictionary<string, string>> _languages;
-
         /// <summary>
         /// Message type for helping with overlay messages
         /// </summary>
@@ -35,10 +33,10 @@ namespace Oxide.Plugins
         [EnumWithLanguage]
         public enum Chat
         {
-			[BindingCommand]
-			[English(@"You can bind the create pipe command to a hot key by typing
+            [BindingCommand]
+            [English(@"You can bind the create pipe command to a hot key by typing
 'bind {0} {1}.create' into F1 the console.")]
-			PlacingBindingHint,
+            PlacingBindingHint,
 
             [English("<size=20>sync</size><size=28><color=#fc5a03>Pipes</color></size>")]
             Title,
@@ -79,16 +77,6 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
         /// </summary>
         static class LocalizationHelpers
         {
-
-            /// <summary>
-            /// Prepare and register all enums as messages with Oxide
-            /// </summary>
-            public static void Register()
-			{
-                foreach (var language in _languages)
-                    Instance.lang.RegisterMessages(language.Value, Instance, language.Key);
-            }
-
             /// <summary>
             /// Get the correct message for a player from a specific enum
             /// It will automatically inject any binding or chat command text when needed
@@ -101,11 +89,12 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             public static string Get(Enum key, BasePlayer player, params object[] args)
             {
                 var argsList = args.ToList();
-                var localization = Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
-				if (_bindingCommands.ContainsKey(key))
+                var localization =
+                    Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
+                if (_bindingCommands.ContainsKey(key))
                     argsList.Insert(0, InstanceConfig.HotKey);
-                if(_chatCommands.ContainsKey(key))
-					argsList.Insert(0, InstanceConfig.CommandPrefix);
+                if (_chatCommands.ContainsKey(key))
+                    argsList.Insert(0, InstanceConfig.CommandPrefix);
                 return string.Format(localization, argsList.ToArray()).Replace("\r", "");
             }
 
@@ -114,7 +103,8 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// </summary>
             /// <param name="key">The enum to check for a message type</param>
             /// <returns>Will return the message type for this enum or MessageType.Info as a default</returns>
-            public static MessageType GetMessageType(Enum key) => _messageTypes.ContainsKey(key) ? _messageTypes[key] : MessageType.Info;
+            public static MessageType GetMessageType(Enum key) =>
+                _messageTypes.ContainsKey(key) ? _messageTypes[key] : MessageType.Info;
         }
     }
 }

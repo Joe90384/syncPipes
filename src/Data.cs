@@ -32,7 +32,7 @@ namespace Oxide.Plugins
                     ContainerData = ContainerManager.Save()
                 };
 
-                Interface.Oxide.DataFileSystem.WriteObject("SyncPipes", data);
+                Interface.Oxide.DataFileSystem.WriteObject(Instance.Name, data);
                 Instance.Puts("Saved {0} pipes", data.PipeData?.Count());
                 Instance.Puts("Saved {0} managers", data.ContainerData?.Count());
             }
@@ -42,7 +42,7 @@ namespace Oxide.Plugins
             /// </summary>
             public static void Load()
             {
-                var data = Interface.Oxide.DataFileSystem.ReadObject<Data>("SyncPipes");
+                var data = Interface.Oxide.DataFileSystem.ReadObject<Data>(Instance.Name);
                 if (data != null)
                 {
                     Pipe.Load(data.PipeData);

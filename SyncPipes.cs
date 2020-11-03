@@ -1,8 +1,8 @@
 using Rust;
 using System;
 using Oxide.Core;
-using UnityEngine;
 using System.Linq;
+using UnityEngine;
 using System.Text;
 using Newtonsoft.Json;
 using Oxide.Core.Plugins;
@@ -14,7 +14,7 @@ using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 namespace Oxide.Plugins
 {
-    [Info("syncPipes", "Joe 90", "0.9.0")]
+    [Info("Sync Pipes", "Joe 90", "0.9.0")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -25,9 +25,6 @@ namespace Oxide.Plugins
         /// </summary>
         private static SyncPipes Instance;
 
-        // Name of the plugin that is used in things like the command builder.
-        const string PluginName = "syncpipes";
-
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
         Plugin FurnaceSplitter;
@@ -37,6 +34,16 @@ namespace Oxide.Plugins
         /// </summary>
         void Init()
         {
+
+            Instance = this;
+            _config = SyncPipesConfig.Load();
+            Commands.InitializeChat();
+            permission.RegisterPermission($"{Name}.user", this);
+            permission.RegisterPermission($"{Name}.admin", this);
+            InstanceConfig.RegisterPermissions();
+            Puts(Name);
+        
+
             #region static data declarations
             _chatCommands = new Dictionary<Enum, bool> {
                 {Oxide.Plugins.SyncPipes.Chat.Commands,true},
@@ -74,93 +81,6 @@ namespace Oxide.Plugins
                 {Oxide.Plugins.SyncPipes.Pipe.Status.IdGenerationFailed, MessageType.Error},
             };
 
-            _languages = new Dictionary<string, Dictionary<string, string>>
-            {
-                {
-                   "en",
-                    new Dictionary<string, string>
-                    {
-                        {"Chat.PlacingBindingHint", "You can bind the create pipe command to a hot key by typing\n'bind {0} {1}.create' into F1 the console."},
-                        {"Chat.Title", "<size=20>sync</size><size=28><color=#fc5a03>Pipes</color></size>"},
-                        {"Chat.Commands", "<size=18>Chat Commands</size>\n<color=#fc5a03>/{0}                 </color>Start or stop placing a pipe\n<color=#fc5a03>/{0} c              </color>Copy settings between pipes\n<color=#fc5a03>/{0} r               </color>Remove a pipe\n<color=#fc5a03>/{0} n [name] </color>Name to a pipe or container\n<color=#fc5a03>/{0} s              </color>Stats on your pipe usage\n<color=#fc5a03>/{0} h              </color>Display this help message"},
-                        {"Chat.PipeMenuInstructions", "<size=18>Pipe Menu</size>\nHit a pipe with the hammer to open the menu.\nFor further help click the '?' in the menu."},
-                        {"Chat.UpgradePipes", "<size=18>Upgrade Pipes</size>\nYou can upgrade the pipes with a hammer as you would with a wall/floor\nUpgrading your pipes increases the flow rate (items/second) and Filter Size"},
-                        {"Chat.StatsLimited", "You have {0} of a maximum of {1} pipes\n{2} - running\n{3} - disabled"},
-                        {"Chat.StatsUnlimited", "You have {0} pipes\n{2} - running\n{3} - disabled"},
-                        {"Overlay.AlreadyConnected", "You already have a pipe between these containers."},
-                        {"Overlay.TooFar", "The pipes just don't stretch that far. You'll just have to select a closer container."},
-                        {"Overlay.TooClose", "There isn't a pipe short enough. You need more space between the containers"},
-                        {"Overlay.NoPrivilegeToCreate", "This isn't your container to connect to. You'll need to speak nicely to the owner."},
-                        {"Overlay.NoPrivilegeToEdit", "This pipe won't listen to you. Get the owner to do it for you."},
-                        {"Overlay.PipeLimitReached", "You've not got enough pipes to build that I'm afraid."},
-                        {"Overlay.UpgradeLimitReached", "You're just not able to upgrade this pipe any further."},
-                        {"Overlay.HitFirstContainer", "Hit a container with the hammer to start your pipe."},
-                        {"Overlay.HitSecondContainer", "Hit a different container with the hammer to complete your pipe."},
-                        {"Overlay.CancelPipeCreationFromChat", "Type /{0} to cancel."},
-                        {"Overlay.CancelPipeCreationFromBind", "Press '{0}' to cancel"},
-                        {"Overlay.HitToName", "Hit a container or pipe with the hammer to set it's name to '{0}'"},
-                        {"Overlay.HitToClearName", "Clear a pipe or container name by hitting it with the hammer."},
-                        {"Overlay.CannotNameContainer", "Sorry but you're only able to set names on pipe or containers that are attached to pipes."},
-                        {"Overlay.CopyFromPipe", "Hit a pipe with the hammer to copy it's settings."},
-                        {"Overlay.CopyToPipe", "Hit another pipe with the hammer to apply the settings you copied"},
-                        {"Overlay.CancelCopy", "Type /{0} c to cancel."},
-                        {"Overlay.RemovePipe", "Hit a pipe with the hammer to remove it."},
-                        {"Overlay.CancelRemove", "Type /{0} r to cancel."},
-                        {"Overlay.CantPickUpLights", "Those lights are needed for the pipe. Hands off."},
-                        {"Overlay.NotAuthorisedOnSyncPipes", "You've not been given permission to use syncPipes."},
-                        {"Button.TurnOn", "Turn On"},
-                        {"Button.TurnOff", "Turn Off"},
-                        {"Button.SetSingleStack", "Set\nSingle Stack"},
-                        {"Button.SetMultiStack", "Set\nMulti Stack"},
-                        {"Button.OpenFilter", "Open Filter"},
-                        {"Button.SwapDirection", "Swap Direction"},
-                        {"InfoLabel.Title", "Pipe Info"},
-                        {"InfoLabel.Owner", "Owner:"},
-                        {"InfoLabel.FlowRate", "Flow Rate:"},
-                        {"InfoLabel.Material", "Material:"},
-                        {"InfoLabel.Length", "Length:"},
-                        {"InfoLabel.FilterCount", "Filter Count:"},
-                        {"InfoLabel.FilterLimit", "Filter Limit:"},
-                        {"InfoLabel.FilterItems", "Filter Items:"},
-                        {"ControlLabel.MenuTitle", "<size=30>sync</size><size=38><color=#fc5a03>Pipes</color></size>"},
-                        {"ControlLabel.On", "On"},
-                        {"ControlLabel.Off", "Off"},
-                        {"ControlLabel.OvenOptions", "Oven Options"},
-                        {"ControlLabel.QuarryOptions", "Quarry Options"},
-                        {"ControlLabel.RecyclerOptions", "Recycler Options"},
-                        {"ControlLabel.AutoStart", "Auto Start:"},
-                        {"ControlLabel.AutoSplitter", "Auto Splitter:"},
-                        {"ControlLabel.StackCount", "Stack Count:"},
-                        {"ControlLabel.Status", "Status:"},
-                        {"ControlLabel.StackMode", "Stack Mode"},
-                        {"ControlLabel.PipePriority", "Pipe Priority"},
-                        {"ControlLabel.Running", "Running"},
-                        {"ControlLabel.Disabled", "Disabled"},
-                        {"ControlLabel.SingleStack", "Single Stack"},
-                        {"ControlLabel.MultiStack", "Multi Stack"},
-                        {"ControlLabel.UpgradeToFilter", "Upgrade pipe for Filter"},
-                        {"HelpLabel.FlowBar", "This bar shows you the status of you pipe. \nItems will only move in one direction, from left to right.\nThe images show you which container is which.\nThe '>' indicate the direction and flow rate, more '>'s means more items are transferred at a time.\nYou are able to name the pipes and container typing '/{0} n [name]' into chat"},
-                        {"HelpLabel.AutoStart", "<size=14><color=#80ffff>Auto Start:</color></size> This only applies to Ovens, Furnaces, Recyclers and Quarries\nIf this is 'On', when an item is moved into the Oven (etc.), it will attempt to start it."},
-                        {"HelpLabel.FurnaceSplitter", "<size=14><color=#80ffff>Auto Splitter:</color></size> This allows you to split everything going through the pipe into equal piles.\n<size=14><color=#80ffff>Stack Count</color></size> indicates how many piles to split the items into.\nNOTE: If this is 'On' the Stack Mode setting is ignored."},
-                        {"HelpLabel.Status", "<size=14><color=#80ffff>Status:</color></size> This controls when pipe is on and items are transferring through the pipe."},
-                        {"HelpLabel.StackMode", "<size=14><color=#80ffff>Stack Mode:</color></size> This controls whether the pipe will create multiple stacks of each item in the receiving container or limit it to one stack of each item."},
-                        {"HelpLabel.Priority", "<size=14><color=#80ffff>Priority</color></size> controls the order the pipes are used.\nItems will be passed to the highest priority pipes evenly before using lower priority pipes."},
-                        {"HelpLabel.SwapDirection", "<size=14><color=#80ffff>Swap Direction:</color></size> This will reverse the direction of the pipe and the flow of items between the two containers."},
-                        {"HelpLabel.Filter", "<size=14><color=#80ffff>Open Filter:</color></size> This will open a container you can drop items into. \nThese items will limit the pipe to only transferring those items. \nIf the filter is empty then the pipe will transfer everything.\nThe more you upgrade your pipe the more filter slots you'll have."},
-                        {"PipePriority.Medium", "Medium"},
-                        {"PipePriority.High", "High"},
-                        {"PipePriority.Highest", "Highest"},
-                        {"PipePriority.Demand", "Demand"},
-                        {"PipePriority.Lowest", "Lowest"},
-                        {"PipePriority.Low", "Low"},
-                        {"Status.Pending", "It's not quite ready yet."},
-                        {"Status.Success", "Your pipe was built successfully"},
-                        {"Status.SourceError", "The first container you hit has gone missing. Give it another go."},
-                        {"Status.DestinationError", "The destination container you hit has gone missing. Please try again."},
-                        {"Status.IdGenerationFailed", "We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me."},
-                    }
-                }
-            };
 
             _storageDetails = new Dictionary<Storage, StorageData>
             {
@@ -202,24 +122,8 @@ namespace Oxide.Plugins
                 {Storage.PumpJackFuelInput, new StorageData("fuelstorage", "c/c9/Pump_Jack_icon.png", new Vector3(-0.5f, 0.1f, -0.3f), true)},
             };
             #endregion
-
-            Instance = this;
-            _config = SyncPipesConfig.Load();
-            LocalizationHelpers.Register();
-            Commands.InitializeChat();
-        
         }
 
-        
-        /// <summary>
-        /// Hook: Ensures permissions are registered once syncPipes has loaded
-        /// </summary>
-        void Loaded()
-        {
-            permission.RegisterPermission($"{PluginName}.user", this);
-            permission.RegisterPermission($"{PluginName}.admin", this);
-            InstanceConfig.RegisterPermissions();
-        }
 
         /// <summary>
         /// Hook: Cleans up syncPipes when the server unloads it
@@ -231,95 +135,6 @@ namespace Oxide.Plugins
             Pipe.Cleanup();
             ContainerManager.Cleanup();
             PlayerHelper.Cleanup();
-        }
-
-        #endregion
-        #region Attributes
-
-        /// <summary>
-        /// Base class for language attributes
-        /// </summary>
-        public class LanguageAttribute : Attribute
-        {
-            protected LanguageAttribute(string text)
-            {
-                Text = text;
-            }
-
-            public string Text { get; }
-        }
-
-        [AttributeUsage(AttributeTargets.Enum)]
-        public class EnumWithLanguageAttribute : Attribute { }
-
-        /// <summary>
-        /// Helper for Overlay Messages to indicate the message type and allow the overlay helpers to render them correctly
-        /// </summary>
-        public class MessageTypeAttribute : Attribute
-        {
-            public MessageTypeAttribute(MessageType type)
-            {
-                Type = type;
-            }
-            public MessageType Type { get; }
-        }
-
-        /// <summary>
-        /// Will be used to get the text for the english language pack
-        /// </summary>
-        public class EnglishAttribute : LanguageAttribute
-        {
-            public EnglishAttribute(string text) : base(text) { }
-            public const string Language = "en";
-        }
-
-        // This will treat the first stirng.format replace as the chat command "{0}"
-        /// <summary>
-        /// Indicated this item is a Chat command.
-        /// The first string.Format "{0}" will be replaced with the chat command string.
-        /// All args will continue normally from "{1}"
-        /// </summary>
-        public class ChatCommandAttribute : Attribute { }
-
-        /// <summary>
-        /// Indicated this item is a Binding command.
-        /// The first string.Format "{0}" will be replaced with the binding key.
-        /// All args will continue normally from "{1}"
-        /// </summary>
-        public class BindingCommandAttribute : Attribute { }
-
-        /// <summary>
-        /// This attribute holds the details of a container entity
-        /// </summary>
-        public class StorageAttribute : Attribute
-        {
-            public StorageAttribute(string shortname, string url, float xOffset = 0, float yOffset = 0, float zOffset = 0, bool partialUrl = true)
-            {
-                ShortName = shortname;
-                Url = url;
-                PartialUrl = partialUrl;
-                Offset = new Vector3(xOffset, yOffset, zOffset);
-            }
-
-            /// <summary>
-            /// The url or partial url of an container entity
-            /// </summary>
-            public readonly string Url;
-
-            /// <summary>
-            /// The shortname of a container entity. Currently not used but may be useful for debugging
-            /// </summary>
-            public readonly string ShortName;
-
-            /// <summary>
-            /// Indicates if this is attribute contains a full or partial url
-            /// </summary>
-            public readonly bool PartialUrl;
-
-            /// <summary>
-            /// In game offset of the pipe end points
-            /// </summary>
-            public readonly Vector3 Offset;
         }
 
         #endregion
@@ -363,7 +178,7 @@ namespace Oxide.Plugins
                 if (playerHelper == null) return;
                 if(!playerHelper.IsUser)
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
-                switch (args.FirstOrDefault())
+                switch (args.FirstOrDefault()?.ToLower())
                 {
                     case null:
                     case "p":
@@ -637,7 +452,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         public class SyncPipesConsoleCommandAttribute : ConsoleCommandAttribute
         {
-            public SyncPipesConsoleCommandAttribute(string command) : base($"{PluginName}.{command}") { }
+            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipes).ToLower()}.{command}") { }
         }
         #endregion
         #region Config
@@ -754,7 +569,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     foreach (var permissionKey in PermissionLevels.Keys)
                     {
-                        Instance.permission.RegisterPermission($"{PluginName}.level.{permissionKey}", Instance);
+                        Instance.permission.RegisterPermission($"{Instance.Name}.level.{permissionKey}", Instance);
                     }
                 }
             }
@@ -1204,7 +1019,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     ContainerData = ContainerManager.Save()
                 };
 
-                Interface.Oxide.DataFileSystem.WriteObject("SyncPipes", data);
+                Interface.Oxide.DataFileSystem.WriteObject(Instance.Name, data);
                 Instance.Puts("Saved {0} pipes", data.PipeData?.Count());
                 Instance.Puts("Saved {0} managers", data.ContainerData?.Count());
             }
@@ -1214,7 +1029,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public static void Load()
             {
-                var data = Interface.Oxide.DataFileSystem.ReadObject<Data>("SyncPipes");
+                var data = Interface.Oxide.DataFileSystem.ReadObject<Data>(Instance.Name);
                 if (data != null)
                 {
                     Pipe.Load(data.PipeData);
@@ -1657,122 +1472,67 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// Pipe Menu Buttons
             /// </summary>
-            [EnumWithLanguage]
             public enum Button
             {
-                [English("Turn On")]
                 TurnOn,
-                [English("Turn Off")]
                 TurnOff,
-                [English("Set\nSingle Stack")]
                 SetSingleStack,
-                [English("Set\nMulti Stack")]
                 SetMultiStack,
-                [English("Open Filter")]
                 OpenFilter,
-                [English("Swap Direction")]
                 SwapDirection,
             }
 
             /// <summary>
             /// Pipe Menu Info Panel Labels
             /// </summary>
-            [EnumWithLanguage]
             public enum InfoLabel
             {
-                [English("Pipe Info")]
                 Title,
-                [English("Owner:")]
                 Owner,
-                [English("Flow Rate:")]
                 FlowRate,
-                [English("Material:")]
                 Material,
-                [English("Length:")]
                 Length,
-                [English("Filter Count:")]
                 FilterCount,
-                [English("Filter Limit:")]
                 FilterLimit,
-                [English("Filter Items:")]
                 FilterItems
             }
 
             /// <summary>
             /// Pipe Menu Control Labels
             /// </summary>
-            [EnumWithLanguage]
             public enum ControlLabel
             {
-                [English("<size=30>sync</size><size=38><color=#fc5a03>Pipes</color></size>")]
                 MenuTitle,
-                [English("On")]
                 On,
-                [English("Off")]
                 Off,
-                [English("Oven Options")]
                 OvenOptions,
-                [English("Quarry Options")]
                 QuarryOptions,
-                [English("Recycler Options")]
                 RecyclerOptions,
-                [English("Auto Start:")]
                 AutoStart,
-                [English("Auto Splitter:")]
                 AutoSplitter,
-                [English("Stack Count:")]
                 StackCount,
-                [English("Status:")]
                 Status,
-                [English("Stack Mode")]
                 StackMode,
-                [English("Pipe Priority")]
                 PipePriority,
-                [English("Running")]
                 Running,
-                [English("Disabled")]
                 Disabled,
-                [English("Single Stack")]
                 SingleStack,
-                [English("Multi Stack")]
                 MultiStack,
-                [English("Upgrade pipe for Filter")]
                 UpgradeToFilter,
             }
 
             /// <summary>
             /// Pipe Menu Help Labels
             /// </summary>
-            [EnumWithLanguage]
             public enum HelpLabel
             {
-                [ChatCommand]
-                [English(@"This bar shows you the status of you pipe. 
-Items will only move in one direction, from left to right.
-The images show you which container is which.
-The '>' indicate the direction and flow rate, more '>'s means more items are transferred at a time.
-You are able to name the pipes and container typing '/{0} n [name]' into chat")]
                 FlowBar,
-                [English(@"<size=14><color=#80ffff>Auto Start:</color></size> This only applies to Ovens, Furnaces, Recyclers and Quarries
-If this is 'On', when an item is moved into the Oven (etc.), it will attempt to start it.")]
                 AutoStart,
-                [English(@"<size=14><color=#80ffff>Auto Splitter:</color></size> This allows you to split everything going through the pipe into equal piles.
-<size=14><color=#80ffff>Stack Count</color></size> indicates how many piles to split the items into.
-NOTE: If this is 'On' the Stack Mode setting is ignored.")]
                 FurnaceSplitter,
-                [English(@"<size=14><color=#80ffff>Status:</color></size> This controls when pipe is on and items are transferring through the pipe.")]
                 Status,
-                [English(@"<size=14><color=#80ffff>Stack Mode:</color></size> This controls whether the pipe will create multiple stacks of each item in the receiving container or limit it to one stack of each item.")]
                 StackMode,
-                [English(@"<size=14><color=#80ffff>Priority</color></size> controls the order the pipes are used.
-Items will be passed to the highest priority pipes evenly before using lower priority pipes.")]
                 Priority,
-                [English(@"<size=14><color=#80ffff>Swap Direction:</color></size> This will reverse the direction of the pipe and the flow of items between the two containers.")]
                 SwapDirection,
-                [English(@"<size=14><color=#80ffff>Open Filter:</color></size> This will open a container you can drop items into. 
-These items will limit the pipe to only transferring those items. 
-If the filter is empty then the pipe will transfer everything.
-The more you upgrade your pipe the more filter slots you'll have.")]
                 Filter
             }
 
@@ -1784,7 +1544,7 @@ The more you upgrade your pipe the more filter slots you'll have.")]
             /// <returns>Fully formed string for the command to be run</returns>
             private string MakeCommand(string commandName, params object[] args)
             {
-                var command = $"{PluginName}.{commandName} {_pipe.Id} {string.Join(" ", args)}";
+                var command = $"{Instance.Name.ToLower()}.{commandName} {_pipe.Id} {string.Join(" ", args)}";
                 return command;
             }
 
@@ -2216,8 +1976,6 @@ The more you upgrade your pipe the more filter slots you'll have.")]
         // All enums that have a message type (mainly for overlay text)
         private static Dictionary<Enum, MessageType> _messageTypes;
 
-        private static Dictionary<string, Dictionary<string, string>> _languages;
-
         /// <summary>
         /// Message type for helping with overlay messages
         /// </summary>
@@ -2232,45 +1990,20 @@ The more you upgrade your pipe the more filter slots you'll have.")]
         /// <summary>
         /// All messages sent to the players chat screen
         /// </summary>
-        [EnumWithLanguage]
         public enum Chat
         {
-			[BindingCommand]
-			[English(@"You can bind the create pipe command to a hot key by typing
-'bind {0} {1}.create' into F1 the console.")]
-			PlacingBindingHint,
+            PlacingBindingHint,
 
-            [English("<size=20>sync</size><size=28><color=#fc5a03>Pipes</color></size>")]
             Title,
 
-            [ChatCommand]
-            [English(@"<size=18>Chat Commands</size>
-<color=#fc5a03>/{0}                 </color>Start or stop placing a pipe
-<color=#fc5a03>/{0} c              </color>Copy settings between pipes
-<color=#fc5a03>/{0} r               </color>Remove a pipe
-<color=#fc5a03>/{0} n [name] </color>Name to a pipe or container
-<color=#fc5a03>/{0} s              </color>Stats on your pipe usage
-<color=#fc5a03>/{0} h              </color>Display this help message")]
             Commands,
 
-            [English(@"<size=18>Pipe Menu</size>
-Hit a pipe with the hammer to open the menu.
-For further help click the '?' in the menu.")]
             PipeMenuInstructions,
 
-            [English(@"<size=18>Upgrade Pipes</size>
-You can upgrade the pipes with a hammer as you would with a wall/floor
-Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             UpgradePipes,
 
-            [English(@"You have {0} of a maximum of {1} pipes
-{2} - running
-{3} - disabled")]
             StatsLimited,
 
-            [English(@"You have {0} pipes
-{2} - running
-{3} - disabled")]
             StatsUnlimited
         }
 
@@ -2279,16 +2012,6 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
         /// </summary>
         static class LocalizationHelpers
         {
-
-            /// <summary>
-            /// Prepare and register all enums as messages with Oxide
-            /// </summary>
-            public static void Register()
-			{
-                foreach (var language in _languages)
-                    Instance.lang.RegisterMessages(language.Value, Instance, language.Key);
-            }
-
             /// <summary>
             /// Get the correct message for a player from a specific enum
             /// It will automatically inject any binding or chat command text when needed
@@ -2301,11 +2024,12 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             public static string Get(Enum key, BasePlayer player, params object[] args)
             {
                 var argsList = args.ToList();
-                var localization = Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
-				if (_bindingCommands.ContainsKey(key))
+                var localization =
+                    Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
+                if (_bindingCommands.ContainsKey(key))
                     argsList.Insert(0, InstanceConfig.HotKey);
-                if(_chatCommands.ContainsKey(key))
-					argsList.Insert(0, InstanceConfig.CommandPrefix);
+                if (_chatCommands.ContainsKey(key))
+                    argsList.Insert(0, InstanceConfig.CommandPrefix);
                 return string.Format(localization, argsList.ToArray()).Replace("\r", "");
             }
 
@@ -2314,8 +2038,97 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// </summary>
             /// <param name="key">The enum to check for a message type</param>
             /// <returns>Will return the message type for this enum or MessageType.Info as a default</returns>
-            public static MessageType GetMessageType(Enum key) => _messageTypes.ContainsKey(key) ? _messageTypes[key] : MessageType.Info;
+            public static MessageType GetMessageType(Enum key) =>
+                _messageTypes.ContainsKey(key) ? _messageTypes[key] : MessageType.Info;
         }
+
+        protected override void LoadDefaultMessages()
+        {
+            var en = new Dictionary<string, string>
+            {
+                {"Chat.PlacingBindingHint", "You can bind the create pipe command to a hot key by typing\n'bind {0} {1}.create' into F1 the console."},
+                {"Chat.Title", "<size=20>sync</size><size=28><color=#fc5a03>Pipes</color></size>"},
+                {"Chat.Commands", "<size=18>Chat Commands</size>\n<color=#fc5a03>/{0}                 </color>Start or stop placing a pipe\n<color=#fc5a03>/{0} c              </color>Copy settings between pipes\n<color=#fc5a03>/{0} r               </color>Remove a pipe\n<color=#fc5a03>/{0} n [name] </color>Name to a pipe or container\n<color=#fc5a03>/{0} s              </color>Stats on your pipe usage\n<color=#fc5a03>/{0} h              </color>Display this help message"},
+                {"Chat.PipeMenuInstructions", "<size=18>Pipe Menu</size>\nHit a pipe with the hammer to open the menu.\nFor further help click the '?' in the menu."},
+                {"Chat.UpgradePipes", "<size=18>Upgrade Pipes</size>\nYou can upgrade the pipes with a hammer as you would with a wall/floor\nUpgrading your pipes increases the flow rate (items/second) and Filter Size"},
+                {"Chat.StatsLimited", "You have {0} of a maximum of {1} pipes\n{2} - running\n{3} - disabled"},
+                {"Chat.StatsUnlimited", "You have {0} pipes\n{2} - running\n{3} - disabled"},
+                {"Overlay.AlreadyConnected", "You already have a pipe between these containers."},
+                {"Overlay.TooFar", "The pipes just don't stretch that far. You'll just have to select a closer container."},
+                {"Overlay.TooClose", "There isn't a pipe short enough. You need more space between the containers"},
+                {"Overlay.NoPrivilegeToCreate", "This isn't your container to connect to. You'll need to speak nicely to the owner."},
+                {"Overlay.NoPrivilegeToEdit", "This pipe won't listen to you. Get the owner to do it for you."},
+                {"Overlay.PipeLimitReached", "You've not got enough pipes to build that I'm afraid."},
+                {"Overlay.UpgradeLimitReached", "You're just not able to upgrade this pipe any further."},
+                {"Overlay.HitFirstContainer", "Hit a container with the hammer to start your pipe."},
+                {"Overlay.HitSecondContainer", "Hit a different container with the hammer to complete your pipe."},
+                {"Overlay.CancelPipeCreationFromChat", "Type /{0} to cancel."},
+                {"Overlay.CancelPipeCreationFromBind", "Press '{0}' to cancel"},
+                {"Overlay.HitToName", "Hit a container or pipe with the hammer to set it's name to '{0}'"},
+                {"Overlay.HitToClearName", "Clear a pipe or container name by hitting it with the hammer."},
+                {"Overlay.CannotNameContainer", "Sorry but you're only able to set names on pipe or containers that are attached to pipes."},
+                {"Overlay.CopyFromPipe", "Hit a pipe with the hammer to copy it's settings."},
+                {"Overlay.CopyToPipe", "Hit another pipe with the hammer to apply the settings you copied"},
+                {"Overlay.CancelCopy", "Type /{0} c to cancel."},
+                {"Overlay.RemovePipe", "Hit a pipe with the hammer to remove it."},
+                {"Overlay.CancelRemove", "Type /{0} r to cancel."},
+                {"Overlay.CantPickUpLights", "Those lights are needed for the pipe. Hands off."},
+                {"Overlay.NotAuthorisedOnSyncPipes", "You've not been given permission to use syncPipes."},
+                {"Button.TurnOn", "Turn On"},
+                {"Button.TurnOff", "Turn Off"},
+                {"Button.SetSingleStack", "Set\nSingle Stack"},
+                {"Button.SetMultiStack", "Set\nMulti Stack"},
+                {"Button.OpenFilter", "Open Filter"},
+                {"Button.SwapDirection", "Swap Direction"},
+                {"InfoLabel.Title", "Pipe Info"},
+                {"InfoLabel.Owner", "Owner:"},
+                {"InfoLabel.FlowRate", "Flow Rate:"},
+                {"InfoLabel.Material", "Material:"},
+                {"InfoLabel.Length", "Length:"},
+                {"InfoLabel.FilterCount", "Filter Count:"},
+                {"InfoLabel.FilterLimit", "Filter Limit:"},
+                {"InfoLabel.FilterItems", "Filter Items:"},
+                {"ControlLabel.MenuTitle", "<size=30>sync</size><size=38><color=#fc5a03>Pipes</color></size>"},
+                {"ControlLabel.On", "On"},
+                {"ControlLabel.Off", "Off"},
+                {"ControlLabel.OvenOptions", "Oven Options"},
+                {"ControlLabel.QuarryOptions", "Quarry Options"},
+                {"ControlLabel.RecyclerOptions", "Recycler Options"},
+                {"ControlLabel.AutoStart", "Auto Start:"},
+                {"ControlLabel.AutoSplitter", "Auto Splitter:"},
+                {"ControlLabel.StackCount", "Stack Count:"},
+                {"ControlLabel.Status", "Status:"},
+                {"ControlLabel.StackMode", "Stack Mode"},
+                {"ControlLabel.PipePriority", "Pipe Priority"},
+                {"ControlLabel.Running", "Running"},
+                {"ControlLabel.Disabled", "Disabled"},
+                {"ControlLabel.SingleStack", "Single Stack"},
+                {"ControlLabel.MultiStack", "Multi Stack"},
+                {"ControlLabel.UpgradeToFilter", "Upgrade pipe for Filter"},
+                {"HelpLabel.FlowBar", "This bar shows you the status of you pipe. \nItems will only move in one direction, from left to right.\nThe images show you which container is which.\nThe '>' indicate the direction and flow rate, more '>'s means more items are transferred at a time.\nYou are able to name the pipes and container typing '/{0} n [name]' into chat"},
+                {"HelpLabel.AutoStart", "<size=14><color=#80ffff>Auto Start:</color></size> This only applies to Ovens, Furnaces, Recyclers and Quarries\nIf this is 'On', when an item is moved into the Oven (etc.), it will attempt to start it."},
+                {"HelpLabel.FurnaceSplitter", "<size=14><color=#80ffff>Auto Splitter:</color></size> This allows you to split everything going through the pipe into equal piles.\n<size=14><color=#80ffff>Stack Count</color></size> indicates how many piles to split the items into.\nNOTE: If this is 'On' the Stack Mode setting is ignored."},
+                {"HelpLabel.Status", "<size=14><color=#80ffff>Status:</color></size> This controls when pipe is on and items are transferring through the pipe."},
+                {"HelpLabel.StackMode", "<size=14><color=#80ffff>Stack Mode:</color></size> This controls whether the pipe will create multiple stacks of each item in the receiving container or limit it to one stack of each item."},
+                {"HelpLabel.Priority", "<size=14><color=#80ffff>Priority</color></size> controls the order the pipes are used.\nItems will be passed to the highest priority pipes evenly before using lower priority pipes."},
+                {"HelpLabel.SwapDirection", "<size=14><color=#80ffff>Swap Direction:</color></size> This will reverse the direction of the pipe and the flow of items between the two containers."},
+                {"HelpLabel.Filter", "<size=14><color=#80ffff>Open Filter:</color></size> This will open a container you can drop items into. \nThese items will limit the pipe to only transferring those items. \nIf the filter is empty then the pipe will transfer everything.\nThe more you upgrade your pipe the more filter slots you'll have."},
+                {"PipePriority.Medium", "Medium"},
+                {"PipePriority.High", "High"},
+                {"PipePriority.Highest", "Highest"},
+                {"PipePriority.Demand", "Demand"},
+                {"PipePriority.Lowest", "Lowest"},
+                {"PipePriority.Low", "Low"},
+                {"Status.Pending", "It's not quite ready yet."},
+                {"Status.Success", "Your pipe was built successfully"},
+                {"Status.SourceError", "The first container you hit has gone missing. Give it another go."},
+                {"Status.DestinationError", "The destination container you hit has gone missing. Please try again."},
+                {"Status.IdGenerationFailed", "We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me."},
+            };
+
+            lang.RegisterMessages(en, Instance, "en");
+        }
+
         #endregion
         #region OverlayText
 
@@ -2323,91 +2136,50 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
         /// <summary>
         /// All Overlay Text Messages
         /// </summary>
-        [EnumWithLanguage]
         public enum Overlay
         {
             Blank = -1, // Used to indicate not message (mainly for sub text)
 
-            [MessageType(MessageType.Warning)]
-            [English("You already have a pipe between these containers.")]
             AlreadyConnected,
 
-            [MessageType(MessageType.Warning)]
-            [English("The pipes just don't stretch that far. You'll just have to select a closer container.")]
             TooFar,
 
-            [MessageType(MessageType.Warning)]
-            [English("There isn't a pipe short enough. You need more space between the containers")]
             TooClose,
 
-            [MessageType(MessageType.Warning)]
-            [English("This isn't your container to connect to. You'll need to speak nicely to the owner.")]
             NoPrivilegeToCreate,
 
-            [MessageType(MessageType.Warning)]
-            [English("This pipe won't listen to you. Get the owner to do it for you.")]
             NoPrivilegeToEdit,
 
-            [MessageType(MessageType.Warning)]
-            [English("You've not got enough pipes to build that I'm afraid.")]
             PipeLimitReached,
 
-            [MessageType(MessageType.Warning)]
-            [English("You're just not able to upgrade this pipe any further.")]
             UpgradeLimitReached,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit a container with the hammer to start your pipe.")]
             HitFirstContainer,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit a different container with the hammer to complete your pipe.")]
             HitSecondContainer,
 
-            [ChatCommand]
-            [English("Type /{0} to cancel.")]
             CancelPipeCreationFromChat,
 
-            [BindingCommand]
-            [English("Press '{0}' to cancel")]
             CancelPipeCreationFromBind,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit a container or pipe with the hammer to set it's name to '{0}'")]
             HitToName,
 
-            [MessageType(MessageType.Info)]
-            [English("Clear a pipe or container name by hitting it with the hammer.")]
             HitToClearName,
 
-            [MessageType(MessageType.Warning)]
-            [English("Sorry but you're only able to set names on pipe or containers that are attached to pipes.")]
             CannotNameContainer,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit a pipe with the hammer to copy it's settings.")]
             CopyFromPipe,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit another pipe with the hammer to apply the settings you copied")]
             CopyToPipe,
 
-            [ChatCommand]
-            [English("Type /{0} c to cancel.")]
             CancelCopy,
 
-            [MessageType(MessageType.Info)]
-            [English("Hit a pipe with the hammer to remove it.")]
             RemovePipe,
 
-            [ChatCommand]
-            [English("Type /{0} r to cancel.")]
             CancelRemove,
 
-            [English("Those lights are needed for the pipe. Hands off.")]
             CantPickUpLights,
 
-            [English("You've not been given permission to use syncPipes.")]
             NotAuthorisedOnSyncPipes
         }
         static class OverlayText
@@ -2679,22 +2451,15 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// <summary>
             /// Allowed priority values of the pipe
             /// </summary>
-            [EnumWithLanguage]
             public enum PipePriority
             {
-                [English("Highest")]
                 Highest = 2,
-                [English("High")]
                 High = 1,
-                [English("Medium")]
                 Medium = 0,
-                [English("Low")]
                 Low = -1,
-                [English("Lowest")]
                 Lowest = -2,
 
                 //This has not been implemented yet but should allow a pipe to draw required fuel for furnaces when needed
-                [English("Demand")]
                 Demand = -3
             }
 
@@ -2704,27 +2469,16 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// Then will indicate any errors.
             /// </summary>
             [Flags]
-            [EnumWithLanguage]
             public enum Status
             {
-                [MessageType(MessageType.Info)]
-                [English("It's not quite ready yet.")]
                 Pending,
 
-                [MessageType(MessageType.Success)]
-                [English("Your pipe was built successfully")]
                 Success,
 
-                [MessageType(MessageType.Error)]
-                [English("The first container you hit has gone missing. Give it another go.")]
                 SourceError,
 
-                [MessageType(MessageType.Error)]
-                [English("The destination container you hit has gone missing. Please try again.")]
                 DestinationError,
 
-                [MessageType(MessageType.Error)]
-                [English("We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me.")]
                 IdGenerationFailed
             }
 
@@ -3741,9 +3495,9 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// <summary>
             /// Does this player have syncPipes admin privilege
             /// </summary>
-            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{PluginName}.admin");
+            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.admin");
 
-            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{PluginName}.user");
+            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.user");
 
             /// <summary>
             /// Can the player build in the current area (not blocked by TC) or has syncPipes admin privilege
@@ -3772,7 +3526,7 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// If not found will return null</returns>
             private SyncPipesConfig.PermissionLevel GetPermission(string userPermission)
             {
-                userPermission = userPermission.Replace($"{PluginName}.level.", "");
+                userPermission = userPermission.Replace($"{Instance.Name}.level.", "");
                 SyncPipesConfig.PermissionLevel permission;
                 if (InstanceConfig.PermissionLevels == null)
                     return null;
@@ -3838,7 +3592,7 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             {
                 if (_isUsingBinding)
                     return;
-                PrintToChat(Chat.PlacingBindingHint, PluginName);
+                PrintToChat(Chat.PlacingBindingHint, Instance.Name);
             }
 
             /// <summary>
@@ -4049,7 +3803,7 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// </summary>
             /// <param name="commandName">Command to call (without the 'syncpipes.' prefix)</param>
             /// <param name="args">Any arguments to send with the command</param>
-            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{PluginName}.{commandName}", args);
+            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
 
             /// <summary>
             /// Close the pipe filter the player is currently viewing
@@ -4194,121 +3948,83 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
 		/// </summary>
         public enum Storage: uint
         {
-			[Storage("fireplace.deployed", "https://static.wikia.nocookie.net/rust_gamepedia/images/c/c2/Stone_Fireplace.png/revision/latest/scale-to-width-down/{0}", 0,-1.3f,0,false)]
             Fireplace = 110576239,
 
-			[Storage("mailbox.deployed", "1/17/Mail_Box_icon.png", 0, 0, -0.15f)]
 			Mailbox = 2697131904,
 
-			[Storage("stocking_small_deployed", "9/97/Small_Stocking_icon.png")]
 			SmallStocking = 3141927338,
 
-			[Storage("stocking_large_deployed", "6/6a/SUPER_Stocking_icon.png")]
 			SuperStocking = 771996658,
 
-			[Storage("mining.pumpjack", "c/c9/Pump_Jack_icon.png")]
 			PumpJack = 1599225199,
 
-			[Storage("survivalfishtrap.deployed", "9/9d/Survival_Fish_Trap_icon.png")]
 			SurvivalFishTrap = 3119617183,
 
-			[Storage("researchtable_deployed", "2/21/Research_Table_icon.png", 0.8f, -0.5f, -0.3f)]
 			ResearchTable = 146554961,
 
-			[Storage("planter.small.deployed", "a/a7/Small_Planter_Box_icon.png")]
 			SmallPlanterBox = 467313155,
 
-			[Storage("planter.large.deployed", "3/35/Large_Planter_Box_icon.png")]
 			LargePlanterBox = 1162882237,
 
-			[Storage("jackolantern.happy", "9/92/Jack_O_Lantern_Happy_icon.png")]
 			JackOLanternHappy = 630866573,
 			
-            [Storage("jackolantern.angry", "9/96/Jack_O_Lantern_Angry_icon.png")]
 			JackOLanternAngry = 1889323056,
 
-			[Storage("furnace.large", "e/ee/Large_Furnace_icon.png", 0, -1.5f)]
 			LargeFurnace = 1374462671,
 
-			[Storage("campfire", "3/35/Camp_Fire_icon.png")]
 			CampFire = 1946219319,
 
-			[Storage("skull_fire_pit", "3/32/Skull_Fire_Pit_icon.png")]
 			SkullFirePit = 1906669538,
 
-			[Storage("bbq.deployed", "f/f8/Barbeque_icon.png", -0.2f, -0.2f)]
             Barbeque = 2409469892,
 
-			[Storage("furnace", "e/e3/Furnace_icon.png", 0, -0.5f)]
 			Furnace = 2931042549,
 
-			[Storage("box.wooden.large", "b/b2/Large_Wood_Box_icon.png")]
 			LargeWoodBox = 2206646561,
 
-			[Storage("mining_quarry", "b/b8/Mining_Quarry_icon.png")]
 			MiningQuarry = 672916883,
 
-			[Storage("repairbench_deployed", "3/3b/Repair_Bench_icon.png")]
 			RepairBench = 3846783416,
 
-			[Storage("refinery_small_deployed", "a/ac/Small_Oil_Refinery_icon.png", -0.3f, -0.2f, -0.1f)]
 			SmallOilRefinery = 1057236622,
 
-			[Storage("small_stash_deployed", "5/53/Small_Stash_icon.png")]
 			SmallStash = 2568831788,
 
-			[Storage("woodbox_deployed", "f/ff/Wood_Storage_Box_icon.png")]
 			WoodStorageBox = 1560881570,
 
-			[Storage("vendingmachine.deployed", "5/5c/Vending_Machine_icon.png", 0, -0.5f)]
 			VendingMachine = 186002280,
 
-			[Storage("dropbox.deployed", "4/46/Drop_Box_icon.png", 0, 0.4f, 0.3f)]
 			DropBox = 661881069,
 
-			[Storage("fridge.deployed", "8/88/Fridge_icon.png", 0, -0.5f)]
 			Fridge = 1844023509,
 
-			[Storage("guntrap.deployed", "6/6c/Shotgun_Trap_icon.png")]
 			ShotgunTrap = 1348746224,
 
-			[Storage("flameturret.deployed", "f/f9/Flame_Turret_icon.png", 0, -0.3f, 0.1f)]
 			FlameTurret = 4075317686,
 
-			[Storage("recycler_static", "e/ef/Recycler_icon.png")]
 			Recycler = 1729604075,
 
-			[Storage("cupboard.tool.deployed", "5/57/Tool_Cupboard_icon.png", 0, -0.5f)]
 			ToolCupboard = 2476970476,
 
 			// Need to work out how to connect to this
-			//[Storage("small_fuel_generator.deployed", "")]
 			//SmallFuelGenerator = 3518207786,
 
-			//[Storage("sam_site_turret_deployed", "")]
 			//SAMSite = 2059775839,
 
             // Need to workout how to connect to this.
-			[Storage("autoturret_deployed", "f/f9/Auto_Turret_icon.png", 0, -0.58f)]
 			AutoTurret = 3312510084,
 
 			//Temporary need to replace this image
-			[Storage("composter", "https://i.imgur.com/qpA7I8P.png", partialUrl: false)]
 			Composter = 1921897480,
 
-			[Storage("hopperoutput", "b/b8/Mining_Quarry_icon.png", 0,-0.6f,-0.3f)]
 			QuarryHopperOutput = 875142383,
 
-			[Storage("fuelstorage", "b/b8/Mining_Quarry_icon.png", -0.5f,0, -0.4f)]
 			QuarryFuelInput = 362963830,
 
-            [Storage("fuelstorage", "c/c9/Pump_Jack_icon.png", -0.5f, 0.1f, -0.3f)]
 			PumpJackFuelInput = 4260630588,
 
-            [Storage("crudeoutput", "c/c9/Pump_Jack_icon.png", 0, 0, -0.5f)]
 			PumpJackCrudeOutput = 70163214,
 
-			[Storage("unknown.container", "https://i.imgur.com/cayN7SQ.png", partialUrl: false)]
 			Default = 0
 		}
 		

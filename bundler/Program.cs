@@ -16,6 +16,8 @@ namespace Combine_Partial_Classes
     {
         private static Regex usingRegex = new Regex("^using (?<Using>.*);", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.ExplicitCapture);
 
+        private static Regex attributeRegex = new Regex("public class (?<Attribute>.*) *:.*Attribute", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.ExplicitCapture);
+
         //regex to read the seed file
         private static Regex primaryRegex = 
             new Regex(@"
@@ -26,7 +28,7 @@ namespace Oxide.Plugins
 .*partial class (?<Class>[a-zA-Z_-]*) *: RustPlugin
 .*\{(?<PreInit>(?:\r\n.*)*)
 .*Init\(\)
-.*\{(?<Init>(?:\r\n[^\}]*)*)\}(?<PostInit>(?:\r\n.*)*)
+.*\{(?<Init>(?:\r\n(?:(?:\{.*\})|(?:[^\}]))*))\}(?<PostInit>(?:\r\n.*)*)
 .*\}
 .*\}", 
                 RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
@@ -70,20 +72,21 @@ namespace Oxide.Plugins
         private static string GenerateLanguage(List<Enum> languageEnums, Type type)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("                    {");
+            sb.AppendLine("            {");
             foreach (var english in languageEnums.Select(a=> GetAttribute<SyncPipes.LanguageAttribute>(a, type))
                 .Where(a => a.Value != null))
             {
-                sb.AppendLine($"                        {{\"{english.Key.GetType().Name}.{english.Key}\", \"{english.Value.Text.Replace("\r", "").Replace("\n", "\\n")}\"}},");
+                sb.AppendLine($"                {{\"{english.Key.GetType().Name}.{english.Key}\", \"{english.Value.Text.Replace("\r", "").Replace("\n", "\\n")}\"}},");
             }
 
-            sb.AppendLine("                    }");
+            sb.AppendLine("            };");
             return sb.ToString();
         }
 
         static void Main(string[] args)
         {
             var types = typeof(SyncPipes).Assembly.GetTypes();
+            var attributes = new List<string>();
 
             var langEnum = types.Where(a => a.GetCustomAttribute<SyncPipes.EnumWithLanguageAttribute>() != null).ToArray();
 
@@ -155,23 +158,12 @@ namespace Oxide.Plugins
                     sb.AppendLine(classRead.Groups["PreInit"]?.Value);
                     sb.AppendLine("        void Init()");
                     sb.AppendLine("        {");
+                    sb.AppendLine(classRead.Groups["Init"]?.Value);
+                    sb.AppendLine();
                     sb.AppendLine("            #region static data declarations");
                     sb.AppendLine($"            _chatCommands{GenerateCommandTypes<SyncPipes.ChatCommandAttribute>(languageEnums)}");
                     sb.AppendLine($"            _bindingCommands{GenerateCommandTypes<SyncPipes.BindingCommandAttribute>(languageEnums)}");
                     sb.AppendLine($"            _messageTypes{GenerateMessageTypes(languageEnums)}");
-                    sb.AppendLine("            _languages = new Dictionary<string, Dictionary<string, string>>");
-                    var languages = types.Where(a => a.BaseType == typeof(SyncPipes.LanguageAttribute)).ToArray();
-                    foreach (var language in languages)
-                    {
-                        var lang = language.GetField("Language").GetRawConstantValue().ToString();
-                        sb.AppendLine("            {");
-                        sb.AppendLine("                {");
-                        sb.AppendLine($"                   \"{lang}\",");
-                        sb.AppendLine("                    new Dictionary<string, string>");
-                        sb.Append(GenerateLanguage(languageEnums, language));
-                        sb.AppendLine("                }");
-                        sb.AppendLine("            };");
-                    }
                     sb.AppendLine();
                     sb.AppendLine($"            _storageDetails = new Dictionary<{nameof(SyncPipes.Storage)}, {nameof(SyncPipes.StorageData)}>");
                     sb.AppendLine("            {");
@@ -182,7 +174,6 @@ namespace Oxide.Plugins
                     }
                     sb.AppendLine("            };");
                     sb.AppendLine("            #endregion");
-                    sb.AppendLine(classRead.Groups["Init"]?.Value);
                     sb.AppendLine("        }");
 
                     sb.AppendLine(classRead.Groups["PostInit"]?.Value);
@@ -199,20 +190,38 @@ namespace Oxide.Plugins
             {
                 using (var sr = new StreamReader(file.FullName))
                 {
-                    var data = sr.ReadToEnd();
-                    var classRead = secondaryRegex.Match(data);
-                    if (classRead.Success && (classRead.Groups["Content"]?.Success ?? false))
+                    if (file.Name.Equals("Attributes.cs", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        partialClassContents.Add(file.Name.Replace(file.Extension, ""), classRead.Groups["Content"]?.Value);
+                        var line = "";
+                        while ((line = sr.ReadLine()) != null)
+                        {
+                            var attribute = attributeRegex.Match(line).Groups["Attribute"];
+                            if(!attribute.Success) continue;
+                            attributes.Add(attribute.Value.Trim());
+                            attributes.Add(attribute.Value.Replace("Attribute", "").Trim());
+                        }
+                    }
+                    else
+                    {
+                        var data = sr.ReadToEnd();
+                        var classRead = secondaryRegex.Match(data);
+                        if (classRead.Success && (classRead.Groups["Content"]?.Success ?? false))
+                        {
+                            var content = classRead.Groups["Content"]?.Value;
+                            partialClassContents.Add(file.Name.Replace(file.Extension, ""),
+                                content);
 
-                        usings.AddRange(usingRegex.Matches(data).OfType<Match>()
-                            .Where(a => a.Success && (a.Groups["Using"]?.Success ?? false)).Select(a => a.Groups["Using"].Value)
-                            .Except(usings));
+                            usings.AddRange(usingRegex.Matches(data).OfType<Match>()
+                                .Where(a => a.Success && (a.Groups["Using"]?.Success ?? false))
+                                .Select(a => a.Groups["Using"].Value)
+                                .Except(usings));
+                        }
                     }
                 }
             }
             #endregion
 
+            var attributeReplaceRegex = new Regex($@"\r\n.*\[({string.Join("|", attributes)})(\(((@?""([^""]|\r|\n)*"")|.*)\))?\]", RegexOptions.Multiline | RegexOptions.Compiled);
             #region Output everything to a single file
             using (var sw = new StreamWriter(deployFile, false))
             {
@@ -227,7 +236,25 @@ namespace Oxide.Plugins
                 foreach (var content in partialClassContents)
                 {
                     sw.WriteLine($"        #region {content.Key}");
-                    sw.WriteLine(content.Value);
+                    var value = attributeReplaceRegex.Replace(content.Value, "");
+                    sw.WriteLine(value);
+                    if (content.Key.Equals("Messages"))
+                    {
+                        sw.WriteLine();
+                        sw.WriteLine("        protected override void LoadDefaultMessages()");
+                        sw.WriteLine("        {");
+                        var languages = types.Where(a => a.BaseType == typeof(SyncPipes.LanguageAttribute)).ToArray();
+                        foreach (var language in languages)
+                        {
+                            var lang = language.GetField("Language").GetRawConstantValue().ToString();
+                            sw.WriteLine($"            var {lang} = new Dictionary<string, string>");
+                            sw.WriteLine(GenerateLanguage(languageEnums, language));
+                            sw.WriteLine($"            lang.RegisterMessages({lang}, Instance, \"{lang}\");");
+                        }
+                        sw.WriteLine("        }");
+                        sw.WriteLine();
+                    }
+
                     sw.WriteLine("        #endregion");
                 }
                 sw.WriteLine("    }");

@@ -140,9 +140,9 @@ namespace Oxide.Plugins
             /// <summary>
             /// Does this player have syncPipes admin privilege
             /// </summary>
-            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{PluginName}.admin");
+            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.admin");
 
-            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{PluginName}.user");
+            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.user");
 
             /// <summary>
             /// Can the player build in the current area (not blocked by TC) or has syncPipes admin privilege
@@ -171,7 +171,7 @@ namespace Oxide.Plugins
             /// If not found will return null</returns>
             private SyncPipesConfig.PermissionLevel GetPermission(string userPermission)
             {
-                userPermission = userPermission.Replace($"{PluginName}.level.", "");
+                userPermission = userPermission.Replace($"{Instance.Name}.level.", "");
                 SyncPipesConfig.PermissionLevel permission;
                 if (InstanceConfig.PermissionLevels == null)
                     return null;
@@ -237,7 +237,7 @@ namespace Oxide.Plugins
             {
                 if (_isUsingBinding)
                     return;
-                PrintToChat(Chat.PlacingBindingHint, PluginName);
+                PrintToChat(Chat.PlacingBindingHint, Instance.Name);
             }
 
             /// <summary>
@@ -448,7 +448,7 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="commandName">Command to call (without the 'syncpipes.' prefix)</param>
             /// <param name="args">Any arguments to send with the command</param>
-            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{PluginName}.{commandName}", args);
+            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
 
             /// <summary>
             /// Close the pipe filter the player is currently viewing
