@@ -26,7 +26,6 @@ namespace Oxide.Plugins
             permission.RegisterPermission($"{Name}.user", this);
             permission.RegisterPermission($"{Name}.admin", this);
             InstanceConfig.RegisterPermissions();
-            Puts(Name);
         }
 
         /// <summary>
