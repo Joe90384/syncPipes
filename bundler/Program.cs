@@ -101,7 +101,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var seedFile = new FileInfo(@"..\..\..\src\Initialization.cs ");
+            var seedFile = new FileInfo(@"..\..\..\src\Initialization.cs");
             var seedDirectory = seedFile.Directory;
             var outputDirectory = Environment.ExpandEnvironmentVariables(args[0]);
             var outputFile =  Path.Combine(outputDirectory, "SyncPipes.cs");
@@ -186,7 +186,7 @@ namespace Oxide.Plugins
             var secondaryRegex =
                 new Regex(
                     $@".*partial *class *{primaryClass}.*\r\n.*\{{ *(?<Content>(?:\r\n.*)*)\r\n.*\}} *\r\n.*\}}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.ExplicitCapture);
-            foreach (var file in seedDirectory.GetFiles("*.cs").Where(a=>a.Name != seedFile.Name && a.FullName != outputFile))
+            foreach (var file in seedDirectory.GetFiles("*.cs").Where(a=>a.Name != seedFile.Name))
             {
                 using (var sr = new StreamReader(file.FullName))
                 {
