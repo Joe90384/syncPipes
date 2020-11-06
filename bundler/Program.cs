@@ -101,11 +101,11 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var seedFile = new FileInfo(args[0]);
+            var seedFile = new FileInfo(@"..\..\..\src\Initialization.cs ");
             var seedDirectory = seedFile.Directory;
-            var outputDirectory = Environment.ExpandEnvironmentVariables(args[1]);
-            var outputFile =  Path.Combine(outputDirectory, seedFile.Name);
-            var deployFile = Path.Combine(@"..\..\..\", seedFile.Name);
+            var outputDirectory = Environment.ExpandEnvironmentVariables(args[0]);
+            var outputFile =  Path.Combine(outputDirectory, "SyncPipes.cs");
+            var deployFile = Path.Combine(@"..\..\..\", "SyncPipes.cs");
 
             Console.WriteLine("Seed file: {0}", seedFile.FullName);
             Console.WriteLine("Output file: {0}", outputFile);
