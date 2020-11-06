@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// Base class for handling the pipe segment behaviour

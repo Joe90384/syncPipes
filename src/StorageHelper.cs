@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
 		/// <summary>
 		/// This enum stores all known containers that can connect to the pipes.

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// Base class for language attributes

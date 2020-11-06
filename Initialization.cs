@@ -18,7 +18,7 @@ namespace Oxide.Plugins
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
-        #region SyncPipes
+        #region Initialization
 
         /// <summary>
         /// The instance of syncPipes on the server to allow child classes to access it

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
 
         /// <summary>

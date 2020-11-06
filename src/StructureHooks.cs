@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// Hook: Ensures the pipe is demolished if any segments are destroyed

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// Hook: Used to prevent the lights from the pipes being picked up and displays a warning

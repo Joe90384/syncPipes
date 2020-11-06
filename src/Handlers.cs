@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// This class holds all the handlers for various events that the player can carry out like hitting containers or pipes

@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
 	{
         /// <summary>
         /// This helps find containers and the required information needed to attach pipes

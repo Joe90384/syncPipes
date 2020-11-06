@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// Contains all the commands used by syncPipes
@@ -318,7 +318,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         public class SyncPipesConsoleCommandAttribute : ConsoleCommandAttribute
         {
-            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipes).ToLower()}.{command}") { }
+            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipesDevelopment).ToLower()}.{command}") { }
         }
     }
 }

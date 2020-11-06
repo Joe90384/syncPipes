@@ -112,7 +112,7 @@
     <Compile Include="Menu.cs" />
     <Compile Include="PipeEndContainer.cs" />
     <Compile Include="StructureHooks.cs" />
-    <Compile Include="SyncPipes.cs" />
+    <Compile Include="Initialization.cs" />
     <Compile Include="Pipe.cs" />
     <Compile Include="PipeSegment.cs" />
     <Compile Include="PlayerHelper.cs" />

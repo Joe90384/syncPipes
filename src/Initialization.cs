@@ -4,12 +4,12 @@ namespace Oxide.Plugins
 {
     [Info("Sync Pipes", "Joe 90", "0.9.1")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
-    public partial class SyncPipes : RustPlugin
+    public partial class SyncPipesDevelopment : RustPlugin
     {
         /// <summary>
         /// The instance of syncPipes on the server to allow child classes to access it
         /// </summary>
-        private static SyncPipes Instance;
+        private static SyncPipesDevelopment Instance;
 
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]

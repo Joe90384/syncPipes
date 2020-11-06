@@ -55,9 +55,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\SyncPipes.csproj">
+    <ProjectReference Include="..\src\SyncPipesDevelopment.csproj">
       <Project>{93bd694d-2cc0-46b2-83ab-3a878ca1543c}</Project>
-      <Name>SyncPipes</Name>
+      <Name>SyncPipesDevelopment</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

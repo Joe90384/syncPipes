@@ -4,7 +4,7 @@ using Oxide.Core;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         /// <summary>
         /// The data handler for loading and saving data to disk

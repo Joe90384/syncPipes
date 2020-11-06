@@ -8,7 +8,7 @@ using Random = System.Random;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipes
+    public partial class SyncPipesDevelopment
     {
         public class Pipe
         {

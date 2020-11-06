@@ -59,7 +59,7 @@ namespace Oxide.Plugins
         {
             var sb = new StringBuilder();
             sb.AppendLine(" = new Dictionary<Enum, MessageType> {");
-            foreach (var messageType in languageEnums.Select(GetAttribute<SyncPipes.MessageTypeAttribute>)
+            foreach (var messageType in languageEnums.Select(GetAttribute<SyncPipesDevelopment.MessageTypeAttribute>)
                 .Where(a => a.Value != null))
             {
                 var type = messageType.Key.GetType();
@@ -73,7 +73,7 @@ namespace Oxide.Plugins
         {
             var sb = new StringBuilder();
             sb.AppendLine("            {");
-            foreach (var english in languageEnums.Select(a=> GetAttribute<SyncPipes.LanguageAttribute>(a, type))
+            foreach (var english in languageEnums.Select(a=> GetAttribute<SyncPipesDevelopment.LanguageAttribute>(a, type))
                 .Where(a => a.Value != null))
             {
                 sb.AppendLine($"                {{\"{english.Key.GetType().Name}.{english.Key}\", \"{english.Value.Text.Replace("\r", "").Replace("\n", "\\n")}\"}},");
@@ -85,10 +85,10 @@ namespace Oxide.Plugins
 
         static void Main(string[] args)
         {
-            var types = typeof(SyncPipes).Assembly.GetTypes();
+            var types = typeof(SyncPipesDevelopment).Assembly.GetTypes();
             var attributes = new List<string>();
 
-            var langEnum = types.Where(a => a.GetCustomAttribute<SyncPipes.EnumWithLanguageAttribute>() != null).ToArray();
+            var langEnum = types.Where(a => a.GetCustomAttribute<SyncPipesDevelopment.EnumWithLanguageAttribute>() != null).ToArray();
 
 
             var languageEnums = GetLanguageEnums(langEnum);
@@ -152,7 +152,7 @@ namespace Oxide.Plugins
                 {
                     info = classRead.Groups["Info"]?.Value;
                     description = classRead.Groups["Description"]?.Value;
-                    primaryClass = classRead.Groups["Class"]?.Value;
+                    primaryClass = "SyncPipes";// classRead.Groups["Class"]?.Value;
                     classComments = classRead.Groups["Comments"]?.Value;
                     var sb = new StringBuilder();
                     sb.AppendLine(classRead.Groups["PreInit"]?.Value);
@@ -161,16 +161,16 @@ namespace Oxide.Plugins
                     sb.AppendLine(classRead.Groups["Init"]?.Value);
                     sb.AppendLine();
                     sb.AppendLine("            #region static data declarations");
-                    sb.AppendLine($"            _chatCommands{GenerateCommandTypes<SyncPipes.ChatCommandAttribute>(languageEnums)}");
-                    sb.AppendLine($"            _bindingCommands{GenerateCommandTypes<SyncPipes.BindingCommandAttribute>(languageEnums)}");
+                    sb.AppendLine($"            _chatCommands{GenerateCommandTypes<SyncPipesDevelopment.ChatCommandAttribute>(languageEnums)}");
+                    sb.AppendLine($"            _bindingCommands{GenerateCommandTypes<SyncPipesDevelopment.BindingCommandAttribute>(languageEnums)}");
                     sb.AppendLine($"            _messageTypes{GenerateMessageTypes(languageEnums)}");
                     sb.AppendLine();
-                    sb.AppendLine($"            _storageDetails = new Dictionary<{nameof(SyncPipes.Storage)}, {nameof(SyncPipes.StorageData)}>");
+                    sb.AppendLine($"            _storageDetails = new Dictionary<{nameof(SyncPipesDevelopment.Storage)}, {nameof(SyncPipesDevelopment.StorageData)}>");
                     sb.AppendLine("            {");
-                    foreach (var storageData in Enum.GetValues(typeof(SyncPipes.Storage)).OfType<SyncPipes.Storage>()
-                        .ToDictionary(a => a, a => GetAttribute<SyncPipes.StorageAttribute>(a).Value))
+                    foreach (var storageData in Enum.GetValues(typeof(SyncPipesDevelopment.Storage)).OfType<SyncPipesDevelopment.Storage>()
+                        .ToDictionary(a => a, a => GetAttribute<SyncPipesDevelopment.StorageAttribute>(a).Value))
                     {
-                        sb.AppendLine($"                {{{nameof(SyncPipes.Storage)}.{storageData.Key}, new StorageData(\"{storageData.Value.ShortName}\", \"{storageData.Value.Url}\", new Vector3({storageData.Value.Offset.x}f, {storageData.Value.Offset.y}f, {storageData.Value.Offset.z}f), {(storageData.Value.PartialUrl ? "true" : "false")})}},");
+                        sb.AppendLine($"                {{{nameof(SyncPipesDevelopment.Storage)}.{storageData.Key}, new StorageData(\"{storageData.Value.ShortName}\", \"{storageData.Value.Url}\", new Vector3({storageData.Value.Offset.x}f, {storageData.Value.Offset.y}f, {storageData.Value.Offset.z}f), {(storageData.Value.PartialUrl ? "true" : "false")})}},");
                     }
                     sb.AppendLine("            };");
                     sb.AppendLine("            #endregion");
@@ -243,7 +243,7 @@ namespace Oxide.Plugins
                         sw.WriteLine();
                         sw.WriteLine("        protected override void LoadDefaultMessages()");
                         sw.WriteLine("        {");
-                        var languages = types.Where(a => a.BaseType == typeof(SyncPipes.LanguageAttribute)).ToArray();
+                        var languages = types.Where(a => a.BaseType == typeof(SyncPipesDevelopment.LanguageAttribute)).ToArray();
                         foreach (var language in languages)
                         {
                             var lang = language.GetField("Language").GetRawConstantValue().ToString();
