@@ -332,9 +332,7 @@ The is a slight fault with the naming system that means pump jacks and quarries 
 
 # Future development
 
-Sometimes it can be difficult to hit a pipe at the right angle to get the menu to open. In some cases it
-
-I'm hoping to increase the functionality of the containers and add a menu to the containers showing all the pipes coming into and going out of that container. I would also like to implement a way of traversing the pipes so you can get to and manage pipes that you have no physical access to.
+Sometimes it can be difficult to hit a pipe at the right angle to get the menu to open.  To try and address this, I'm hoping to increase the functionality of the containers and add a menu to the containers showing all the pipes coming into and going out of that container. I would also like to implement a way of traversing the pipes so you can get to and manage pipes that you have no physical access to.
 
 There is also an option that hasn't been enabled yet to allow you to control how the system takes items from the container. The container will currently count all stacks of the same item to move them and then split that evenly between the pipes. But you may want it to only take one stack at a time. This will hopefully come in with the container menu.
 
