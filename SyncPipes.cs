@@ -23,7 +23,7 @@ namespace Oxide.Plugins
         /// <summary>
         /// The instance of syncPipes on the server to allow child classes to access it
         /// </summary>
-        private static SyncPipesDevelopment Instance;
+        private static SyncPipes Instance;
 
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
@@ -45,39 +45,39 @@ namespace Oxide.Plugins
 
             #region static data declarations
             _chatCommands = new Dictionary<Enum, bool> {
-                {Oxide.Plugins.SyncPipesDevelopment.Chat.Commands,true},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CancelPipeCreationFromChat,true},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CancelCopy,true},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CancelRemove,true},
-                {Oxide.Plugins.SyncPipesDevelopment.PipeMenu.HelpLabel.FlowBar,true},
+                {Oxide.Plugins.SyncPipes.Chat.Commands,true},
+                {Oxide.Plugins.SyncPipes.Overlay.CancelPipeCreationFromChat,true},
+                {Oxide.Plugins.SyncPipes.Overlay.CancelCopy,true},
+                {Oxide.Plugins.SyncPipes.Overlay.CancelRemove,true},
+                {Oxide.Plugins.SyncPipes.PipeMenu.HelpLabel.FlowBar,true},
             };
 
             _bindingCommands = new Dictionary<Enum, bool> {
-                {Oxide.Plugins.SyncPipesDevelopment.Chat.PlacingBindingHint,true},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CancelPipeCreationFromBind,true},
+                {Oxide.Plugins.SyncPipes.Chat.PlacingBindingHint,true},
+                {Oxide.Plugins.SyncPipes.Overlay.CancelPipeCreationFromBind,true},
             };
 
             _messageTypes = new Dictionary<Enum, MessageType> {
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.AlreadyConnected, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.TooFar, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.TooClose, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.NoPrivilegeToCreate, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.NoPrivilegeToEdit, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.PipeLimitReached, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.UpgradeLimitReached, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.HitFirstContainer, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.HitSecondContainer, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.HitToName, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.HitToClearName, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CannotNameContainer, MessageType.Warning},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CopyFromPipe, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.CopyToPipe, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Overlay.RemovePipe, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Pipe.Status.Pending, MessageType.Info},
-                {Oxide.Plugins.SyncPipesDevelopment.Pipe.Status.Success, MessageType.Success},
-                {Oxide.Plugins.SyncPipesDevelopment.Pipe.Status.SourceError, MessageType.Error},
-                {Oxide.Plugins.SyncPipesDevelopment.Pipe.Status.DestinationError, MessageType.Error},
-                {Oxide.Plugins.SyncPipesDevelopment.Pipe.Status.IdGenerationFailed, MessageType.Error},
+                {Oxide.Plugins.SyncPipes.Overlay.AlreadyConnected, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.TooFar, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.TooClose, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToCreate, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToEdit, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.PipeLimitReached, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.UpgradeLimitReached, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.HitFirstContainer, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.HitSecondContainer, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.HitToName, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.HitToClearName, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.CannotNameContainer, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.CopyFromPipe, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.CopyToPipe, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.RemovePipe, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.Pending, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.Success, MessageType.Success},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.SourceError, MessageType.Error},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.DestinationError, MessageType.Error},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.IdGenerationFailed, MessageType.Error},
             };
 
 
@@ -451,7 +451,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         public class SyncPipesConsoleCommandAttribute : ConsoleCommandAttribute
         {
-            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipesDevelopment).ToLower()}.{command}") { }
+            public SyncPipesConsoleCommandAttribute(string command) : base($"{nameof(SyncPipes).ToLower()}.{command}") { }
         }
         #endregion
         #region Config

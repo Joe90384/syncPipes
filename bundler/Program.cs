@@ -134,6 +134,7 @@ namespace Oxide.Plugins
             var info = "";
             var description = "";
             var primaryClass = "";
+            var originalPrimaryClass = "";
             var classComments = "";
             var partialClassContents = new Dictionary<string, string>();
             #endregion
@@ -152,7 +153,8 @@ namespace Oxide.Plugins
                 {
                     info = classRead.Groups["Info"]?.Value;
                     description = classRead.Groups["Description"]?.Value;
-                    primaryClass = "SyncPipes";// classRead.Groups["Class"]?.Value;
+                    primaryClass = "SyncPipes";
+                    originalPrimaryClass = classRead.Groups["Class"]?.Value;
                     classComments = classRead.Groups["Comments"]?.Value;
                     var sb = new StringBuilder();
                     sb.AppendLine(classRead.Groups["PreInit"]?.Value);
@@ -237,7 +239,7 @@ namespace Oxide.Plugins
                 {
                     sw.WriteLine($"        #region {content.Key}");
                     var value = attributeReplaceRegex.Replace(content.Value, "");
-                    sw.WriteLine(value);
+                    sw.WriteLine(value.Replace(originalPrimaryClass, primaryClass));
                     if (content.Key.Equals("Messages"))
                     {
                         sw.WriteLine();
