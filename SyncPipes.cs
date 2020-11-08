@@ -2011,6 +2011,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         static class LocalizationHelpers
         {
+            internal static Dictionary<string, string> FallBack { get; set; }
+
             /// <summary>
             /// Get the correct message for a player from a specific enum
             /// It will automatically inject any binding or chat command text when needed
@@ -2023,8 +2025,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static string Get(Enum key, BasePlayer player, params object[] args)
             {
                 var argsList = args.ToList();
+                var keyStr = $"{key.GetType().Name}.{key}";
                 var localization =
-                    Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
+                    Instance.lang.GetMessage(keyStr, Instance, player.UserIDString);
+                if (localization == keyStr)
+                {
+                    if (FallBack == null)
+                        Instance.PrintWarning("Failed to find message for {0}: Fallback missing!", keyStr);
+                    else if(FallBack.ContainsKey(keyStr))
+                        localization = FallBack[keyStr];
+                    else
+                        Instance.PrintWarning("Failed to find message for {0}: Key missing!", keyStr);
+                }
                 if (_bindingCommands.ContainsKey(key))
                     argsList.Insert(0, InstanceConfig.HotKey);
                 if (_chatCommands.ContainsKey(key))
@@ -2125,7 +2137,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"Status.IdGenerationFailed", "We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me."},
             };
 
-            lang.RegisterMessages(en, Instance, "en");
+            LocalizationHelpers.FallBack = en;
+            lang.RegisterMessages(en, Instance);
+            Puts("Registered language for 'en'");
         }
 
         #endregion

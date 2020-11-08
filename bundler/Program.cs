@@ -251,7 +251,16 @@ namespace Oxide.Plugins
                             var lang = language.GetField("Language").GetRawConstantValue().ToString();
                             sw.WriteLine($"            var {lang} = new Dictionary<string, string>");
                             sw.WriteLine(GenerateLanguage(languageEnums, language));
-                            sw.WriteLine($"            lang.RegisterMessages({lang}, Instance, \"{lang}\");");
+                            if (lang == "en")
+                            {
+                                sw.WriteLine($"            LocalizationHelpers.FallBack = {lang};");
+                                sw.WriteLine($"            lang.RegisterMessages({lang}, Instance);");
+                            }
+                            else
+                            {
+                                sw.WriteLine($"            lang.RegisterMessages({lang}, Instance, \"{lang}\");");
+                            }
+                            sw.WriteLine($"            Puts(\"Registered language for '{lang}'\");");
                         }
                         sw.WriteLine("        }");
                         sw.WriteLine();

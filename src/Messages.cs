@@ -77,6 +77,8 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
         /// </summary>
         static class LocalizationHelpers
         {
+            internal static Dictionary<string, string> FallBack { get; set; }
+
             /// <summary>
             /// Get the correct message for a player from a specific enum
             /// It will automatically inject any binding or chat command text when needed
@@ -89,8 +91,18 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             public static string Get(Enum key, BasePlayer player, params object[] args)
             {
                 var argsList = args.ToList();
+                var keyStr = $"{key.GetType().Name}.{key}";
                 var localization =
-                    Instance.lang.GetMessage($"{key.GetType().Name}.{key}", Instance, player.UserIDString);
+                    Instance.lang.GetMessage(keyStr, Instance, player.UserIDString);
+                if (localization == keyStr)
+                {
+                    if (FallBack == null)
+                        Instance.PrintWarning("Failed to find message for {0}: Fallback missing!", keyStr);
+                    else if(FallBack.ContainsKey(keyStr))
+                        localization = FallBack[keyStr];
+                    else
+                        Instance.PrintWarning("Failed to find message for {0}: Key missing!", keyStr);
+                }
                 if (_bindingCommands.ContainsKey(key))
                     argsList.Insert(0, InstanceConfig.HotKey);
                 if (_chatCommands.ContainsKey(key))
