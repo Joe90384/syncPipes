@@ -14,7 +14,7 @@ using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.1")]
+    [Info("Sync Pipes", "Joe 90", "0.9.3")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
