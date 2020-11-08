@@ -254,11 +254,11 @@ namespace Oxide.Plugins
                             if (lang == "en")
                             {
                                 sw.WriteLine($"            LocalizationHelpers.FallBack = {lang};");
-                                sw.WriteLine($"            lang.RegisterMessages({lang}, Instance);");
+                                sw.WriteLine($"            lang.RegisterMessages({lang}, this);");
                             }
                             else
                             {
-                                sw.WriteLine($"            lang.RegisterMessages({lang}, Instance, \"{lang}\");");
+                                sw.WriteLine($"            lang.RegisterMessages({lang}, this, \"{lang}\");");
                             }
                             sw.WriteLine($"            Puts(\"Registered language for '{lang}'\");");
                         }

@@ -2138,7 +2138,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             };
 
             LocalizationHelpers.FallBack = en;
-            lang.RegisterMessages(en, Instance);
+            lang.RegisterMessages(en, this);
             Puts("Registered language for 'en'");
         }
 
