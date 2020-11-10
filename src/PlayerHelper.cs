@@ -171,7 +171,7 @@ namespace Oxide.Plugins
             /// If not found will return null</returns>
             private SyncPipesConfig.PermissionLevel GetPermission(string userPermission)
             {
-                userPermission = userPermission.Replace($"{Instance.Name}.level.", "");
+                userPermission = userPermission.ToLower().Replace($"{Instance.Name.ToLower()}.level.", "");
                 SyncPipesConfig.PermissionLevel permission;
                 if (InstanceConfig.PermissionLevels == null)
                     return null;
