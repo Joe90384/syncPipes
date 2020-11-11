@@ -292,7 +292,7 @@ namespace Oxide.Plugins
             /// </summary>
             public void ToggleRemovingPipe()
             {
-                if (!ConfirmAvailablePipes()) return;
+                //if (!ConfirmAvailablePipes()) return;
                 switch (State)
                 {
                     case UserState.Removing:
@@ -314,7 +314,7 @@ namespace Oxide.Plugins
             /// </summary>
             public void ToggleCopyingPipe()
             {
-                if (!ConfirmAvailablePipes()) return;
+                //if (!ConfirmAvailablePipes()) return;
                 switch (State)
                 {
                     case UserState.Copying:
@@ -335,11 +335,7 @@ namespace Oxide.Plugins
             /// <param name="isUsingBinding"></param>
             public void TogglePlacingPipe(bool isUsingBinding)
             {
-                if (!ConfirmAvailablePipes())
-                {
-                    ShowOverlay(Overlay.PipeLimitReached);
-                    return;
-                }
+                if (!ConfirmAvailablePipes()) return;
                 _isUsingBinding = isUsingBinding;
                 CopyFrom = null;
                 switch (State)

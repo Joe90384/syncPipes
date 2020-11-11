@@ -12,9 +12,10 @@ using Random = System.Random;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
+using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.5")]
+    [Info("Sync Pipes", "Joe 90", "0.9.6")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -2214,7 +2215,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="player">Player to show the message to.</param>
             /// <param name="text">Message to display to the player</param>
             /// <param name="messageType">The type of message to show. This affects the colour</param>
-            public static void Show(BasePlayer player, string text, MessageType messageType = MessageType.Info) => Show(player, text, "", ColourIndex[messageType]);
+            public static void Show(BasePlayer player, string text, MessageType messageType = MessageType.Info, [CallerMemberName] string callerName = "") => Show(player, text, "", ColourIndex[messageType], callerName);
 
             /// <summary>
             /// Show overlay text to a player
@@ -2226,8 +2227,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static void Show(BasePlayer player,
                 string text,
                 string subText, 
-                MessageType messageType) =>
-                Show(player, text, subText, ColourIndex[messageType]);
+                MessageType messageType, [CallerMemberName] string callerName = "") =>
+                Show(player, text, subText, ColourIndex[messageType], callerName);
 
             /// <summary>
             /// Show overlay text to a player
@@ -2239,9 +2240,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static void Show(BasePlayer player,
                 string text,
                 string subText,
-                string textColour = "1.0 1.0 1.0 1.0")
+                string textColour = "1.0 1.0 1.0 1.0", [CallerMemberName] string callerName = "")
             {
-
                 Hide(player);
 
                 var userInfo = PlayerHelper.Get(player);
@@ -2275,7 +2275,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 CuiHelper.AddUi(player, elements);
 
                 userInfo.ActiveOverlayText = text;
-                userInfo.ActiveOverlaySubText = subText;
+                userInfo.ActiveOverlaySubText = subText ?? "";
             }
 
             static CuiElement LabelWithOutline(CuiLabel label,
@@ -2307,7 +2307,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             /// <param name="player">Player to hide the overlay for</param>
             /// <param name="delay">Delay after which to hide the overlay</param>
-            public static void Hide(BasePlayer player, float delay = 0)
+            public static void Hide(BasePlayer player, float delay = 0, [CallerMemberName] string callerName = "")
             {
                 var playerHelper = PlayerHelper.Get(player);
 
@@ -3660,7 +3660,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public void ToggleRemovingPipe()
             {
-                if (!ConfirmAvailablePipes()) return;
+                //if (!ConfirmAvailablePipes()) return;
                 switch (State)
                 {
                     case UserState.Removing:
@@ -3682,7 +3682,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public void ToggleCopyingPipe()
             {
-                if (!ConfirmAvailablePipes()) return;
+                //if (!ConfirmAvailablePipes()) return;
                 switch (State)
                 {
                     case UserState.Copying:
@@ -3703,11 +3703,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="isUsingBinding"></param>
             public void TogglePlacingPipe(bool isUsingBinding)
             {
-                if (!ConfirmAvailablePipes())
-                {
-                    ShowOverlay(Overlay.PipeLimitReached);
-                    return;
-                }
+                if (!ConfirmAvailablePipes()) return;
                 _isUsingBinding = isUsingBinding;
                 CopyFrom = null;
                 switch (State)

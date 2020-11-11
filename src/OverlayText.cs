@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
@@ -116,7 +117,7 @@ namespace Oxide.Plugins
             /// <param name="player">Player to show the message to.</param>
             /// <param name="text">Message to display to the player</param>
             /// <param name="messageType">The type of message to show. This affects the colour</param>
-            public static void Show(BasePlayer player, string text, MessageType messageType = MessageType.Info) => Show(player, text, "", ColourIndex[messageType]);
+            public static void Show(BasePlayer player, string text, MessageType messageType = MessageType.Info, [CallerMemberName] string callerName = "") => Show(player, text, "", ColourIndex[messageType], callerName);
 
             /// <summary>
             /// Show overlay text to a player
@@ -128,8 +129,8 @@ namespace Oxide.Plugins
             public static void Show(BasePlayer player,
                 string text,
                 string subText, 
-                MessageType messageType) =>
-                Show(player, text, subText, ColourIndex[messageType]);
+                MessageType messageType, [CallerMemberName] string callerName = "") =>
+                Show(player, text, subText, ColourIndex[messageType], callerName);
 
             /// <summary>
             /// Show overlay text to a player
@@ -141,9 +142,8 @@ namespace Oxide.Plugins
             public static void Show(BasePlayer player,
                 string text,
                 string subText,
-                string textColour = "1.0 1.0 1.0 1.0")
+                string textColour = "1.0 1.0 1.0 1.0", [CallerMemberName] string callerName = "")
             {
-
                 Hide(player);
 
                 var userInfo = PlayerHelper.Get(player);
@@ -177,7 +177,7 @@ namespace Oxide.Plugins
                 CuiHelper.AddUi(player, elements);
 
                 userInfo.ActiveOverlayText = text;
-                userInfo.ActiveOverlaySubText = subText;
+                userInfo.ActiveOverlaySubText = subText ?? "";
             }
 
             static CuiElement LabelWithOutline(CuiLabel label,
@@ -209,7 +209,7 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="player">Player to hide the overlay for</param>
             /// <param name="delay">Delay after which to hide the overlay</param>
-            public static void Hide(BasePlayer player, float delay = 0)
+            public static void Hide(BasePlayer player, float delay = 0, [CallerMemberName] string callerName = "")
             {
                 var playerHelper = PlayerHelper.Get(player);
 
