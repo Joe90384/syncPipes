@@ -15,7 +15,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.7")]
+    [Info("Sync Pipes", "Joe 90", "0.9.8")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -3273,7 +3273,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null) 
+                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn()) 
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
                         if(!((BaseOven)Container).IsOn())
