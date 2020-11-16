@@ -15,7 +15,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.6")]
+    [Info("Sync Pipes", "Joe 90", "0.9.7")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -29,6 +29,9 @@ namespace Oxide.Plugins
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
         Plugin FurnaceSplitter;
+
+        [PluginReference] 
+        Plugin QuickSmelt;
 
         /// <summary>
         /// Hook: Initializes syncPipes when the server starts to load it
@@ -2357,6 +2360,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 public bool IsAutoStart = false;
                 public bool IsFurnaceSplitter = false;
                 public int FurnaceSplitterStacks = 1;
+                public PipePriority Priority = PipePriority.Medium;
                 public ulong OwnerId;
                 public string OwnerName;
                 private BaseEntity _source;
@@ -2412,6 +2416,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     IsAutoStart = pipe.IsAutoStart;
                     IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
                     FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
+                    Priority = pipe.Priority;
                     OwnerId = pipe.OwnerId;
                     OwnerName = pipe.OwnerName;
                 }
@@ -2521,6 +2526,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 IsAutoStart = data.IsAutoStart;
                 IsFurnaceSplitterEnabled = data.IsFurnaceSplitter;
                 FurnaceSplitterStacks = data.FurnaceSplitterStacks;
+                Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
                 Validate();
@@ -3267,7 +3273,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        (Container as BaseOven)?.StartCooking();
+                        if (Instance.QuickSmelt != null) 
+                            Instance.QuickSmelt?.Call("OnOvenToggle", Container,
+                                BasePlayer.Find(_pipe.OwnerId.ToString()));
+                        if(!((BaseOven)Container).IsOn())
+                            ((BaseOven) Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
                         (Container as Recycler)?.StartRecycling();

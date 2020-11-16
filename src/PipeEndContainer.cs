@@ -88,7 +88,11 @@ namespace Oxide.Plugins
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        (Container as BaseOven)?.StartCooking();
+                        if (Instance.QuickSmelt != null) 
+                            Instance.QuickSmelt?.Call("OnOvenToggle", Container,
+                                BasePlayer.Find(_pipe.OwnerId.ToString()));
+                        if(!((BaseOven)Container).IsOn())
+                            ((BaseOven) Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
                         (Container as Recycler)?.StartRecycling();

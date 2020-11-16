@@ -29,6 +29,7 @@ namespace Oxide.Plugins
                 public bool IsAutoStart = false;
                 public bool IsFurnaceSplitter = false;
                 public int FurnaceSplitterStacks = 1;
+                public PipePriority Priority = PipePriority.Medium;
                 public ulong OwnerId;
                 public string OwnerName;
                 private BaseEntity _source;
@@ -84,6 +85,7 @@ namespace Oxide.Plugins
                     IsAutoStart = pipe.IsAutoStart;
                     IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
                     FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
+                    Priority = pipe.Priority;
                     OwnerId = pipe.OwnerId;
                     OwnerName = pipe.OwnerName;
                 }
@@ -211,6 +213,7 @@ namespace Oxide.Plugins
                 IsAutoStart = data.IsAutoStart;
                 IsFurnaceSplitterEnabled = data.IsFurnaceSplitter;
                 FurnaceSplitterStacks = data.FurnaceSplitterStacks;
+                Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
                 Validate();
