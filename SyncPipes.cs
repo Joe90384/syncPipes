@@ -78,6 +78,11 @@ namespace Oxide.Plugins
                 {Oxide.Plugins.SyncPipes.Overlay.CopyFromPipe, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.CopyToPipe, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.RemovePipe, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.Pending, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.Success, MessageType.Success},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.SourceError, MessageType.Error},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.DestinationError, MessageType.Error},
+                {Oxide.Plugins.SyncPipes.Pipe.Status.IdGenerationFailed, MessageType.Error},
             };
 
 
@@ -2126,6 +2131,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"HelpLabel.Priority", "<size=14><color=#80ffff>Priority</color></size> controls the order the pipes are used.\nItems will be passed to the highest priority pipes evenly before using lower priority pipes."},
                 {"HelpLabel.SwapDirection", "<size=14><color=#80ffff>Swap Direction:</color></size> This will reverse the direction of the pipe and the flow of items between the two containers."},
                 {"HelpLabel.Filter", "<size=14><color=#80ffff>Open Filter:</color></size> This will open a container you can drop items into. \nThese items will limit the pipe to only transferring those items. \nIf the filter is empty then the pipe will transfer everything.\nThe more you upgrade your pipe the more filter slots you'll have."},
+                {"PipePriority.Medium", "Medium"},
+                {"PipePriority.High", "High"},
+                {"PipePriority.Highest", "Highest"},
+                {"PipePriority.Demand", "Demand"},
+                {"PipePriority.Lowest", "Lowest"},
+                {"PipePriority.Low", "Low"},
+                {"Status.Pending", "It's not quite ready yet."},
+                {"Status.Success", "Your pipe was built successfully"},
+                {"Status.SourceError", "The first container you hit has gone missing. Give it another go."},
+                {"Status.DestinationError", "The destination container you hit has gone missing. Please try again."},
+                {"Status.IdGenerationFailed", "We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me."},
             };
 
             LocalizationHelpers.FallBack = en;
