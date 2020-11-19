@@ -12,6 +12,8 @@ namespace Oxide.Plugins
     {
         public class Pipe
         {
+            private PipeFactory _factory;
+
             /// <summary>
             /// This is the serializable data format for creating, loading or saving pipes with
             /// </summary>
@@ -138,22 +140,15 @@ namespace Oxide.Plugins
             /// <summary>
             /// Allowed priority values of the pipe
             /// </summary>
-            [EnumWithLanguage]
             public enum PipePriority
             {
-                [English("Highest")]
                 Highest = 2,
-                [English("High")]
                 High = 1,
-                [English("Medium")]
                 Medium = 0,
-                [English("Low")]
                 Low = -1,
-                [English("Lowest")]
                 Lowest = -2,
 
                 //This has not been implemented yet but should allow a pipe to draw required fuel for furnaces when needed
-                [English("Demand")]
                 Demand = -3
             }
 
@@ -163,27 +158,16 @@ namespace Oxide.Plugins
             /// Then will indicate any errors.
             /// </summary>
             [Flags]
-            [EnumWithLanguage]
             public enum Status
             {
-                [MessageType(MessageType.Info)]
-                [English("It's not quite ready yet.")]
                 Pending,
 
-                [MessageType(MessageType.Success)]
-                [English("Your pipe was built successfully")]
                 Success,
 
-                [MessageType(MessageType.Error)]
-                [English("The first container you hit has gone missing. Give it another go.")]
                 SourceError,
 
-                [MessageType(MessageType.Error)]
-                [English("The destination container you hit has gone missing. Please try again.")]
                 DestinationError,
 
-                [MessageType(MessageType.Error)]
-                [English("We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me.")]
                 IdGenerationFailed
             }
 
@@ -221,15 +205,21 @@ namespace Oxide.Plugins
                     return;
                 Source.Attach();
                 Destination.Attach();
-                CreatePipeSegmentEntities();
                 Pipes.TryAdd(Id, this);
                 ConnectedContainers.GetOrAdd(data.SourceId, new ConcurrentDictionary<uint, bool>())
                     .TryAdd(data.DestinationId, true);
                 PlayerHelper.AddPipe(this);
                 _initialFilterItems = data.ItemFilter;
-                if(data.Health != 0)
+
+                Distance = Vector3.Distance(Source.Position, Destination.Position);
+                Rotation = GetRotation();
+                _factory = new PipeFactoryLowWall(this);
+                _factory.Create();
+                if (data.Health != 0)
                     SetHealth(data.Health);
             }
+
+            private Quaternion GetRotation() => Quaternion.LookRotation(Destination.Position - Source.Position);
 
             // Filter object. This remains null until it is needed
             private PipeFilter _pipeFilter;
@@ -247,7 +237,7 @@ namespace Oxide.Plugins
             /// This will return all the items in the filter.
             /// If the Filter object has been created then it will pull from that otherwise it will pull from the initial filter items
             /// </summary>
-            public List<int> FilterItems => _pipeFilter?.Items.Select(a=>a.info.itemid).ToList() ?? _initialFilterItems ?? new List<int>();
+            public List<int> FilterItems => _pipeFilter?.Items.Select(a => a.info.itemid).ToList() ?? _initialFilterItems ?? new List<int>();
 
             /// <summary>
             /// Is furnace splitter enabled
@@ -283,15 +273,15 @@ namespace Oxide.Plugins
             /// </summary>
             private List<PlayerHelper> PlayersViewingMenu { get; } = new List<PlayerHelper>();
 
-            /// <summary>
-            /// List of all entities that physically make up the pipe in game
-            /// </summary>
-            private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
+            ///// <summary>
+            ///// List of all entities that physically make up the pipe in game
+            ///// </summary>
+            //private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
 
-            /// <summary>
-            /// The primary physical section of the pipe
-            /// </summary>
-            public BaseEntity PrimarySegment => Segments.FirstOrDefault();
+            ///// <summary>
+            ///// The primary physical section of the pipe
+            ///// </summary>
+            //public BaseEntity PrimarySegment => Segments.FirstOrDefault();
 
             /// <summary>
             /// The name a player has given to the pipe.
@@ -306,7 +296,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// Gets the Filter Capacity based on the Grade of the pipe.
             /// </summary>
-            public int FilterCapacity => InstanceConfig.FilterSizes[(int) Grade];
+            public int FilterCapacity => InstanceConfig.FilterSizes[(int)Grade];
 
             /// <summary>
             /// Gets the Flow Rate based on the Grade of the pipe.
@@ -317,7 +307,7 @@ namespace Oxide.Plugins
             /// Health of the pipe
             /// Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => PrimarySegment.Health();
+            public float Health => _factory.PrimarySegment.Health();
 
             /// <summary>
             /// Used to indicate this pipe is being repaired to prevent multiple repair triggers
@@ -381,12 +371,14 @@ namespace Oxide.Plugins
             /// <summary>
             /// The length of the pipe
             /// </summary>
-            public float Distance { get; private set; }
+            public float Distance { get; }
 
             /// <summary>
             /// The rotation of the pipe
             /// </summary>
-            private Quaternion Rotation { get; set; }
+            public Quaternion Rotation { get; private set; }
+
+            public BaseEntity PrimarySegment => _factory.PrimarySegment;
 
             /// <summary>
             /// Checks if there is already a connection between these two containers
@@ -416,7 +408,7 @@ namespace Oxide.Plugins
                 {
                     var buf = new byte[8];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong) BitConverter.ToInt64(buf, 0);
+                    id = (ulong)BitConverter.ToInt64(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -522,132 +514,17 @@ namespace Oxide.Plugins
             }
 
             /// <summary>
-            /// Create the pipe segment entities required to join the source and destination containers
-            /// </summary>
-            private void CreatePipeSegmentEntities()
-            {
-                GetPositionsAndRotation();
-                var segments = (int) Mathf.Ceil(Distance / PipeLength);
-                var segmentOffset = segments * PipeLength - Distance;
-                var rotationOffset = (Source.Position.y - Destination.Position.y) * Vector3.down * 0.0002f;
-
-                // the position thing centers the pipe if there is only one segment
-                CreatePrimaryPipeSegmentEntity(segments == 1, rotationOffset);
-
-                for (var i = 1; i < segments; i++)
-                {
-                    CreateSecondayPipeSegmentEntity(i, segmentOffset);
-                }
-            }
-
-            /// <summary>
-            /// Create a secondary pipe segment
-            /// </summary>
-            /// <param name="segmentIndex">The index of this segment of the pipe</param>
-            /// <param name="segmentOffset">The offset to get the secondary pipe segments to reach the destination container exactly</param>
-            private void CreateSecondayPipeSegmentEntity(int segmentIndex, float segmentOffset)
-            {
-                var pipe = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    Vector3.forward * (PipeLength * segmentIndex - segmentOffset) + (segmentIndex % 2 == 0
-                        ? Vector3.zero
-                        : PipeFightOffset));
-                PreparePipeSegmentEntity(pipe, segmentIndex);
-            }
-
-            /// <summary>
-            /// Creates the primary pipe segment
-            /// </summary>
-            /// <param name="singleSegmentPipe">If true the pipe will be centered between the containers (and may overlap the containers)</param>
-            /// <param name="rotationOffset">Vertical offset to limit the pipe sticking out the top of the container</param>
-            private void CreatePrimaryPipeSegmentEntity(bool singleSegmentPipe, Vector3 rotationOffset)
-            {
-                var primarySegment = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    (singleSegmentPipe
-                        ? (Source.Position + Destination.Position) / 2
-                        : Source.Position + Rotation * Vector3.forward * (PipeLength/2)) + rotationOffset + Vector3.down * 0.8f, Rotation);
-                PreparePipeSegmentEntity(primarySegment, 0);
-            }
-
-            /// <summary>
             /// Reverse the direction of the pipe
             /// </summary>
-            public void SwapDirections()
+            public void SwapDirection()
             {
                 var stash = Source;
                 Source = Destination;
                 Destination = stash;
+                Rotation = GetRotation();
+                _factory.Reverse();
                 RefreshMenu();
             }
-
-            /// <summary>
-            /// Initialize the properties of a pipe segment entity.
-            /// Adds lights if enabled in the config
-            /// </summary>
-            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
-            /// <param name="pipeIndex">The index of this pipe segment</param>
-            private void PreparePipeSegmentEntity(BaseEntity pipeSegment, int pipeIndex)
-            {
-                pipeSegment.enableSaving = false;
-
-                var block = pipeSegment.GetComponent<BuildingBlock>();
-
-                if (block != null)
-                {
-                    block.grounded = true;
-                    block.grade = Grade;
-                    block.enableSaving = false;
-                    block.Spawn();
-                    block.SetHealthToMax();
-                }
-
-                PipeSegment.Attach(pipeSegment, this);
-
-                if (pipeIndex != 0)
-                    pipeSegment.SetParent(PrimarySegment);
-
-                if (InstanceConfig.AttachXmasLights)
-                {
-                    var lights = GameManager.server.CreateEntity(
-                        "assets/prefabs/misc/xmas/christmas_lights/xmas.lightstring.deployed.prefab",
-                        Vector3.up * 1.025f +
-                        Vector3.forward * 0.13f +
-                        (pipeIndex % 2 == 0
-                            ? Vector3.zero
-                            : PipeFightOffset),
-                        Quaternion.Euler(180, 90, 0));
-                    lights.enableSaving = false;
-                    lights.Spawn();
-                    lights.SetParent(pipeSegment);
-                    PipeSegmentLights.Attach(lights, this);
-                }
-
-                Segments.Add(pipeSegment);
-                //pillars.Add(ent);
-                pipeSegment.enableSaving = false;
-            }
-
-            /// <summary>
-            /// Get the source and destination positions and the rotation of the pipe
-            /// </summary>
-            private void GetPositionsAndRotation()
-            {
-                Source.Position = GetPosition(Source.Storage);
-                Destination.Position = GetPosition(Destination.Storage);
-                Rotation = Quaternion.LookRotation(Destination.Position - Source.Position) * Quaternion.Euler(0, 0, 0);
-                Distance = Vector3.Distance(Source.Position, Destination.Position);
-                // Adjust position based on the rotation
-                //Source.Position += Rotation * Vector3.forward * PipeSegmentDistance *
-                //    0.4f + Rotation * Vector3.down * 0.7f;
-            }
-
-            /// <summary>
-            /// Get the pipe connection position for the container
-            /// </summary>
-            /// <param name="container">Container entity to get the connection position for</param>
-            /// <returns>The connection position for this container</returns>
-            private Vector3 GetPosition(BaseEntity container) => container.CenterPoint() + StorageHelper.GetOffset(container);
 
             public void OpenMenu(PlayerHelper playerHelper)
             {
@@ -655,7 +532,7 @@ namespace Oxide.Plugins
                 {
                     playerHelper.Menu.Refresh();
                 }
-                else if(playerHelper.CanBuild)
+                else if (playerHelper.CanBuild)
                 {
                     new PipeMenu(this, playerHelper).Open();
                     PlayersViewingMenu.Add(playerHelper);
@@ -692,6 +569,7 @@ namespace Oxide.Plugins
             /// <returns>If the pipe is still live</returns>
             public bool IsAlive() => Source?.Container != null && Destination?.Container != null;
 
+
             /// <summary>
             /// Destroy this pipe and ensure it is cleaned from the lookups
             /// </summary>
@@ -715,18 +593,22 @@ namespace Oxide.Plugins
 
                 Pipe removedPipe;
                 Pipes.TryRemove(Id, out removedPipe);
+                KillSegments(cleanup);
+            }
 
+            private void KillSegments(bool cleanup)
+            {
                 if (cleanup)
                 {
-                    if (!PrimarySegment?.IsDestroyed ?? false)
-                        PrimarySegment?.Kill();
+                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                        _factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!PrimarySegment?.IsDestroyed ?? false)
-                            PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
@@ -738,13 +620,13 @@ namespace Oxide.Plugins
             public void ChangePriority(int priorityChange)
             {
                 var currPriority = Priority;
-                var newPriority = (int) Priority + priorityChange;
-                if (newPriority > (int) PipePriority.Highest)
+                var newPriority = (int)Priority + priorityChange;
+                if (newPriority > (int)PipePriority.Highest)
                     Priority = PipePriority.Highest;
-                else if (newPriority < (int) PipePriority.Lowest)
+                else if (newPriority < (int)PipePriority.Lowest)
                     Priority = PipePriority.Lowest;
                 else
-                    Priority = (PipePriority) newPriority;
+                    Priority = (PipePriority)newPriority;
                 if (currPriority != Priority)
                     RefreshMenu();
             }
@@ -776,12 +658,7 @@ namespace Oxide.Plugins
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
-                {
-                    buildingBlock.SetGrade(grade);
-                    buildingBlock.SetHealthToMax();
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.Upgrade(grade);
 
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
@@ -794,11 +671,7 @@ namespace Oxide.Plugins
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
-                {
-                    buildingBlock.health = health;
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.SetHelath(health);
             }
 
             /// <summary>
@@ -851,7 +724,7 @@ namespace Oxide.Plugins
             {
                 CloseMenu(playerHelper);
                 playerHelper.Player.EndLooting();
-                Instance.timer.Once(0.1f, () =>PipeFilter.Open(playerHelper));
+                Instance.timer.Once(0.1f, () => PipeFilter.Open(playerHelper));
             }
 
             /// <summary>

@@ -29,6 +29,7 @@ namespace Oxide.Plugins
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
                 CanAutoStart = ContainerType != ContainerType.General;
+                Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 
             /// <summary>
@@ -43,7 +44,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// The container Id
             /// </summary>
-            public uint Id {get;}
+            public uint Id { get; }
 
             /// <summary>
             /// The container Entity
@@ -68,7 +69,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// The connection position of this container
             /// </summary>
-            public Vector3 Position { get; set; }
+            public Vector3 Position { get; }
 
             /// <summary>
             /// The url of this container to display in the pipe menu
@@ -88,11 +89,11 @@ namespace Oxide.Plugins
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn()) 
+                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
-                        if(!((BaseOven)Container).IsOn())
-                            ((BaseOven) Container)?.StartCooking();
+                        if (!((BaseOven)Container).IsOn())
+                            ((BaseOven)Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
                         (Container as Recycler)?.StartRecycling();

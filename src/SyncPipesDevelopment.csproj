@@ -107,6 +107,7 @@
     <Compile Include="Handlers.cs" />
     <Compile Include="Messages.cs" />
     <Compile Include="OverlayText.cs" />
+    <Compile Include="PipeFactory.cs" />
     <Compile Include="ServerHooks.cs" />
     <Compile Include="StorageHelper.cs" />
     <Compile Include="Menu.cs" />

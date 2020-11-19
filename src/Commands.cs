@@ -228,7 +228,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Reverse the direction of the pipe
             /// </summary>
             /// <param name="arg">Used to get the pipe id</param>
-            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirections();
+            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirection();
 
             /// <summary>
             /// Set the pipe to single or multi stack
