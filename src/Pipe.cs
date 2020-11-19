@@ -213,7 +213,7 @@ namespace Oxide.Plugins
 
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = new PipeFactoryLowWall(this);
+                _factory = new PipeFactoryBarrel(this);
                 _factory.Create();
                 if (data.Health != 0)
                     SetHealth(data.Health);
@@ -671,7 +671,7 @@ namespace Oxide.Plugins
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                _factory.SetHelath(health);
+                _factory.SetHealth(health);
             }
 
             /// <summary>

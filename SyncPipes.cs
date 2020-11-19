@@ -10,6 +10,7 @@ using Oxide.Game.Rust.Cui;
 using System.Threading.Tasks;
 using Random = System.Random;
 using System.Collections.Generic;
+using Rust.Ai.HTN.ScientistAStar;
 using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
@@ -77,11 +78,6 @@ namespace Oxide.Plugins
                 {Oxide.Plugins.SyncPipes.Overlay.CopyFromPipe, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.CopyToPipe, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.RemovePipe, MessageType.Info},
-                {Oxide.Plugins.SyncPipes.Pipe.Status.Pending, MessageType.Info},
-                {Oxide.Plugins.SyncPipes.Pipe.Status.Success, MessageType.Success},
-                {Oxide.Plugins.SyncPipes.Pipe.Status.SourceError, MessageType.Error},
-                {Oxide.Plugins.SyncPipes.Pipe.Status.DestinationError, MessageType.Error},
-                {Oxide.Plugins.SyncPipes.Pipe.Status.IdGenerationFailed, MessageType.Error},
             };
 
 
@@ -365,7 +361,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Reverse the direction of the pipe
             /// </summary>
             /// <param name="arg">Used to get the pipe id</param>
-            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirections();
+            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirection();
 
             /// <summary>
             /// Set the pipe to single or multi stack
@@ -1339,7 +1335,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 
-                    entity.GetComponent<StorageContainer>() == null) 
+                    entity.GetComponent<StorageContainer>() == null ||
+                    entity.GetComponent<PipeSegment>() != null
+                    ) 
                     return false;
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {
@@ -2128,17 +2126,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"HelpLabel.Priority", "<size=14><color=#80ffff>Priority</color></size> controls the order the pipes are used.\nItems will be passed to the highest priority pipes evenly before using lower priority pipes."},
                 {"HelpLabel.SwapDirection", "<size=14><color=#80ffff>Swap Direction:</color></size> This will reverse the direction of the pipe and the flow of items between the two containers."},
                 {"HelpLabel.Filter", "<size=14><color=#80ffff>Open Filter:</color></size> This will open a container you can drop items into. \nThese items will limit the pipe to only transferring those items. \nIf the filter is empty then the pipe will transfer everything.\nThe more you upgrade your pipe the more filter slots you'll have."},
-                {"PipePriority.Medium", "Medium"},
-                {"PipePriority.High", "High"},
-                {"PipePriority.Highest", "Highest"},
-                {"PipePriority.Demand", "Demand"},
-                {"PipePriority.Lowest", "Lowest"},
-                {"PipePriority.Low", "Low"},
-                {"Status.Pending", "It's not quite ready yet."},
-                {"Status.Success", "Your pipe was built successfully"},
-                {"Status.SourceError", "The first container you hit has gone missing. Give it another go."},
-                {"Status.DestinationError", "The destination container you hit has gone missing. Please try again."},
-                {"Status.IdGenerationFailed", "We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me."},
             };
 
             LocalizationHelpers.FallBack = en;
@@ -2343,6 +2330,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         public class Pipe
         {
+            private PipeFactory _factory;
+
             /// <summary>
             /// This is the serializable data format for creating, loading or saving pipes with
             /// </summary>
@@ -2534,15 +2523,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     return;
                 Source.Attach();
                 Destination.Attach();
-                CreatePipeSegmentEntities();
                 Pipes.TryAdd(Id, this);
                 ConnectedContainers.GetOrAdd(data.SourceId, new ConcurrentDictionary<uint, bool>())
                     .TryAdd(data.DestinationId, true);
                 PlayerHelper.AddPipe(this);
                 _initialFilterItems = data.ItemFilter;
-                if(data.Health != 0)
+
+                Distance = Vector3.Distance(Source.Position, Destination.Position);
+                Rotation = GetRotation();
+                _factory = new PipeFactoryBarrel(this);
+                _factory.Create();
+                if (data.Health != 0)
                     SetHealth(data.Health);
             }
+
+            private Quaternion GetRotation() => Quaternion.LookRotation(Destination.Position - Source.Position);
 
             // Filter object. This remains null until it is needed
             private PipeFilter _pipeFilter;
@@ -2560,7 +2555,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// This will return all the items in the filter.
             /// If the Filter object has been created then it will pull from that otherwise it will pull from the initial filter items
             /// </summary>
-            public List<int> FilterItems => _pipeFilter?.Items.Select(a=>a.info.itemid).ToList() ?? _initialFilterItems ?? new List<int>();
+            public List<int> FilterItems => _pipeFilter?.Items.Select(a => a.info.itemid).ToList() ?? _initialFilterItems ?? new List<int>();
 
             /// <summary>
             /// Is furnace splitter enabled
@@ -2596,15 +2591,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             private List<PlayerHelper> PlayersViewingMenu { get; } = new List<PlayerHelper>();
 
-            /// <summary>
-            /// List of all entities that physically make up the pipe in game
-            /// </summary>
-            private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
+            ///// <summary>
+            ///// List of all entities that physically make up the pipe in game
+            ///// </summary>
+            //private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
 
-            /// <summary>
-            /// The primary physical section of the pipe
-            /// </summary>
-            public BaseEntity PrimarySegment => Segments.FirstOrDefault();
+            ///// <summary>
+            ///// The primary physical section of the pipe
+            ///// </summary>
+            //public BaseEntity PrimarySegment => Segments.FirstOrDefault();
 
             /// <summary>
             /// The name a player has given to the pipe.
@@ -2619,7 +2614,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// Gets the Filter Capacity based on the Grade of the pipe.
             /// </summary>
-            public int FilterCapacity => InstanceConfig.FilterSizes[(int) Grade];
+            public int FilterCapacity => InstanceConfig.FilterSizes[(int)Grade];
 
             /// <summary>
             /// Gets the Flow Rate based on the Grade of the pipe.
@@ -2630,7 +2625,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Health of the pipe
             /// Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => PrimarySegment.Health();
+            public float Health => _factory.PrimarySegment.Health();
 
             /// <summary>
             /// Used to indicate this pipe is being repaired to prevent multiple repair triggers
@@ -2694,12 +2689,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The length of the pipe
             /// </summary>
-            public float Distance { get; private set; }
+            public float Distance { get; }
 
             /// <summary>
             /// The rotation of the pipe
             /// </summary>
-            private Quaternion Rotation { get; set; }
+            public Quaternion Rotation { get; private set; }
+
+            public BaseEntity PrimarySegment => _factory.PrimarySegment;
 
             /// <summary>
             /// Checks if there is already a connection between these two containers
@@ -2729,7 +2726,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     var buf = new byte[8];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong) BitConverter.ToInt64(buf, 0);
+                    id = (ulong)BitConverter.ToInt64(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -2835,132 +2832,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Create the pipe segment entities required to join the source and destination containers
-            /// </summary>
-            private void CreatePipeSegmentEntities()
-            {
-                GetPositionsAndRotation();
-                var segments = (int) Mathf.Ceil(Distance / PipeLength);
-                var segmentOffset = segments * PipeLength - Distance;
-                var rotationOffset = (Source.Position.y - Destination.Position.y) * Vector3.down * 0.0002f;
-
-                // the position thing centers the pipe if there is only one segment
-                CreatePrimaryPipeSegmentEntity(segments == 1, rotationOffset);
-
-                for (var i = 1; i < segments; i++)
-                {
-                    CreateSecondayPipeSegmentEntity(i, segmentOffset);
-                }
-            }
-
-            /// <summary>
-            /// Create a secondary pipe segment
-            /// </summary>
-            /// <param name="segmentIndex">The index of this segment of the pipe</param>
-            /// <param name="segmentOffset">The offset to get the secondary pipe segments to reach the destination container exactly</param>
-            private void CreateSecondayPipeSegmentEntity(int segmentIndex, float segmentOffset)
-            {
-                var pipe = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    Vector3.forward * (PipeLength * segmentIndex - segmentOffset) + (segmentIndex % 2 == 0
-                        ? Vector3.zero
-                        : PipeFightOffset));
-                PreparePipeSegmentEntity(pipe, segmentIndex);
-            }
-
-            /// <summary>
-            /// Creates the primary pipe segment
-            /// </summary>
-            /// <param name="singleSegmentPipe">If true the pipe will be centered between the containers (and may overlap the containers)</param>
-            /// <param name="rotationOffset">Vertical offset to limit the pipe sticking out the top of the container</param>
-            private void CreatePrimaryPipeSegmentEntity(bool singleSegmentPipe, Vector3 rotationOffset)
-            {
-                var primarySegment = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    (singleSegmentPipe
-                        ? (Source.Position + Destination.Position) / 2
-                        : Source.Position + Rotation * Vector3.forward * (PipeLength/2)) + rotationOffset + Vector3.down * 0.8f, Rotation);
-                PreparePipeSegmentEntity(primarySegment, 0);
-            }
-
-            /// <summary>
             /// Reverse the direction of the pipe
             /// </summary>
-            public void SwapDirections()
+            public void SwapDirection()
             {
                 var stash = Source;
                 Source = Destination;
                 Destination = stash;
+                Rotation = GetRotation();
+                _factory.Reverse();
                 RefreshMenu();
             }
-
-            /// <summary>
-            /// Initialize the properties of a pipe segment entity.
-            /// Adds lights if enabled in the config
-            /// </summary>
-            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
-            /// <param name="pipeIndex">The index of this pipe segment</param>
-            private void PreparePipeSegmentEntity(BaseEntity pipeSegment, int pipeIndex)
-            {
-                pipeSegment.enableSaving = false;
-
-                var block = pipeSegment.GetComponent<BuildingBlock>();
-
-                if (block != null)
-                {
-                    block.grounded = true;
-                    block.grade = Grade;
-                    block.enableSaving = false;
-                    block.Spawn();
-                    block.SetHealthToMax();
-                }
-
-                PipeSegment.Attach(pipeSegment, this);
-
-                if (pipeIndex != 0)
-                    pipeSegment.SetParent(PrimarySegment);
-
-                if (InstanceConfig.AttachXmasLights)
-                {
-                    var lights = GameManager.server.CreateEntity(
-                        "assets/prefabs/misc/xmas/christmas_lights/xmas.lightstring.deployed.prefab",
-                        Vector3.up * 1.025f +
-                        Vector3.forward * 0.13f +
-                        (pipeIndex % 2 == 0
-                            ? Vector3.zero
-                            : PipeFightOffset),
-                        Quaternion.Euler(180, 90, 0));
-                    lights.enableSaving = false;
-                    lights.Spawn();
-                    lights.SetParent(pipeSegment);
-                    PipeSegmentLights.Attach(lights, this);
-                }
-
-                Segments.Add(pipeSegment);
-                //pillars.Add(ent);
-                pipeSegment.enableSaving = false;
-            }
-
-            /// <summary>
-            /// Get the source and destination positions and the rotation of the pipe
-            /// </summary>
-            private void GetPositionsAndRotation()
-            {
-                Source.Position = GetPosition(Source.Storage);
-                Destination.Position = GetPosition(Destination.Storage);
-                Rotation = Quaternion.LookRotation(Destination.Position - Source.Position) * Quaternion.Euler(0, 0, 0);
-                Distance = Vector3.Distance(Source.Position, Destination.Position);
-                // Adjust position based on the rotation
-                //Source.Position += Rotation * Vector3.forward * PipeSegmentDistance *
-                //    0.4f + Rotation * Vector3.down * 0.7f;
-            }
-
-            /// <summary>
-            /// Get the pipe connection position for the container
-            /// </summary>
-            /// <param name="container">Container entity to get the connection position for</param>
-            /// <returns>The connection position for this container</returns>
-            private Vector3 GetPosition(BaseEntity container) => container.CenterPoint() + StorageHelper.GetOffset(container);
 
             public void OpenMenu(PlayerHelper playerHelper)
             {
@@ -2968,7 +2850,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     playerHelper.Menu.Refresh();
                 }
-                else if(playerHelper.CanBuild)
+                else if (playerHelper.CanBuild)
                 {
                     new PipeMenu(this, playerHelper).Open();
                     PlayersViewingMenu.Add(playerHelper);
@@ -3005,6 +2887,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>If the pipe is still live</returns>
             public bool IsAlive() => Source?.Container != null && Destination?.Container != null;
 
+
             /// <summary>
             /// Destroy this pipe and ensure it is cleaned from the lookups
             /// </summary>
@@ -3028,18 +2911,22 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                 Pipe removedPipe;
                 Pipes.TryRemove(Id, out removedPipe);
+                KillSegments(cleanup);
+            }
 
+            private void KillSegments(bool cleanup)
+            {
                 if (cleanup)
                 {
-                    if (!PrimarySegment?.IsDestroyed ?? false)
-                        PrimarySegment?.Kill();
+                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                        _factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!PrimarySegment?.IsDestroyed ?? false)
-                            PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
@@ -3051,13 +2938,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public void ChangePriority(int priorityChange)
             {
                 var currPriority = Priority;
-                var newPriority = (int) Priority + priorityChange;
-                if (newPriority > (int) PipePriority.Highest)
+                var newPriority = (int)Priority + priorityChange;
+                if (newPriority > (int)PipePriority.Highest)
                     Priority = PipePriority.Highest;
-                else if (newPriority < (int) PipePriority.Lowest)
+                else if (newPriority < (int)PipePriority.Lowest)
                     Priority = PipePriority.Lowest;
                 else
-                    Priority = (PipePriority) newPriority;
+                    Priority = (PipePriority)newPriority;
                 if (currPriority != Priority)
                     RefreshMenu();
             }
@@ -3089,12 +2976,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
-                {
-                    buildingBlock.SetGrade(grade);
-                    buildingBlock.SetHealthToMax();
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.Upgrade(grade);
 
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
@@ -3107,11 +2989,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
-                {
-                    buildingBlock.health = health;
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.SetHealth(health);
             }
 
             /// <summary>
@@ -3164,7 +3042,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 CloseMenu(playerHelper);
                 playerHelper.Player.EndLooting();
-                Instance.timer.Once(0.1f, () =>PipeFilter.Open(playerHelper));
+                Instance.timer.Once(0.1f, () => PipeFilter.Open(playerHelper));
             }
 
             /// <summary>
@@ -3214,6 +3092,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
                 CanAutoStart = ContainerType != ContainerType.General;
+                Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 
             /// <summary>
@@ -3228,7 +3107,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The container Id
             /// </summary>
-            public uint Id {get;}
+            public uint Id { get; }
 
             /// <summary>
             /// The container Entity
@@ -3253,7 +3132,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The connection position of this container
             /// </summary>
-            public Vector3 Position { get; set; }
+            public Vector3 Position { get; }
 
             /// <summary>
             /// The url of this container to display in the pipe menu
@@ -3273,11 +3152,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn()) 
+                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
-                        if(!((BaseOven)Container).IsOn())
-                            ((BaseOven) Container)?.StartCooking();
+                        if (!((BaseOven)Container).IsOn())
+                            ((BaseOven)Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
                         (Container as Recycler)?.StartRecycling();
@@ -3325,6 +3204,204 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     default:
                         return false;
                 }
+            }
+        }
+        #endregion
+        #region PipeFactory
+
+        private abstract class PipeFactory
+        {
+            protected Pipe _pipe;
+            protected int _segmentCount;
+            public BaseEntity PrimarySegment => Segments.FirstOrDefault();
+            protected float _segmentOffset;
+            protected Vector3 _rotationOffset;
+            public List<BaseEntity> Segments = new List<BaseEntity>();
+
+            protected abstract float PipeLength { get; }
+
+            protected abstract string Prefab { get; }
+            protected static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
+            //protected 
+            protected PipeFactory(Pipe pipe)
+            {
+                _pipe = pipe;
+                Init();
+            }
+
+            private void Init()
+            {
+                _segmentCount = (int)Mathf.Ceil(_pipe.Distance / PipeLength);
+                _segmentOffset = _segmentCount * PipeLength - _pipe.Distance;
+                _rotationOffset = (_pipe.Source.Position.y - _pipe.Destination.Position.y) * Vector3.down * 0.0002f;
+            }
+
+            protected virtual BaseEntity CreateSegment(Vector3 position, Quaternion rotation = default(Quaternion))
+            {
+                return GameManager.server.CreateEntity(Prefab, position, rotation);
+            }
+
+            public abstract void Create();
+            public virtual void Reverse() { }
+
+            public virtual void Upgrade(BuildingGrade.Enum grade) { }
+
+            public abstract void SetHealth(float health);
+
+            protected abstract Vector3 SourcePosition { get; }
+
+            protected abstract Quaternion Rotation { get; }
+
+            protected abstract Vector3 GetOffsetPosition(int segmentIndex);
+
+            protected virtual BaseEntity CreatePrimarySegment() => CreateSegment(SourcePosition, Rotation);
+
+            protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
+
+
+
+        }
+
+        private abstract class PipeFactory<TEntity> : PipeFactory
+        where TEntity: BaseEntity
+        {
+            /// <summary>
+            /// Initialize the properties of a pipe segment entity.
+            /// Adds lights if enabled in the config
+            /// </summary>
+            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
+            /// <param name="pipeIndex">The index of this pipe segment</param>
+            protected virtual TEntity PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
+            {
+                var pipeSegmentEntity = pipeSegment as TEntity;
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.Spawn();
+
+                PipeSegment.Attach(pipeSegmentEntity, _pipe);
+
+                if (PrimarySegment != pipeSegmentEntity)
+                    pipeSegmentEntity.SetParent(PrimarySegment);
+                return pipeSegmentEntity;
+            }
+
+            public override void Create()
+            {
+                Instance.Puts("Segments Count {0}", Segments.Count);
+                Segments.Add(PreparePipeSegmentEntity(0, CreatePrimarySegment()));
+                for (var i = 1; i < _segmentCount; i++)
+                {
+                    Segments.Add(PreparePipeSegmentEntity(i, CreateSecondarySegment(i)));
+                }
+            }
+
+            protected PipeFactory(Pipe pipe) : base(pipe) { }
+        }
+
+        private class PipeFactoryLowWall : PipeFactory<BuildingBlock>
+        {
+            protected override float PipeLength => 3f;
+
+            private const string _prefab = "assets/prefabs/building core/wall.low/wall.low.prefab";
+            protected override string Prefab => _prefab;
+
+            /// <summary>
+            /// Initialize the properties of a pipe segment entity.
+            /// Adds lights if enabled in the config
+            /// </summary>
+            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
+            /// <param name="pipeIndex">The index of this pipe segment</param>
+            protected override BuildingBlock PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
+            {
+                var pipeSegmentEntity = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.grounded = true;
+                pipeSegmentEntity.grade = _pipe.Grade;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.SetHealthToMax();
+                if (InstanceConfig.AttachXmasLights)
+                {
+                    var lights = GameManager.server.CreateEntity(
+                        "assets/prefabs/misc/xmas/christmas_lights/xmas.lightstring.deployed.prefab",
+                        Vector3.up * 1.025f +
+                        Vector3.forward * 0.13f +
+                        (pipeIndex % 2 == 0
+                            ? Vector3.zero
+                            : OverlappingPipeOffset),
+                        Quaternion.Euler(180, 90, 0));
+                    lights.enableSaving = false;
+                    lights.Spawn();
+                    lights.SetParent(pipeSegment);
+                    PipeSegmentLights.Attach(lights, _pipe);
+                }
+                return pipeSegmentEntity;
+            }
+
+            public PipeFactoryLowWall(Pipe pipe) : base(pipe) { }
+
+            public override void Upgrade(BuildingGrade.Enum grade)
+            {
+                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
+                {
+                    buildingBlock.SetGrade(grade);
+                    buildingBlock.SetHealthToMax();
+                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
+            }
+
+            public override void SetHealth(float health)
+            {
+                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
+                {
+                    buildingBlock.health = health;
+                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.forward * (PipeLength / 2))
+                       + _rotationOffset + Vector3.down * 0.8f;
+
+            protected override Quaternion Rotation => _pipe.Rotation;
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.forward * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+        }
+
+        private class PipeFactoryBarrel : PipeFactory<StorageContainer>
+        {
+            protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
+
+            public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
+
+            protected override float PipeLength => 1.1f;
+
+            public override void SetHealth(float health)
+            {
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.back * (PipeLength / 2 - 0.5f)) +
+                       _rotationOffset + Vector3.down * 0.05f;
+
+            protected override Quaternion Rotation =>
+                _pipe.Rotation * Quaternion.AngleAxis(90f, Vector3.forward) * Quaternion.AngleAxis(-90f, Vector3.left);
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.up * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+
+            public override void Reverse()
+            {
+                PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
+                PrimarySegment.SendNetworkUpdate();
             }
         }
         #endregion
@@ -4170,7 +4247,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {
-                var health = entity.GetComponent<BuildingBlock>()?.health;
+                var health = entity.GetComponent<BaseCombatEntity>()?.health;
                 if (health.HasValue)
                 {
                     health -= damage;
