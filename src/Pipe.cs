@@ -140,15 +140,22 @@ namespace Oxide.Plugins
             /// <summary>
             /// Allowed priority values of the pipe
             /// </summary>
+            [EnumWithLanguage]
             public enum PipePriority
             {
+                [English("Highest")]
                 Highest = 2,
+                [English("High")]
                 High = 1,
+                [English("Medium")]
                 Medium = 0,
+                [English("Low")]
                 Low = -1,
+                [English("Lowest")]
                 Lowest = -2,
 
                 //This has not been implemented yet but should allow a pipe to draw required fuel for furnaces when needed
+                [English("Demand")]
                 Demand = -3
             }
 
@@ -158,16 +165,27 @@ namespace Oxide.Plugins
             /// Then will indicate any errors.
             /// </summary>
             [Flags]
+            [EnumWithLanguage]
             public enum Status
             {
+                [MessageType(MessageType.Info)]
+                [English("It's not quite ready yet.")]
                 Pending,
 
+                [MessageType(MessageType.Success)]
+                [English("Your pipe was built successfully")]
                 Success,
 
+                [MessageType(MessageType.Error)]
+                [English("The first container you hit has gone missing. Give it another go.")]
                 SourceError,
 
+                [MessageType(MessageType.Error)]
+                [English("The destination container you hit has gone missing. Please try again.")]
                 DestinationError,
 
+                [MessageType(MessageType.Error)]
+                [English("We'll this is embarrassing, I seem to have failed to id that pipe. Can you try again for me.")]
                 IdGenerationFailed
             }
 
@@ -213,7 +231,7 @@ namespace Oxide.Plugins
 
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = new PipeFactoryLowWall(this);
+                _factory = new PipeFactoryBarrel(this);
                 _factory.Create();
                 if (data.Health != 0)
                     SetHealth(data.Health);
@@ -671,7 +689,7 @@ namespace Oxide.Plugins
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                _factory.SetHelath(health);
+                _factory.SetHealth(health);
             }
 
             /// <summary>

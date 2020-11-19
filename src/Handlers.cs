@@ -48,7 +48,9 @@ namespace Oxide.Plugins
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 
-                    entity.GetComponent<StorageContainer>() == null) 
+                    entity.GetComponent<StorageContainer>() == null ||
+                    entity.GetComponent<PipeSegment>() != null
+                    ) 
                     return false;
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {

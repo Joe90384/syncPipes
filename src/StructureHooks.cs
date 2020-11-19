@@ -27,7 +27,7 @@ namespace Oxide.Plugins
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {
-                var health = entity.GetComponent<BuildingBlock>()?.health;
+                var health = entity.GetComponent<BaseCombatEntity>()?.health;
                 if (health.HasValue)
                 {
                     health -= damage;

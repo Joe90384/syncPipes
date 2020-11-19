@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Rust.Ai.HTN.ScientistAStar;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -18,7 +19,7 @@ namespace Oxide.Plugins
             protected abstract float PipeLength { get; }
 
             protected abstract string Prefab { get; }
-            private static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
+            protected static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
             //protected 
             protected PipeFactory(Pipe pipe)
             {
@@ -38,37 +39,69 @@ namespace Oxide.Plugins
                 return GameManager.server.CreateEntity(Prefab, position, rotation);
             }
 
-            public virtual void Create()
+            public abstract void Create();
+            public virtual void Reverse() { }
+
+            public virtual void Upgrade(BuildingGrade.Enum grade) { }
+
+            public abstract void SetHealth(float health);
+
+            protected abstract Vector3 SourcePosition { get; }
+
+            protected abstract Quaternion Rotation { get; }
+
+            protected abstract Vector3 GetOffsetPosition(int segmentIndex);
+
+            protected virtual BaseEntity CreatePrimarySegment() => CreateSegment(SourcePosition, Rotation);
+
+            protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
+
+
+
+        }
+
+        private abstract class PipeFactory<TEntity> : PipeFactory
+        where TEntity: BaseEntity
+        {
+            /// <summary>
+            /// Initialize the properties of a pipe segment entity.
+            /// Adds lights if enabled in the config
+            /// </summary>
+            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
+            /// <param name="pipeIndex">The index of this pipe segment</param>
+            protected virtual TEntity PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
             {
+                var pipeSegmentEntity = pipeSegment as TEntity;
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.Spawn();
+
+                PipeSegment.Attach(pipeSegmentEntity, _pipe);
+
+                if (PrimarySegment != pipeSegmentEntity)
+                    pipeSegmentEntity.SetParent(PrimarySegment);
+                return pipeSegmentEntity;
+            }
+
+            public override void Create()
+            {
+                Instance.Puts("Segments Count {0}", Segments.Count);
                 Segments.Add(PreparePipeSegmentEntity(0, CreatePrimarySegment()));
                 for (var i = 1; i < _segmentCount; i++)
                 {
                     Segments.Add(PreparePipeSegmentEntity(i, CreateSecondarySegment(i)));
                 }
             }
-            public virtual void Reverse() { }
 
-            public virtual void Upgrade(BuildingGrade.Enum grade) { }
+            protected PipeFactory(Pipe pipe) : base(pipe) { }
+        }
 
-            public abstract void SetHelath(float health);
+        private class PipeFactoryLowWall : PipeFactory<BuildingBlock>
+        {
+            protected override float PipeLength => 3f;
 
-            protected virtual Vector3 GetSourcePosition()
-            {
-                return (_segmentCount == 1
-                        ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
-                        : _pipe.Source.Position + _pipe.Rotation * Vector3.forward * (PipeLength / 2))
-                    + _rotationOffset + Vector3.down * 0.8f;
-            }
-
-            protected virtual Vector3 GetOffsetPosition(int segmentIndex) =>
-                Vector3.forward * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
-                    ? Vector3.zero
-                    : OverlappingPipeOffset);
-
-            protected virtual BaseEntity CreatePrimarySegment() => CreateSegment(GetSourcePosition(), _pipe.Rotation);
-
-            protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
-
+            private const string _prefab = "assets/prefabs/building core/wall.low/wall.low.prefab";
+            protected override string Prefab => _prefab;
 
             /// <summary>
             /// Initialize the properties of a pipe segment entity.
@@ -76,15 +109,14 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="pipeSegment">The pipe segment entity to prepare</param>
             /// <param name="pipeIndex">The index of this pipe segment</param>
-            protected virtual BaseEntity PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
+            protected override BuildingBlock PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
             {
-                pipeSegment.enableSaving = false;
-
-                PipeSegment.Attach(pipeSegment, _pipe);
-
-                if (PrimarySegment != pipeSegment)
-                    pipeSegment.SetParent(PrimarySegment);
-
+                var pipeSegmentEntity = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.grounded = true;
+                pipeSegmentEntity.grade = _pipe.Grade;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.SetHealthToMax();
                 if (InstanceConfig.AttachXmasLights)
                 {
                     var lights = GameManager.server.CreateEntity(
@@ -100,42 +132,10 @@ namespace Oxide.Plugins
                     lights.SetParent(pipeSegment);
                     PipeSegmentLights.Attach(lights, _pipe);
                 }
-                pipeSegment.enableSaving = false;
-                return pipeSegment;
+                return pipeSegmentEntity;
             }
 
-        }
-
-        class PipeFactoryLowWall : PipeFactory
-        {
-            protected override float PipeLength => 3f;
-
-            private const string _prefab = "assets/prefabs/building core/wall.low/wall.low.prefab";
-            protected override string Prefab => _prefab;
-
-            /// <summary>
-            /// Initialize the properties of a pipe segment entity.
-            /// Adds lights if enabled in the config
-            /// </summary>
-            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
-            /// <param name="pipeIndex">The index of this pipe segment</param>
-            protected override BaseEntity PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
-            {
-                var block = pipeSegment.GetComponent<BuildingBlock>();
-                if (block != null)
-                {
-                    block.grounded = true;
-                    block.grade = _pipe.Grade;
-                    block.enableSaving = false;
-                    block.Spawn();
-                    block.SetHealthToMax();
-                }
-                return base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
-            }
-
-            public PipeFactoryLowWall(Pipe pipe) : base(pipe)
-            {
-            }
+            public PipeFactoryLowWall(Pipe pipe) : base(pipe) { }
 
             public override void Upgrade(BuildingGrade.Enum grade)
             {
@@ -147,13 +147,59 @@ namespace Oxide.Plugins
                 }
             }
 
-            public override void SetHelath(float health)
+            public override void SetHealth(float health)
             {
                 foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
                 {
                     buildingBlock.health = health;
                     buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
                 }
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.forward * (PipeLength / 2))
+                       + _rotationOffset + Vector3.down * 0.8f;
+
+            protected override Quaternion Rotation => _pipe.Rotation;
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.forward * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+        }
+
+        private class PipeFactoryBarrel : PipeFactory<StorageContainer>
+        {
+            protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
+
+            public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
+
+            protected override float PipeLength => 1.1f;
+
+            public override void SetHealth(float health)
+            {
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.back * (PipeLength / 2 - 0.5f)) +
+                       _rotationOffset + Vector3.down * 0.05f;
+
+            protected override Quaternion Rotation =>
+                _pipe.Rotation * Quaternion.AngleAxis(90f, Vector3.forward) * Quaternion.AngleAxis(-90f, Vector3.left);
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.up * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+
+            public override void Reverse()
+            {
+                PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
+                PrimarySegment.SendNetworkUpdate();
             }
         }
     }
