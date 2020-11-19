@@ -57,6 +57,9 @@ namespace Oxide.Plugins
             [JsonProperty("permLevels", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
 
+            [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public ExperimentalConfig Experimental { get; set; }
+
             public class PermissionLevel
             {
                 [JsonProperty("upgradeLimit")]
@@ -123,6 +126,12 @@ namespace Oxide.Plugins
                     }
                 }
             }
+        }
+
+        class ExperimentalConfig
+        {
+            [JsonProperty("barrelPipe")]
+            public bool BarrelPipe { get; set; }
         }
 
         /// <summary>

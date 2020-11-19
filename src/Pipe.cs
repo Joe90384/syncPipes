@@ -231,7 +231,9 @@ namespace Oxide.Plugins
 
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = new PipeFactoryBarrel(this);
+                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false ? 
+                    (PipeFactory)new PipeFactoryBarrel(this) : 
+                    (PipeFactory)new PipeFactoryLowWall(this);
                 _factory.Create();
                 if (data.Health != 0)
                     SetHealth(data.Health);

@@ -511,6 +511,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             [JsonProperty("permLevels", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
 
+            [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public ExperimentalConfig Experimental { get; set; }
+
             public class PermissionLevel
             {
                 [JsonProperty("upgradeLimit")]
@@ -577,6 +580,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
             }
+        }
+
+        class ExperimentalConfig
+        {
+            [JsonProperty("barrelPipe")]
+            public bool BarrelPipe { get; set; }
         }
 
         /// <summary>
@@ -2547,7 +2556,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = new PipeFactoryBarrel(this);
+                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false ? 
+                    (PipeFactory)new PipeFactoryBarrel(this) : 
+                    (PipeFactory)new PipeFactoryLowWall(this);
                 _factory.Create();
                 if (data.Health != 0)
                     SetHealth(data.Health);

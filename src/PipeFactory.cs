@@ -199,7 +199,7 @@ namespace Oxide.Plugins
             public override void Reverse()
             {
                 PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
-                PrimarySegment.SendNetworkUpdate();
+                PrimarySegment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
             }
         }
     }
