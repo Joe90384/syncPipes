@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using ConVar;
 using Oxide.Core.Libraries.Covalence;
 using UnityEngine;
 
@@ -311,6 +312,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         void MenuHelp(ConsoleSystem.Arg arg) => Commands.MenuHelp(arg);
         [SyncPipesConsoleCommand("flushperms")]
         void FlushPlayerPermissions(ConsoleSystem.Arg arg) => Commands.FlushPlayerPermissions(arg);
+
+
         #endregion
 
         /// <summary>

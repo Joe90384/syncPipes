@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Oxide.Core.Libraries.Covalence;
 
 namespace Oxide.Plugins
@@ -22,6 +24,9 @@ namespace Oxide.Plugins
         /// </summary>
         public class PlayerHelper
         {
+            internal SidebarMenu SideBar { get; }
+
+
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
             /// </summary>
@@ -72,6 +77,7 @@ namespace Oxide.Plugins
             private PlayerHelper(BasePlayer player)
             {
                 Player = player;
+                SideBar = new SidebarMenu(this);
             }
 
             /// <summary>
@@ -434,6 +440,7 @@ namespace Oxide.Plugins
                 {
                     OverlayText.Hide(player.Player);
                     player.Menu?.Close(player);
+                    player.SideBar?.Close();
                 }
                 Players.Clear();
                 AllPipes.Clear();

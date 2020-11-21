@@ -55,9 +55,6 @@ namespace Oxide.Plugins
             protected virtual BaseEntity CreatePrimarySegment() => CreateSegment(SourcePosition, Rotation);
 
             protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
-
-
-
         }
 
         private abstract class PipeFactory<TEntity> : PipeFactory
@@ -85,7 +82,6 @@ namespace Oxide.Plugins
 
             public override void Create()
             {
-                Instance.Puts("Segments Count {0}", Segments.Count);
                 Segments.Add(PreparePipeSegmentEntity(0, CreatePrimarySegment()));
                 for (var i = 1; i < _segmentCount; i++)
                 {
@@ -176,7 +172,7 @@ namespace Oxide.Plugins
 
             public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
 
-            protected override float PipeLength => 1.1f;
+            protected override float PipeLength => 1.14f;
 
             public override void SetHealth(float health)
             {

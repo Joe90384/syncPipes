@@ -142,6 +142,7 @@ The more you upgrade your pipe the more filter slots you'll have.")]
             private string MakeCommand(string commandName, params object[] args)
             {
                 var command = $"{Instance.Name.ToLower()}.{commandName} {_pipe.Id} {string.Join(" ", args)}";
+                Instance.Puts(command);
                 return command;
             }
 
