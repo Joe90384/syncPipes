@@ -263,7 +263,6 @@ If this is true then a string of lights is attached to the top of each pipe.
 There are two permission levels that are set by default:
 
 - `syncpipes.admin` gives the player admin privileges. They can build as many pipes as they like and upgrade to any level. It also allow them to build and open pipes even in range of an unauthorised TC.
-- `syncpipes.user` give the player the ability to create and modify pipes
 
 #### Permission Levels
 
