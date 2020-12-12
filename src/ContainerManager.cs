@@ -218,11 +218,13 @@ namespace Oxide.Plugins
                         unusedPipes.Remove(validPipe);
                         var amountToMove = GetAmountToMove(firstItem.Key, quantity, pipesLeft--, validPipe,
                             firstItem.Value.FirstOrDefault()?.MaxStackable() ?? 0);
+                        if (amountToMove <= 0)
+                            break;
                         quantity -= amountToMove;
                         foreach (var itemStack in firstItem.Value)
                         {
                             var toMove = itemStack;
-                            if (amountToMove == 0) break;
+                            if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
                             if (Instance.FurnaceSplitter != null && validPipe.Destination.ContainerType == ContainerType.Oven &&
