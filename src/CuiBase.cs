@@ -23,7 +23,6 @@ namespace Oxide.Plugins
 
             public virtual void Show()
             {
-                Instance.Puts("Opening Panel {0}", PrimaryPanel);
                 if(PrimaryPanel != null)
                     CuiHelper.AddUi(PlayerHelper.Player, Container);
                 Visible = true;
@@ -31,7 +30,6 @@ namespace Oxide.Plugins
 
             public virtual void Close()
             {
-                Instance.Puts("Closing Panel {0}", PrimaryPanel);
                 if (PrimaryPanel != null)
                     CuiHelper.DestroyUi(PlayerHelper.Player, PrimaryPanel);
                 Visible = false;
@@ -91,6 +89,17 @@ namespace Oxide.Plugins
             protected void AddLabel(string parent, string text, int fontSize, TextAnchor alignment, string min = "0 0", string max = "1 1", string colour = "1 1 1 1") =>
                 Container.Add(MakeLabel(text, fontSize, alignment, min, max, colour), parent);
 
+            protected void AddLabelWithOutline(string parent, string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1",
+                string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1",
+                bool useGraphicAlpha = false)
+            {
+                var labelWithOutline = MakeLabelWithOutline(text, fontSize, alignment, min, max, textColour,
+                    outlineColour, distance, useGraphicAlpha);
+                labelWithOutline.Parent = parent;
+                Container.Add(labelWithOutline);
+            }
+
             /// <summary>
             /// Add the CUI Element with an image to the main elements container
             /// </summary>
@@ -129,10 +138,10 @@ namespace Oxide.Plugins
             /// <param name="max">Maximum coordinates of the panel (top right)</param>
             /// <param name="colour">"R G B A" colour of the panel</param>
             /// <param name="elementContainer">Which element container to add this element to. The default is the foreground container</param>
-            protected void AddButton(string parent, string command, string text = null, string min = "0 0", string max = "1 1", string colour = "0 0 0 0") =>
+            protected string AddButton(string parent, string command, string text = null, string min = "0 0", string max = "1 1", string colour = "0 0 0 0") =>
                 Container.Add(MakeButton(command, text, min, max, colour), parent);
 
-            public void Dispose()
+            public virtual void Dispose()
             {
                 Close();
                 Container = null;
@@ -181,13 +190,50 @@ namespace Oxide.Plugins
                 }
             };
 
-            protected CuiPanel MakePanel(string min, string max, string colour,
-                bool cursorEnabled) => new CuiPanel
+            protected CuiElement MakeLabelWithOutline(string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1", string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var label = MakeLabel(text, fontSize, alignment, min, max, textColour);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        label.Text,
+                        label.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
+
+            protected CuiPanel MakePanel(string min, string max, string colour, bool cursorEnabled) => new CuiPanel
             {
                 Image = { Color = colour },
                 RectTransform = { AnchorMin = min, AnchorMax = max },
                 CursorEnabled = cursorEnabled
             };
+
+            protected CuiElement MakePanelWithOutline(string min, string max, string colour, bool cursorEnabled, string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var panel = MakePanel(min, max, colour, cursorEnabled);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        panel.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
         }
 
         internal class ToggleButton: CuiMenuBase
@@ -195,6 +241,8 @@ namespace Oxide.Plugins
             private float _toggleTop;
             private float _toggleBottom;
             private bool _state;
+            private string _trueText;
+            private string _falseText;
             public float Height { get; }
 
             public bool State
@@ -203,7 +251,6 @@ namespace Oxide.Plugins
                 set
                 {
                     _state = value;
-                    Instance.Puts("Toggling {0}", value);
                     SetToggle();
                     if(Visible)
                         Refresh();
@@ -212,7 +259,6 @@ namespace Oxide.Plugins
 
             private void SetToggle()
             {
-                Instance.Puts("Top {0}, Bottom {1}", _toggleTop, _toggleBottom);
                 if (_state)
                 {
                     Toggle.RectTransform.AnchorMin = $"0.75 {_toggleBottom}";
@@ -223,8 +269,8 @@ namespace Oxide.Plugins
                     ValuePanel.RectTransform.AnchorMax = $"0.75 {_toggleTop}";
                     ValuePanel.RectTransform.OffsetMax = "0 0";
                     ValuePanel.RectTransform.OffsetMin = "0 0";
-                    ValuePanel.Image.Color = "0 0.7 0 1";
-                    Value.Text.Text = "On";
+                    ValuePanel.Image.Color = "0.3 0.3 0.3 0.9";
+                    Value.Text.Text = _trueText;
                 }
                 else
                 {
@@ -236,8 +282,8 @@ namespace Oxide.Plugins
                     ValuePanel.RectTransform.AnchorMax = $"1 {_toggleTop}";
                     ValuePanel.RectTransform.OffsetMax = "0 0";
                     ValuePanel.RectTransform.OffsetMin = "0 0";
-                    ValuePanel.Image.Color = "0.7 0 0 1";
-                    Value.Text.Text = "Off";
+                    ValuePanel.Image.Color = "0.3 0.3 0.3 0.9";
+                    Value.Text.Text = _falseText;
                 }
             }
 
@@ -246,13 +292,14 @@ namespace Oxide.Plugins
             private CuiPanel ValuePanel { get; }
             private CuiLabel Value { get; }
 
-            internal ToggleButton(PlayerHelper playerHelper, string toggleCommand, float top, float left, float width, float lineHeight, string text, float opacity = 0): base(playerHelper)
+            internal ToggleButton(PlayerHelper playerHelper, string toggleCommand, float top, float left, float width, float lineHeight, string text, float opacity = 0, string trueText = "On", string falseText = "Off"): base(playerHelper)
             {
+                _trueText = trueText;
+                _falseText = falseText;
                 var lines = text.Count(a => a == '\n') + 1;
                 Height = lines * lineHeight;
                 var max = $"{left + width} {top}";
                 var min = $"{left} {top - Height}";
-                Instance.Puts("{0}, {1}", min, max);
                 PrimaryPanel = Container.Add(MakePanel(min, max, $"0 0 0 {opacity}", false));
                 var button = MakeButton(MakeCommand(toggleCommand));
                 var togglePanel = Container.Add(MakePanel("0.7 0.1", "0.97 0.9", "0 0 0 0", false), PrimaryPanel);
@@ -261,7 +308,7 @@ namespace Oxide.Plugins
                 _toggleTop = 1 - padding;
                 _toggleBottom = padding;
 
-                Toggle = MakePanel("0 0", "1 1", "0 0 0 1", false);
+                Toggle = MakePanel("0 0", "1 1", "0 0 0 0.9", false);
                 ValuePanel = MakePanel("0 0", "1 1", "0 0 0 0", false);
                 Value = MakeLabel("", 12, TextAnchor.MiddleCenter);
                 var labelPanel = Container.Add(ValuePanel, togglePanel);

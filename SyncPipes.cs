@@ -1025,7 +1025,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public virtual void Show()
             {
-                Instance.Puts("Opening Panel {0}", PrimaryPanel);
                 if(PrimaryPanel != null)
                     CuiHelper.AddUi(PlayerHelper.Player, Container);
                 Visible = true;
@@ -1033,7 +1032,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public virtual void Close()
             {
-                Instance.Puts("Closing Panel {0}", PrimaryPanel);
                 if (PrimaryPanel != null)
                     CuiHelper.DestroyUi(PlayerHelper.Player, PrimaryPanel);
                 Visible = false;
@@ -1093,6 +1091,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected void AddLabel(string parent, string text, int fontSize, TextAnchor alignment, string min = "0 0", string max = "1 1", string colour = "1 1 1 1") =>
                 Container.Add(MakeLabel(text, fontSize, alignment, min, max, colour), parent);
 
+            protected void AddLabelWithOutline(string parent, string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1",
+                string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1",
+                bool useGraphicAlpha = false)
+            {
+                var labelWithOutline = MakeLabelWithOutline(text, fontSize, alignment, min, max, textColour,
+                    outlineColour, distance, useGraphicAlpha);
+                labelWithOutline.Parent = parent;
+                Container.Add(labelWithOutline);
+            }
+
             /// <summary>
             /// Add the CUI Element with an image to the main elements container
             /// </summary>
@@ -1131,10 +1140,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="max">Maximum coordinates of the panel (top right)</param>
             /// <param name="colour">"R G B A" colour of the panel</param>
             /// <param name="elementContainer">Which element container to add this element to. The default is the foreground container</param>
-            protected void AddButton(string parent, string command, string text = null, string min = "0 0", string max = "1 1", string colour = "0 0 0 0") =>
+            protected string AddButton(string parent, string command, string text = null, string min = "0 0", string max = "1 1", string colour = "0 0 0 0") =>
                 Container.Add(MakeButton(command, text, min, max, colour), parent);
 
-            public void Dispose()
+            public virtual void Dispose()
             {
                 Close();
                 Container = null;
@@ -1183,13 +1192,50 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             };
 
-            protected CuiPanel MakePanel(string min, string max, string colour,
-                bool cursorEnabled) => new CuiPanel
+            protected CuiElement MakeLabelWithOutline(string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1", string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var label = MakeLabel(text, fontSize, alignment, min, max, textColour);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        label.Text,
+                        label.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
+
+            protected CuiPanel MakePanel(string min, string max, string colour, bool cursorEnabled) => new CuiPanel
             {
                 Image = { Color = colour },
                 RectTransform = { AnchorMin = min, AnchorMax = max },
                 CursorEnabled = cursorEnabled
             };
+
+            protected CuiElement MakePanelWithOutline(string min, string max, string colour, bool cursorEnabled, string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var panel = MakePanel(min, max, colour, cursorEnabled);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        panel.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
         }
 
         internal class ToggleButton: CuiMenuBase
@@ -1197,6 +1243,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             private float _toggleTop;
             private float _toggleBottom;
             private bool _state;
+            private string _trueText;
+            private string _falseText;
             public float Height { get; }
 
             public bool State
@@ -1205,7 +1253,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 set
                 {
                     _state = value;
-                    Instance.Puts("Toggling {0}", value);
                     SetToggle();
                     if(Visible)
                         Refresh();
@@ -1214,7 +1261,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private void SetToggle()
             {
-                Instance.Puts("Top {0}, Bottom {1}", _toggleTop, _toggleBottom);
                 if (_state)
                 {
                     Toggle.RectTransform.AnchorMin = $"0.75 {_toggleBottom}";
@@ -1225,8 +1271,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     ValuePanel.RectTransform.AnchorMax = $"0.75 {_toggleTop}";
                     ValuePanel.RectTransform.OffsetMax = "0 0";
                     ValuePanel.RectTransform.OffsetMin = "0 0";
-                    ValuePanel.Image.Color = "0 0.7 0 1";
-                    Value.Text.Text = "On";
+                    ValuePanel.Image.Color = "0.3 0.3 0.3 0.9";
+                    Value.Text.Text = _trueText;
                 }
                 else
                 {
@@ -1238,8 +1284,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     ValuePanel.RectTransform.AnchorMax = $"1 {_toggleTop}";
                     ValuePanel.RectTransform.OffsetMax = "0 0";
                     ValuePanel.RectTransform.OffsetMin = "0 0";
-                    ValuePanel.Image.Color = "0.7 0 0 1";
-                    Value.Text.Text = "Off";
+                    ValuePanel.Image.Color = "0.3 0.3 0.3 0.9";
+                    Value.Text.Text = _falseText;
                 }
             }
 
@@ -1248,13 +1294,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             private CuiPanel ValuePanel { get; }
             private CuiLabel Value { get; }
 
-            internal ToggleButton(PlayerHelper playerHelper, string toggleCommand, float top, float left, float width, float lineHeight, string text, float opacity = 0): base(playerHelper)
+            internal ToggleButton(PlayerHelper playerHelper, string toggleCommand, float top, float left, float width, float lineHeight, string text, float opacity = 0, string trueText = "On", string falseText = "Off"): base(playerHelper)
             {
+                _trueText = trueText;
+                _falseText = falseText;
                 var lines = text.Count(a => a == '\n') + 1;
                 Height = lines * lineHeight;
                 var max = $"{left + width} {top}";
                 var min = $"{left} {top - Height}";
-                Instance.Puts("{0}, {1}", min, max);
                 PrimaryPanel = Container.Add(MakePanel(min, max, $"0 0 0 {opacity}", false));
                 var button = MakeButton(MakeCommand(toggleCommand));
                 var togglePanel = Container.Add(MakePanel("0.7 0.1", "0.97 0.9", "0 0 0 0", false), PrimaryPanel);
@@ -1263,7 +1310,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 _toggleTop = 1 - padding;
                 _toggleBottom = padding;
 
-                Toggle = MakePanel("0 0", "1 1", "0 0 0 1", false);
+                Toggle = MakePanel("0 0", "1 1", "0 0 0 0.9", false);
                 ValuePanel = MakePanel("0 0", "1 1", "0 0 0 0", false);
                 Value = MakeLabel("", 12, TextAnchor.MiddleCenter);
                 var labelPanel = Container.Add(ValuePanel, togglePanel);
@@ -3697,6 +3744,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
                 PrimarySegment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
             }
+
+            protected override BaseEntity CreateSecondarySegment(int segmentIndex)
+            {
+                return CreateSegment(GetOffsetPosition(segmentIndex),
+                    segmentIndex % 2 == 0 ? Quaternion.Euler(0, 0, 0) : Quaternion.Euler(0, 90f, 0));
+            }
         }
         #endregion
         #region PipeSegment
@@ -4625,38 +4678,127 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             BuildingGrade.Enum grade) =>
             Handlers.HandlePipeUpgrade(entity, PlayerHelper.Get(player), grade);
         #endregion
+        #region TestMenu
+
+        class TestMenu
+        {
+            public static void Show(BasePlayer player)
+            {
+                Instance.Puts("Showing Test Menu");
+
+                var container = new CuiElementContainer();
+
+                var element = new CuiElement
+                {
+                    Name = "TestElement",
+                    FadeOut = 1f,
+                    Parent = "Hud.Menu",
+                    Components =
+                    {
+                        new CuiImageComponent
+                        {
+                            Color = "0 0 0 0.5",
+                            FadeIn = 1f
+                        },
+                        new CuiRectTransformComponent
+                        {
+                            AnchorMax = "0.75 0.75",
+                            AnchorMin = "0.25 0.25",
+                            OffsetMin = "0 0",
+                            OffsetMax = "0 0"
+                        },
+                        new CuiNeedsCursorComponent
+                        {
+
+                        }
+                    }
+                };
+
+                var secondElement = new CuiElement
+                {
+                    Name = "TestElement2",
+                    FadeOut = 1f,
+                    Parent = "TestElement",
+                    Components =
+                    {
+                        new CuiOutlineComponent
+                        {
+                            //UseGraphicAlpha = true,
+                            Distance = "1 1",
+                            Color = "1 1 1 0.5",
+                        },
+                        new CuiImageComponent
+                        {
+                            Color = "0 0 0 0.8",
+                            FadeIn = 0f
+                        },
+                        new CuiRectTransformComponent
+                        {
+                            AnchorMax = "0.75 0.75",
+                            AnchorMin = "0.25 0.25",
+                            OffsetMin = "0 0",
+                            OffsetMax = "0 0"
+                        }
+                    }
+                };
+                var elements = new List<CuiElement>();
+                elements.Add(element);
+                elements.Add(secondElement);
+
+
+                //container.Add(element);
+
+                CuiHelper.AddUi(player, elements);
+                Instance.timer.Once(10f, () =>
+                {
+                    CuiHelper.DestroyUi(player, "TestElement");
+                    Instance.Puts("Closing Test Menu");
+
+                });
+            }
+        }
+        [SyncPipesConsoleCommand("test.show")]
+        void OpenTest(ConsoleSystem.Arg arg)
+        {
+            TestMenu.Show(arg.Player());
+        }
+        #endregion
         #region SidebarMenu
         #region SidebarMenu
 
         internal class SidebarMenu: CuiMenuBase
         {
+            internal string CloseButton { get; }
+            internal ToggleButton Open { get; set; }
             internal ToggleButton PlaceSingle { get; set; }
-            internal ToggleButton PlaceMultiple { get; set; }
             internal ToggleButton Remove { get; set; }
             internal ToggleButton Upgrade { get; set; }
 
             internal CuiLabel Running { get; set; }
             internal CuiLabel NotRunning { get; set; }
             internal CuiLabel Total { get; set; }
+            internal Timer Timer { get; set; }
 
             public SidebarMenu(PlayerHelper playerHelper): base(playerHelper)
             {
                 var offset = 0.005f;
-                var position = 0.95f;
-                PlaceSingle = new ToggleButton(playerHelper, "toggle.place", 0.95f, 0.85f, 0.14f, 0.03f, "Place a single pipe", 0.5f);
+                var position = 0.93f;
+
+                Open = new ToggleButton(playerHelper, "toggle.open", position, 0.85f, 0.14f, 0.03f, "Hitting pipes mode", 0, "Open", "Info");
+                position -= Open.Height + offset;
+                PlaceSingle = new ToggleButton(playerHelper, "toggle.place", position, 0.85f, 0.14f, 0.03f, "Placing pipes mode", 0, "Single", "Multi");
                 position -= PlaceSingle.Height + offset;
-                PlaceMultiple = new ToggleButton(playerHelper, "toggle.continuous", position, 0.85f, 0.14f, 0.03f, "Place multiple pipes", 0.5f);
-                position -= PlaceMultiple.Height + offset;
-                Remove = new ToggleButton(playerHelper,"toggle.remove", position, 0.85f, 0.14f, 0.03f, "Remove pipes", 0.5f);
-                position -= PlaceMultiple.Height + offset;
-                Upgrade = new ToggleButton(playerHelper, "toggle.upgrade", position, 0.85f, 0.14f, 0.03f, "Upgrade pipes", 0.5f);
+                Remove = new ToggleButton(playerHelper,"toggle.remove", position, 0.85f, 0.14f, 0.03f, "Remove pipes mode", 0, "Single", "Multi");
+                position -= Remove.Height + offset;
+                Upgrade = new ToggleButton(playerHelper, "toggle.upgrade", position, 0.85f, 0.14f, 0.03f, "Upgrade pipes", 0);
                 position -= Upgrade.Height + offset;
-                PrimaryPanel = AddPanel("Hud", "0 0", "1 1");
-                AddPanel(PrimaryPanel, $"0.84 {position - 0.1f - offset}", "1 1", "0 0 0 0.5");
-                AddLabel(PrimaryPanel, "sync<size=14>Pipes</size> Manager", 12, TextAnchor.MiddleCenter, "0.851 0.948", "0.981 0.998", "0 0 0 0.8");
-                AddLabel(PrimaryPanel, "sync<color=#fc5a03><size=14>Pipes</size></color> Manager", 12, TextAnchor.MiddleCenter, "0.85 0.95", "0.98 1");
-                AddButton(PrimaryPanel, MakeCommand("sidebar.close"), "X", "0.975 0.97", "0.985 0.99", "0.2 0.2 0.2 0.8");
-                var statsPanel = AddPanel(PrimaryPanel, $"0.85 {position - 0.1f}", $"0.99 {position}", "0 0 0 0");
+                PrimaryPanel = AddPanel("Under", "0 0", "1 1");
+                AddPanel(PrimaryPanel, $"0.84 {position - 0.1f - offset}", "1 1", "0 0 0 0");
+                var toggleModePanel = AddPanel(PrimaryPanel, $"0.845 {position}", "0.995 0.95", "0 0 0 0.8");
+                AddLabel(toggleModePanel, "Settings:", 12, TextAnchor.UpperLeft, "0.05 0.01", "0.99 0.99");
+                AddLabelWithOutline(PrimaryPanel, "sync<color=#fc5a03><size=14>Pipes</size></color> Manager", 12, TextAnchor.MiddleCenter, "0.85 0.95", "0.98 1");
+                CloseButton = AddButton("Hud.Menu", MakeCommand("sidebar.close"), "X", "0.985 0.97", "0.995 0.99", "0.2 0.2 0.2 0.8");
+                var statsPanel = AddPanel(PrimaryPanel, $"0.845 {position - 0.1f}", $"0.995 {position - 0.01f}", "0 0 0 0.8");
                 AddLabel(statsPanel, "Pipe Stats:", 12, TextAnchor.MiddleLeft, "0.05 0.7", "1 1");
                 Running = MakeLabel("", 12, TextAnchor.MiddleLeft, "0.1 0.5", "1 0.7");
                 NotRunning = MakeLabel("", 12, TextAnchor.MiddleLeft, "0.1 0.3", "1 0.5");
@@ -4664,24 +4806,25 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Container.Add(Running, statsPanel);
                 Container.Add(NotRunning, statsPanel);
                 Container.Add(Total, statsPanel);
-                SetStats();
             }
 
             public override void Show()
             {
                 if (Visible) return;
+                SetStats();
                 base.Show();
+                Open.Show();
                 PlaceSingle.Show();
-                PlaceMultiple.Show();
                 Remove.Show();
                 Upgrade.Show();
+                Timer = Instance.timer.Every(5f, Refresh);
             }
 
             private void SetStats()
             {
                 var running = PlayerHelper.Pipes.Count(a => a.Value.IsEnabled);
                 var notRunning = PlayerHelper.Pipes.Count(a => !a.Value.IsEnabled);
-                var total = PlayerHelper.Pipes.Count();
+                var total = PlayerHelper.Pipes.Count;
                 Running.Text.Text = $"Running: {running}";
                 NotRunning.Text.Text = $"Not Running: {notRunning}";
                 Total.Text.Text = $"Total: {total}";
@@ -4690,22 +4833,35 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public override void Close()
             {
                 if (!Visible) return;
-                Instance.Puts("Closing Sidebar");
+                base.Close();
+                if(CloseButton != null)
+                    CuiHelper.DestroyUi(PlayerHelper.Player, CloseButton);
+                Open.Close();
                 PlaceSingle.Close();
-                PlaceMultiple.Close();
                 Remove.Close();
                 Upgrade.Close();
-                base.Close();
+                Timer?.Destroy();
             }
 
-            public override void Refresh()
+            //public override void Refresh()
+            //{
+            //    Instance.Puts("Refresh");
+            //    Close();
+            //    Show();
+            //}
+
+            public override void Dispose()
             {
-                base.Close();
-                SetStats();
-                base.Show();
+                Timer?.Destroy();
             }
         }
 
+        [SyncPipesConsoleCommand("toggle.open")]
+        void ToggleOpenPipe(ConsoleSystem.Arg arg)
+        {
+            var sideBar = PlayerHelper.Get(arg.Player()).SideBar;
+            sideBar.Open.State = !sideBar.Open.State;
+        }
 
         [SyncPipesConsoleCommand("sidebar.show")]
         void OpenSidebar(ConsoleSystem.Arg arg)
@@ -4722,25 +4878,22 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         [SyncPipesConsoleCommand("toggle.place")]
         void TogglePlacePipe(ConsoleSystem.Arg arg)
         {
-            Instance.Puts("Toggling Place");
             var sideBar = PlayerHelper.Get(arg.Player()).SideBar;
             sideBar.PlaceSingle.State = !sideBar.PlaceSingle.State;
-        }
-
-        [SyncPipesConsoleCommand("toggle.continuous")]
-        void ToggleContinousPlacePipe(ConsoleSystem.Arg arg)
-        {
-            Instance.Puts("Toggling Continuous");
-            var sideBar = PlayerHelper.Get(arg.Player()).SideBar;
-            sideBar.PlaceMultiple.State = !sideBar.PlaceMultiple.State;
         }
 
         [SyncPipesConsoleCommand("toggle.remove")]
         void ToggleRemovePipe(ConsoleSystem.Arg arg)
         {
-            Instance.Puts("Toggling Remove");
             var sideBar = PlayerHelper.Get(arg.Player()).SideBar;
             sideBar.Remove.State = !sideBar.Remove.State;
+        }
+
+        [SyncPipesConsoleCommand("toggle.upgrade")]
+        void ToggleUpgradePipe(ConsoleSystem.Arg arg)
+        {
+            var sideBar = PlayerHelper.Get(arg.Player()).SideBar;
+            sideBar.Upgrade.State = !sideBar.Upgrade.State;
         }
 
         #endregion

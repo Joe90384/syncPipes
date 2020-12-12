@@ -119,6 +119,7 @@
     <Compile Include="Pipe.cs" />
     <Compile Include="PipeSegment.cs" />
     <Compile Include="PlayerHelper.cs" />
+    <Compile Include="TestMenu.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

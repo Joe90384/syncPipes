@@ -197,6 +197,12 @@ namespace Oxide.Plugins
                 PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
                 PrimarySegment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
             }
+
+            protected override BaseEntity CreateSecondarySegment(int segmentIndex)
+            {
+                return CreateSegment(GetOffsetPosition(segmentIndex),
+                    segmentIndex % 2 == 0 ? Quaternion.Euler(0, 0, 0) : Quaternion.Euler(0, 90f, 0));
+            }
         }
     }
 }
