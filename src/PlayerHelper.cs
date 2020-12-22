@@ -25,6 +25,7 @@ namespace Oxide.Plugins
         public class PlayerHelper
         {
             internal SidebarMenu SideBar { get; }
+            internal MenuTest MenuTest { get; }
 
 
             /// <summary>
@@ -78,6 +79,7 @@ namespace Oxide.Plugins
             {
                 Player = player;
                 SideBar = new SidebarMenu(this);
+                MenuTest = new MenuTest(this);
             }
 
             /// <summary>
@@ -440,6 +442,7 @@ namespace Oxide.Plugins
                 {
                     OverlayText.Hide(player.Player);
                     player.Menu?.Close(player);
+                    player.MenuTest?.Close();
                     player.SideBar?.Close();
                 }
                 Players.Clear();

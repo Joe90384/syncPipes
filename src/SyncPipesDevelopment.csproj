@@ -98,6 +98,11 @@
   <ItemGroup>
     <Compile Include="Attributes.cs" />
     <Compile Include="Commands.cs" />
+    <Compile Include="Components\UIComponentBase.cs" />
+    <Compile Include="Components\ToggleButton.cs" />
+    <Compile Include="Components\UIGrid.cs" />
+    <Compile Include="Components\UIPanel.cs" />
+    <Compile Include="Components\UIStackPanel.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="ContainerManager.cs" />
     <Compile Include="ContainerHelper.cs" />
@@ -106,6 +111,7 @@
     <Compile Include="EntityHooks.cs" />
     <Compile Include="Filter.cs" />
     <Compile Include="Handlers.cs" />
+    <Compile Include="MenuTest.cs" />
     <Compile Include="Messages.cs" />
     <Compile Include="OverlayText.cs" />
     <Compile Include="PipeFactory.cs" />

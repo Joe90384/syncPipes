@@ -176,6 +176,11 @@ namespace Oxide.Plugins
 
             public override void SetHealth(float health)
             {
+                foreach (var segment in Segments.OfType<LootContainer>())
+                {
+                    segment.health = health;
+                    segment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
             }
 
             protected override Vector3 SourcePosition =>
@@ -200,8 +205,7 @@ namespace Oxide.Plugins
 
             protected override BaseEntity CreateSecondarySegment(int segmentIndex)
             {
-                return CreateSegment(GetOffsetPosition(segmentIndex),
-                    segmentIndex % 2 == 0 ? Quaternion.Euler(0, 0, 0) : Quaternion.Euler(0, 90f, 0));
+                return CreateSegment(GetOffsetPosition(segmentIndex), Quaternion.Euler(0f, segmentIndex *80f, 0f));
             }
         }
     }

@@ -32,7 +32,7 @@ namespace Oxide.Plugins
                 position -= Remove.Height + offset;
                 Upgrade = new ToggleButton(playerHelper, "toggle.upgrade", position, 0.85f, 0.14f, 0.03f, "Upgrade pipes", 0);
                 position -= Upgrade.Height + offset;
-                PrimaryPanel = AddPanel("Under", "0 0", "1 1");
+                PrimaryPanel = AddPanel("Under", "0 0", "1 1", cursorEnabled: true);
                 AddPanel(PrimaryPanel, $"0.84 {position - 0.1f - offset}", "1 1", "0 0 0 0");
                 var toggleModePanel = AddPanel(PrimaryPanel, $"0.845 {position}", "0.995 0.95", "0 0 0 0.8");
                 AddLabel(toggleModePanel, "Settings:", 12, TextAnchor.UpperLeft, "0.05 0.01", "0.99 0.99");
