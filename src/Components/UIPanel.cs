@@ -52,7 +52,7 @@ namespace Oxide.Plugins
                 _components.Add(component);
                 component.Parent = Element;
                 if(Rendered)
-                    component.Create();
+                    component.Show();
             }
 
             public void Add(CuiElement element)
@@ -66,7 +66,7 @@ namespace Oxide.Plugins
             public void Remove(UIComponent component)
             {
                 _components.Remove(component);
-                component.Destroy();
+                component.Hide();
             }
 
             public void Remove(CuiElement element)
@@ -76,10 +76,10 @@ namespace Oxide.Plugins
                     CuiHelper.DestroyUi(_player, element.Name);
             }
 
-            public override void Create(List<CuiElement> elements)
+            public override void Show(List<CuiElement> elements)
             {
-                base.Create(elements);
-                _components.ForEach(a=>a.Create(elements));
+                base.Show(elements);
+                _components.ForEach(a=>a.Show(elements));
                 elements.AddRange(_elements);
             }
 

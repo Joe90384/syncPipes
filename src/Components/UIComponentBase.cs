@@ -23,7 +23,13 @@ namespace Oxide.Plugins
                 Bottom
             }
 
-            public class Dimension
+            protected interface IDimension
+            {
+                float Absolute { get; set; }
+                float Relative { get; set; }
+            }
+
+            public class Dimension: IDimension
             {
 
                 private readonly UIComponent _component;
@@ -48,6 +54,12 @@ namespace Oxide.Plugins
                     }
                 }
 
+                float IDimension.Relative
+                {
+                    get { return _relative; }
+                    set { _relative = value; }
+                }
+
                 public float Absolute
                 {
                     get { return _absolute; }
@@ -59,6 +71,12 @@ namespace Oxide.Plugins
                     }
                 }
 
+                float IDimension.Absolute
+                {
+                    get { return _absolute; }
+                    set { _absolute = value; }
+                }
+
                 public void Update(float relative, float absolute)
                 {
                     _relative = relative;
@@ -66,13 +84,15 @@ namespace Oxide.Plugins
                     _component?.UpdateCoordinates();
                 }
 
+                
+
                 public override string ToString()
                 {
                     return $"Absolute: {Absolute}, Relative: {Relative}";
                 }
             }
 
-            protected void UpdateCoordinates(bool force = false)
+            protected virtual void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 float
@@ -181,27 +201,26 @@ namespace Oxide.Plugins
             public void Refresh()
             {
                 if (!Rendered) return;
-                Destroy();
-                Create();
+                Hide();
+                Show();
             }
 
-            public virtual void Create()
+            public virtual void Show()
             {
                 if (Rendered) return;
                 var elements = new List<CuiElement>();
-                Create(elements);
-                Instance.Puts("ElementsCount: {0}", elements.Count);
+                Show(elements);
                 CuiHelper.AddUi(_player, elements);
             }
 
-            public virtual void Create(List<CuiElement> elements)
+            public virtual void Show(List<CuiElement> elements)
             {
                 UpdateCoordinates(true);
                 elements.Add(Element);
                 Rendered = true;
             }
 
-            public virtual void Destroy()
+            public virtual void Hide()
             {
                 if (!Rendered) return;
                 Rendered = false;

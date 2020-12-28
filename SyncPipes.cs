@@ -2222,88 +2222,68 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         internal class MenuTest
         {
-            private CuiElement _element;
-
-            private PlayerHelper _playerHelper;
-            private UIPanel _panel;
-            private UIGrid _grid;
-            
+            private readonly UIComponent _component;
 
             public MenuTest(PlayerHelper playerHelper)
             {
-                _playerHelper = playerHelper;
-                //_panel = new UIPanel(playerHelper.Player)
-                //{
-                //    Colour = "1 1 1 1",
-                //    Top = 0.75f,
-                //    Left = 0.25f,
-                //    Width = 0.5f,
-                //    Height = 0.5f
-                //};
-                //_panel.Add(new UIPanel(playerHelper.Player)
-                //{
-                //    Colour = "0 0 0 1",
-                //    Top = 0.75f,
-                //    Left = 0.25f,
-                //    Width = 0.5f,
-                //    Height = 0.5f
-                //});
-
-                _grid = new UIGrid(playerHelper.Player, "grid")
+                Instance.Puts("Creating Menu Test");
+                var stackPanel = new UIStackPanel(playerHelper.Player, "StackPanel")
                 {
-                    HorizantalAlignement = UIComponent.HorizantalAlignements.Left,
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                    Left = {Absolute = 3f},
-                    Bottom = {Absolute = -3f},
-                    Width = {Relative = 0f, Absolute = 200f},
-                    Height = {Relative = 0f, Absolute = 300f}
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Vertical,
+                    Width = new UIComponent.Dimension() { Absolute = 0f, Relative = 0.5f }
                 };
-                _grid.AddRows(
-                    new UIGrid.Dimension(30f, false),
-                    new UIGrid.Dimension(1f, true),
-                new UIGrid.Dimension(30f, false)
-                );
-                _grid.AddColumns(
-                    new UIGrid.Dimension(30f, false),
-                    new UIGrid.Dimension(1f, true),
-                    new UIGrid.Dimension(30f, false)
-                );
 
-                _grid.Add(new UIPanel(playerHelper.Player, "panel1") {Colour = "0 0 0 1"}, 0, 0);
-                _grid.Add(new UIPanel(playerHelper.Player, "panel2") {Colour = "1 0 0 1"}, 0, 1);
-                //_grid.Add(new UIPanel(playerHelper.Player, "panel6") { Colour = "0 1 1 1" }, 0, 2, 3, 1);
-                _grid.Add(new UIPanel(playerHelper.Player, "panel3") {Colour = "0 1 0 1"}, 1, 1, 1, 2);
-                _grid.Add(new UIPanel(playerHelper.Player, "panel4") {Colour = "0 0 1 1"}, 1, 0, 2, 1);
-                _grid.Add(new UIPanel(playerHelper.Player, "panel5") {Colour = "1 1 0 1"}, 2, 1, 1, 1);
+                stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
+                stackPanel.Add(new UIPanel(playerHelper.Player, "panel2") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 0 1" });
+                stackPanel.Add(new UIPanel(playerHelper.Player, "panel3") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 0 1 1" });
+                stackPanel.Add(new UIPanel(playerHelper.Player, "panel4") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 1 0 1" });
+                stackPanel.Add(new UIPanel(playerHelper.Player, "panel5") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 1 1" });
+                _component = stackPanel;
 
-
-                //_element = new CuiElement()
+                //var grid = new UIGrid(playerHelper.Player, "grid")
                 //{
-                //    Name = "Test",
-                //    Parent = "Hud",
-                //    Components =
-                //    {
-                //        new CuiImageComponent() {Color = "1 1 1 1"},
-                //        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1"}
-                //    },
+                //    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                //    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                //    Left = { Absolute = 3f },
+                //    Bottom = { Absolute = -3f },
+                //    Width = { Relative = 0f, Absolute = 200f },
+                //    Height = { Relative = 0f, Absolute = 300f }
                 //};
-                //RaycastHit result;
-                //UnityEngine.Physics.Raycast(_playerHelper.Player.eyes.HeadRay(), out result, 1024f, 8|21);
-                //Instance.Puts("{0}",result.collider);
-                _playerHelper.Player.ShowToast(0, new Translate.Phrase("Hello World!", "Hello World!"));
+                //grid.AddRows(
+                //    new UIGrid.Dimension(50f, false),
+                //    new UIGrid.Dimension(50f, true),
+                //    new UIGrid.Dimension(50f, false)
+                //);
+                //grid.AddColumns(
+                //    new UIGrid.Dimension(50f, false),
+                //    new UIGrid.Dimension(50f, true),
+                //    new UIGrid.Dimension(50f, false)
+                //);
+
+                //grid.Add(new UIPanel(playerHelper.Player, "panel1") { Colour = "0 0 0 1" }, 0, 0);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel2") { Colour = "1 0 0 1" }, 0, 1);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel6") { Colour = "0 1 1 1" }, 0, 2, 3, 1);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel3") { Colour = "0 1 0 1" }, 1, 1, 1, 2);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel4") { Colour = "0 0 1 1" }, 1, 0, 2, 1);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel5") { Colour = "1 1 0 1" }, 2, 1, 1, 1);
+
+                //grid.AutoHeight = true;
+                //grid.AutoWidth = true;
+
+                //_component = grid;
             }
 
             public void Close()
             {
-                _grid.Destroy();
-                //CuiHelper.DestroyUi(_playerHelper.Player, "grid");
+                _component.Hide();
             }
 
             public void Show()
             {
-                //CuiHelper.AddUi(_playerHelper.Player, "[{\"name\":\"grid\",\"parent\":\"Hud\",\"components\":[{\"type\":\"UnityEngine.UI.Image\"},{\"type\":\"RectTransform\",\"anchormin\":\"0.25 0.25\",\"anchormax\":\"0.75 0.75\",\"offsetmin\":\"0 0\",\"offsetmax\":\"0 0\"}]},{\"name\":\"panel1\",\"parent\":\"grid\",\"components\":[{\"type\":\"UnityEngine.UI.Image\",\"color\":\"0 0 0 1\"},{\"type\":\"RectTransform\",\"anchormin\":\"0 0\",\"anchormax\":\"0 0\",\"offsetmin\":\"0 0\",\"offsetmax\":\"30 30\"}]},{\"name\":\"panel1\",\"parent\":\"grid\",\"components\":[{\"type\":\"UnityEngine.UI.Image\",\"color\":\"1 0 0 1\"},{\"type\":\"RectTransform\",\"anchormin\":\"0 0\",\"anchormax\":\"1 0\",\"offsetmin\":\"30 0\",\"offsetmax\":\"-30 30\"}]},{\"name\":\"panel1\",\"parent\":\"grid\",\"components\":[{\"type\":\"UnityEngine.UI.Image\",\"color\":\"0 1 0 1\"},{\"type\":\"RectTransform\",\"anchormin\":\"0 0\",\"anchormax\":\"1 1\",\"offsetmin\":\"0 30\",\"offsetmax\":\"-30 0\"}]}]");
-                _grid.Create();
-                //CuiHelper.AddUi(_playerHelper.Player, new List<CuiElement> { _element });
+                _component.Show();
 
             }
         }
@@ -2311,7 +2291,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         [SyncPipesConsoleCommand("menutest.show")]
         void OpenMenuTest(ConsoleSystem.Arg arg)
         {
-            Puts("Test");
             PlayerHelper.Get(arg.Player()).MenuTest.Show();
         }
 
@@ -3739,7 +3718,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         private class PipeFactoryBarrel : PipeFactory<StorageContainer>
         {
-            protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
+            protected override string Prefab => "assets/bundled/prefabs/radtown/oil_barrel.prefab";
 
             public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
 
@@ -3897,7 +3876,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="player">Player to get the player helper for</param>
             /// <returns></returns>
             public static PlayerHelper Get(BasePlayer player) => 
-                player == null ? null : Players.GetOrAdd(player.userID, new PlayerHelper(player));
+                player == null ? null : Players.GetOrAdd(player.userID, (p) => new PlayerHelper(player));
 
             /// <summary>
             /// Create a player helper
@@ -4894,7 +4873,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Bottom
             }
 
-            public class Dimension
+            protected interface IDimension
+            {
+                float Absolute { get; set; }
+                float Relative { get; set; }
+            }
+
+            public class Dimension: IDimension
             {
 
                 private readonly UIComponent _component;
@@ -4919,6 +4904,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
 
+                float IDimension.Relative
+                {
+                    get { return _relative; }
+                    set { _relative = value; }
+                }
+
                 public float Absolute
                 {
                     get { return _absolute; }
@@ -4930,6 +4921,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
 
+                float IDimension.Absolute
+                {
+                    get { return _absolute; }
+                    set { _absolute = value; }
+                }
+
                 public void Update(float relative, float absolute)
                 {
                     _relative = relative;
@@ -4937,13 +4934,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _component?.UpdateCoordinates();
                 }
 
+                
+
                 public override string ToString()
                 {
                     return $"Absolute: {Absolute}, Relative: {Relative}";
                 }
             }
 
-            protected void UpdateCoordinates(bool force = false)
+            protected virtual void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 float
@@ -5052,27 +5051,26 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public void Refresh()
             {
                 if (!Rendered) return;
-                Destroy();
-                Create();
+                Hide();
+                Show();
             }
 
-            public virtual void Create()
+            public virtual void Show()
             {
                 if (Rendered) return;
                 var elements = new List<CuiElement>();
-                Create(elements);
-                Instance.Puts("ElementsCount: {0}", elements.Count);
+                Show(elements);
                 CuiHelper.AddUi(_player, elements);
             }
 
-            public virtual void Create(List<CuiElement> elements)
+            public virtual void Show(List<CuiElement> elements)
             {
                 UpdateCoordinates(true);
                 elements.Add(Element);
                 Rendered = true;
             }
 
-            public virtual void Destroy()
+            public virtual void Hide()
             {
                 if (!Rendered) return;
                 Rendered = false;
@@ -5085,15 +5083,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         class UIGrid : UIComponent
         {
-            protected interface IGridDimension
+            protected new interface IDimension
             {
-                UIComponent.Dimension Dimension { get; }
+                UIComponent.IDimension Dimension { get; }
                 UIGrid Grid { set; }
                 float Size { get; }
                 bool Relative { get; }
             }
 
-            public new class Dimension: IGridDimension
+            public new class Dimension: IDimension
             {
                 private readonly float _size;
                 private readonly bool _relative;
@@ -5105,11 +5103,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _relative = relative;
                 }
 
-                UIComponent.Dimension IGridDimension.Dimension { get; } = new UIComponent.Dimension();
+                UIComponent.IDimension IDimension.Dimension { get; } = new UIComponent.Dimension();
 
-                UIGrid IGridDimension.Grid { set { _grid = value; } }
-                float IGridDimension.Size => _size;
-                bool IGridDimension.Relative => _relative;
+                UIGrid IDimension.Grid { set { _grid = value; } }
+                float IDimension.Size
+                {
+                    get { return _size; }
+                }
+
+                bool IDimension.Relative
+                {
+                    get { return _relative; }
+                }
             }
 
             public class Component
@@ -5189,10 +5194,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 public void Create(List<CuiElement> elements)
                 {
                     UpdateRectTransform();
-                    _component.Create(elements);
+                    _component.Show(elements);
                 }
 
-                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IGridDimension> dimensions)
+                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IDimension> dimensions)
                 {
                     float absolute = 0, relative = 0;
                     foreach (var dimension in dimensions)
@@ -5204,10 +5209,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected readonly CuiImageComponent _imageComponent = new CuiImageComponent(){Color = "0 0 0 0"};
-            protected readonly List<IGridDimension> _rows = new List<IGridDimension>();
-            protected readonly List<IGridDimension> _columns = new List<IGridDimension>();
-            protected readonly List<Component> _gridComponents = new List<Component>();
+            private readonly CuiImageComponent _imageComponent = new CuiImageComponent(){Color = "0 0 0 0"};
+            protected readonly List<IDimension> _rows = new List<IDimension>();
+            protected readonly List<IDimension> _columns = new List<IDimension>();
+            private readonly List<Component> _gridComponents = new List<Component>();
+            private bool _autoWidth;
+            private bool _autoHeight;
 
             public UIGrid(BasePlayer player) : base(player)
             {
@@ -5234,7 +5241,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public void AddRows(params Dimension[] dimensions)
             {
-                _rows.AddRange(dimensions.OfType<IGridDimension>().Where(a=>a.Size > 0));
+                _rows.AddRange(dimensions.OfType<IDimension>().Where(a=>a.Size > 0));
                 UpdateDimensions(_rows);
             }
 
@@ -5245,11 +5252,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public void AddColumns(params Dimension[] dimensions)
             {
-                _columns.AddRange(dimensions.OfType<IGridDimension>().Where(a=>a.Size > 0));
+                _columns.AddRange(dimensions.OfType<IDimension>().Where(a=>a.Size > 0));
                 UpdateDimensions(_columns);
             }
 
-            protected void UpdateDimensions(List<IGridDimension> dimensions, bool force = false)
+            protected void UpdateDimensions(List<IDimension> dimensions, bool force = false)
             {
                 if (!Rendered && !force) return;
                 var sumAbsolute = 0f;
@@ -5276,17 +5283,42 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public void Remove(UIComponent component)
             {
-                component.Destroy();
+                component.Hide();
             }
 
-            public override void Create()
+            protected override void UpdateCoordinates(bool force = false)
             {
-                var elements = new List<CuiElement>();
-                Create(elements);
-                CuiHelper.AddUi(_player, elements);
+                if (!Rendered && !force) return;
+                if (AutoWidth)
+                {
+                    _width.Absolute = 0f;
+                    _width.Relative = 0f;
+                    foreach (var column in _columns.Where(a=>!a.Relative))
+                    {
+                        _width.Absolute += column.Dimension.Absolute;
+                    }
+                }
+                if (AutoHeight)
+                {
+                    _height.Absolute = 0f;
+                    _height.Relative = 0f;
+                    foreach (var row in _rows.Where(a => !a.Relative))
+                    {
+                        _height.Absolute += row.Dimension.Absolute;
+                    }
+                }
+                base.UpdateCoordinates(force);
             }
 
-            public override void Create(List<CuiElement> elements)
+            //public override void Show()
+            //{
+            //    if(Rend)
+            //    var elements = new List<CuiElement>();
+            //    Show(elements);
+            //    CuiHelper.AddUi(_player, elements);
+            //}
+
+            public override void Show(List<CuiElement> elements)
             {
                 UpdateDimensions(_rows, true);
                 UpdateDimensions(_columns, true);
@@ -5294,6 +5326,31 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 elements.Add(Element);
                 _gridComponents.ForEach(a => a.Create(elements));
                 Rendered = true;
+            }
+
+            public string Colour
+            {
+                get
+                {
+                    return _imageComponent.Color;
+                }
+                set
+                {
+                    _imageComponent.Color = value;
+                    Refresh();
+                }
+            }
+
+            public bool AutoWidth
+            {
+                get { return _autoWidth; }
+                set { _autoWidth = value; UpdateCoordinates(); }
+            }
+
+            public bool AutoHeight
+            {
+                get { return _autoHeight; }
+                set { _autoHeight = value; UpdateCoordinates(); }
             }
         }
         #endregion
@@ -5344,7 +5401,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 _components.Add(component);
                 component.Parent = Element;
                 if(Rendered)
-                    component.Create();
+                    component.Show();
             }
 
             public void Add(CuiElement element)
@@ -5358,7 +5415,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public void Remove(UIComponent component)
             {
                 _components.Remove(component);
-                component.Destroy();
+                component.Hide();
             }
 
             public void Remove(CuiElement element)
@@ -5368,10 +5425,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     CuiHelper.DestroyUi(_player, element.Name);
             }
 
-            public override void Create(List<CuiElement> elements)
+            public override void Show(List<CuiElement> elements)
             {
-                base.Create(elements);
-                _components.ForEach(a=>a.Create(elements));
+                base.Show(elements);
+                _components.ForEach(a=>a.Show(elements));
                 elements.AddRange(_elements);
             }
 
@@ -5388,27 +5445,168 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region UIStackPanel
 
-        //class UIStackPanel : UIComponentBase
-        //{
-        //    public bool Vertical { get; set; }
 
+        class UIStackPanel : UIComponent
+        {
+            private readonly CuiImageComponent _imageComponent = new CuiImageComponent() { Color = "0 0 0 0" };
+            private readonly List<UIComponent> _components = new List<UIComponent>();
+            private bool _autoFit;
+            private bool _autoSize;
 
-        //    public void AddComponent(UIComponentBase component)
-        //    {
-        //    }
+            public enum Orientations
+            {
+                Vertical,
+                Horizontal
+            }
 
-        //    public override void Render()
-        //    {
-        //    }
+            public Orientations Orientation { get; set; }
 
-        //    public override void Destroy()
-        //    {
-        //    }
+            public UIStackPanel(BasePlayer player, string name) : base(player, name)
+            {
+                Element.Components.Insert(0, _imageComponent);
+            }
 
-        //    public UIStackPanel(string name, CuiElement parent) : base(name, parent)
-        //    {
-        //    }
-        //}
+            public UIStackPanel(BasePlayer player) : base(player)
+            {
+                Element.Components.Insert(0, _imageComponent);
+            }
+
+            public void Add(UIComponent component)
+            {
+                _components.Add(component);
+                UpdateDimensions();
+                component.Parent = Element;
+            }
+
+            public void Remove(UIComponent component)
+            {
+                _components.Remove(component);
+                UpdateDimensions();
+            }
+
+            protected void UpdateDimensions(bool force = false)
+            {
+                if (!Rendered && !force) return;
+                if (AutoFit)
+                    UpdateAutoFitDimensions();
+                else
+                    UpdateAbsoluteDimensions();
+            }
+
+            protected void UpdateAbsoluteDimensions()
+            {
+                var position = 0f;
+                foreach (var component in _components)
+                {
+                    switch (Orientation)
+                    {
+                        case Orientations.Horizontal:
+                            UpdateDimension(component.Left, position, false);
+                            position += component.Width.Absolute;
+                            break;
+                        case Orientations.Vertical:
+                            UpdateDimension(component.Bottom, position, false);
+                            position += component.Height.Absolute;
+                            break;
+                    }
+                }
+            }
+
+            protected void UpdateAutoFitDimensions()
+            {
+                var relative = 1f / _components.Count;
+                var position = 0f;
+                foreach (var component in _components)
+                {
+                    switch (Orientation)
+                    {
+                        case Orientations.Horizontal:
+                            UpdateDimension(component.Left, position, true);
+                            UpdateDimension(component.Width, relative, true);
+                            break;
+                        case Orientations.Vertical:
+                            UpdateDimension(component.Bottom, position, true);
+                            UpdateDimension(component.Height, relative, true);
+                            break;
+                    }
+                    position += relative;
+                }
+            }
+
+            protected void UpdateDimension(Dimension dimension, float value, bool relative)
+            {
+                dimension.Absolute = relative ? 0f : value;
+                dimension.Relative = relative ? value : 0f;
+            }
+
+            public bool AutoFit
+            {
+                get { return _autoFit; }
+                set
+                {
+                    if (_autoFit == value) return;
+                    _autoFit = value;
+                    Refresh();
+                }
+            }
+
+            public bool AutoSize
+            {
+                get { return _autoSize; }
+                set
+                {
+                    if (_autoFit == value) return;
+                    _autoSize = value;
+                    Refresh();
+                }
+            }
+
+            protected override void UpdateCoordinates(bool force = false)
+            {
+                if (!Rendered && !force) return;
+                if (AutoSize)
+                {
+                    var size = 0f;
+                    switch (Orientation)
+                    {
+                        case Orientations.Horizontal:
+                            foreach (var component in _components)
+                                size += component.Width.Absolute;
+                            Width.Update(0, size);
+                            break;
+                        case Orientations.Vertical:
+                            foreach (var component in _components)
+                                size += component.Height.Absolute;
+                            Height.Update(0, size);
+                            break;
+                    }
+                }
+                base.UpdateCoordinates(force);
+            }
+
+            public override void Show(List<CuiElement> elements)
+            {
+                UpdateDimensions(true);
+                UpdateCoordinates(true);
+                elements.Add(Element);
+                _components.ForEach(a=> a.Show(elements));
+                Rendered = true;
+            }
+
+            public string Colour
+            {
+                get
+                {
+                    return _imageComponent.Color;
+                }
+                set
+                {
+                    if (_imageComponent.Color == value) return;
+                    _imageComponent.Color = value;
+                    Refresh();
+                }
+            }
+        }
         #endregion
         #endregion
         #region SidebarMenu

@@ -69,7 +69,7 @@ namespace Oxide.Plugins
             /// <param name="player">Player to get the player helper for</param>
             /// <returns></returns>
             public static PlayerHelper Get(BasePlayer player) => 
-                player == null ? null : Players.GetOrAdd(player.userID, new PlayerHelper(player));
+                player == null ? null : Players.GetOrAdd(player.userID, (p) => new PlayerHelper(player));
 
             /// <summary>
             /// Create a player helper
