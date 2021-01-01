@@ -41,6 +41,7 @@ namespace Oxide.Plugins
             Pipe.Cleanup();
             ContainerManager.Cleanup();
             PlayerHelper.Cleanup();
+            UICleanup.Cleanup();
         }
     }
 }

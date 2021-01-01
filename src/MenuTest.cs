@@ -17,53 +17,53 @@ namespace Oxide.Plugins
             public MenuTest(PlayerHelper playerHelper)
             {
                 Instance.Puts("Creating Menu Test");
-                var stackPanel = new UIStackPanel(playerHelper.Player, "StackPanel")
+                var nud = new UINumericUpDown(playerHelper.Player, "Test")
                 {
+                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 0.5f},
                     HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                    AutoSize = true,
-                    Orientation = UIStackPanel.Orientations.Vertical,
-                    Width = new UIComponent.Dimension() { Absolute = 0f, Relative = 0.5f }
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-
-                stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
-                stackPanel.Add(new UIPanel(playerHelper.Player, "panel2") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 0 1" });
-                stackPanel.Add(new UIPanel(playerHelper.Player, "panel3") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 0 1 1" });
-                stackPanel.Add(new UIPanel(playerHelper.Player, "panel4") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 1 0 1" });
-                stackPanel.Add(new UIPanel(playerHelper.Player, "panel5") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 1 1" });
-                _component = stackPanel;
-
-                //var grid = new UIGrid(playerHelper.Player, "grid")
+                _component = nud;
+                //var stackPanel = new UIStackPanel(playerHelper.Player, "StackPanel")
                 //{
                 //    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                 //    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                //    Left = { Absolute = 3f },
-                //    Bottom = { Absolute = -3f },
-                //    Width = { Relative = 0f, Absolute = 200f },
-                //    Height = { Relative = 0f, Absolute = 300f }
+                //    AutoSize = true,
+                //    Orientation = UIStackPanel.Orientations.Vertical,
+                //    Width = new UIComponent.Dimension() { Absolute = 400f, Relative = 0f },
+                //    Colour = "1 1 1 1"
+                //};
+
+                //stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
+                //stackPanel.Add(new UIPanel(playerHelper.Player, "panel2") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 0 1" });
+                //stackPanel.Add(new UIPanel(playerHelper.Player, "panel3") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 0 1 1" });
+                //stackPanel.Add(new UIPanel(playerHelper.Player, "panel4") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 1 0 1" });
+                //stackPanel.Add(new UIPanel(playerHelper.Player, "panel5") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 1 1" });
+                //_component = stackPanel;
+
+                //var grid = new UIGrid(playerHelper.Player, "grid")
+                //{
+                //    Height = { Relative = 0f, Absolute = 100f }
                 //};
                 //grid.AddRows(
-                //    new UIGrid.Dimension(50f, false),
-                //    new UIGrid.Dimension(50f, true),
-                //    new UIGrid.Dimension(50f, false)
+                //    new UIGrid.Dimension(1f, true)
                 //);
                 //grid.AddColumns(
-                //    new UIGrid.Dimension(50f, false),
-                //    new UIGrid.Dimension(50f, true),
-                //    new UIGrid.Dimension(50f, false)
+                //    new UIGrid.Dimension(100f, false),
+                //    new UIGrid.Dimension(1f, true),
+                //    new UIGrid.Dimension(100f, false)
                 //);
 
-                //grid.Add(new UIPanel(playerHelper.Player, "panel1") { Colour = "0 0 0 1" }, 0, 0);
-                //grid.Add(new UIPanel(playerHelper.Player, "panel2") { Colour = "1 0 0 1" }, 0, 1);
-                //grid.Add(new UIPanel(playerHelper.Player, "panel6") { Colour = "0 1 1 1" }, 0, 2, 3, 1);
-                //grid.Add(new UIPanel(playerHelper.Player, "panel3") { Colour = "0 1 0 1" }, 1, 1, 1, 2);
-                //grid.Add(new UIPanel(playerHelper.Player, "panel4") { Colour = "0 0 1 1" }, 1, 0, 2, 1);
-                //grid.Add(new UIPanel(playerHelper.Player, "panel5") { Colour = "1 1 0 1" }, 2, 1, 1, 1);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel1") { Colour = "1 0 0 1" }, 0, 0);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel2") { Colour = "0 1 0 1" }, 0, 1);
+                //grid.Add(new UIPanel(playerHelper.Player, "panel6") {Colour = "0 0 1 1"}, 0, 2);
 
-                //grid.AutoHeight = true;
-                //grid.AutoWidth = true;
+                //stackPanel.Add(grid);
+                ////grid.AutoHeight = true;
+                ////grid.AutoWidth = true;
 
-                //_component = grid;
+                ////_component = grid;
             }
 
             public void Close()
