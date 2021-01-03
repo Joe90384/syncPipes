@@ -23,7 +23,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.8")]
+    [Info("Sync Pipes", "Joe 90", "0.9.10")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -606,7 +606,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             Config?.Clear();
             _config = SyncPipesConfig.New();
             Config?.WriteObject(_config);
-            Instance.SaveConfig();
+            SaveConfig();
         }
 
         /// <summary>
@@ -903,11 +903,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         unusedPipes.Remove(validPipe);
                         var amountToMove = GetAmountToMove(firstItem.Key, quantity, pipesLeft--, validPipe,
                             firstItem.Value.FirstOrDefault()?.MaxStackable() ?? 0);
+                        if (amountToMove <= 0)
+                            break;
                         quantity -= amountToMove;
                         foreach (var itemStack in firstItem.Value)
                         {
                             var toMove = itemStack;
-                            if (amountToMove == 0) break;
+                            if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
                             if (Instance.FurnaceSplitter != null && validPipe.Destination.ContainerType == ContainerType.Oven &&
