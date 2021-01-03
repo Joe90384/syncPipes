@@ -142,7 +142,7 @@ namespace Oxide.Plugins
             Config?.Clear();
             _config = SyncPipesConfig.New();
             Config?.WriteObject(_config);
-            Instance.SaveConfig();
+            SaveConfig();
         }
 
         /// <summary>
