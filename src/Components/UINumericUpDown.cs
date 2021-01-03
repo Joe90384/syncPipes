@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
@@ -18,7 +21,7 @@ namespace Oxide.Plugins
             UINumericUpDown.HandleButton(arg.Args[0], arg.Args[1].Equals(true.ToString()));
         }
 
-        class UINumericUpDown: UIComponent, IDisposable
+        class UINumericUpDown: UIComponent, IDisposable, INotifyPropertyChanged
         {
             private float _buttonsWidth = 100f;
 
@@ -258,6 +261,7 @@ namespace Oxide.Plugins
                     if (value == _value || value > _maxValue || value < _minValue) return;
                     SetValue(value);
                     RefreshValue();
+                    OnPropertyChanged();
                 }
             }
 
@@ -320,6 +324,14 @@ namespace Oxide.Plugins
                     _decrementButton,
                     _decrementLabel
                 });
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            [NotifyPropertyChangedInvocator]
+            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
     }

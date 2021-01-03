@@ -10,6 +10,8 @@ using Newtonsoft.Json;
 using Facepunch.Extend;
 using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Cui;
+using System.ComponentModel;
+using JetBrains.Annotations;
 using System.Threading.Tasks;
 using Random = System.Random;
 using UnityEngine.PlayerLoop;
@@ -3587,7 +3589,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             protected virtual BaseEntity CreateSegment(Vector3 position, Quaternion rotation = default(Quaternion))
             {
-                return GameManager.server.CreateEntity(Prefab, position, rotation);
+                var entity = GameManager.server.CreateEntity(Prefab, position, rotation);
+                entity.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                return entity;
             }
 
             public abstract void Create();
@@ -5374,7 +5378,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             UINumericUpDown.HandleButton(arg.Args[0], arg.Args[1].Equals(true.ToString()));
         }
 
-        class UINumericUpDown: UIComponent, IDisposable
+        class UINumericUpDown: UIComponent, IDisposable, INotifyPropertyChanged
         {
             private float _buttonsWidth = 100f;
 
@@ -5614,6 +5618,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     if (value == _value || value > _maxValue || value < _minValue) return;
                     SetValue(value);
                     RefreshValue();
+                    OnPropertyChanged();
                 }
             }
 
@@ -5676,6 +5681,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _decrementButton,
                     _decrementLabel
                 });
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            [NotifyPropertyChangedInvocator]
+            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
         #endregion
