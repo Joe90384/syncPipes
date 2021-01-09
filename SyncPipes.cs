@@ -16,7 +16,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.10")]
+    [Info("Sync Pipes", "Joe 90", "0.9.11")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -3120,7 +3120,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Storage = ContainerHelper.Find(container);
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
-                CanAutoStart = ContainerType != ContainerType.General;
+                CanAutoStart = ContainerType != ContainerType.General && ContainerType != ContainerType.ResourceExtractor;
                 Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 

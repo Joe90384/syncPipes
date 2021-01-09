@@ -28,7 +28,7 @@ namespace Oxide.Plugins
                 Storage = ContainerHelper.Find(container);
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
-                CanAutoStart = ContainerType != ContainerType.General;
+                CanAutoStart = ContainerType != ContainerType.General && ContainerType != ContainerType.ResourceExtractor;
                 Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 
