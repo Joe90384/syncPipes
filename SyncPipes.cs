@@ -3430,7 +3430,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public override void Reverse()
             {
                 PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
-                PrimarySegment.SendNetworkUpdate();
+                PrimarySegment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
             }
         }
         #endregion

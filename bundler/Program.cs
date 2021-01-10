@@ -85,7 +85,16 @@ namespace Oxide.Plugins
 
         static void Main(string[] args)
         {
-            var types = typeof(SyncPipesDevelopment).Assembly.GetTypes();
+            Type[] types = null;
+            try
+            {
+                types = typeof(SyncPipesDevelopment).Assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                types = e.Types.Where(a=>a != null).ToArray();
+            }
+
             var attributes = new List<string>();
 
             var langEnum = types.Where(a => a.GetCustomAttribute<SyncPipesDevelopment.EnumWithLanguageAttribute>() != null).ToArray();
