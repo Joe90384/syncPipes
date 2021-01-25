@@ -10,8 +10,9 @@ namespace Oxide.Plugins
     partial class SyncPipesDevelopment
     {
 
-        class UIStackPanel : UIComponent
+        class UIStackPanel : UIComponent, IDisposable
         {
+            private bool _disposed = false;
             private readonly CuiImageComponent _imageComponent = new CuiImageComponent() { Color = "0 0 0 0" };
             private readonly List<UIComponent> _components = new List<UIComponent>();
             private bool _autoFit;
@@ -28,6 +29,7 @@ namespace Oxide.Plugins
             public UIStackPanel(BasePlayer player, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _imageComponent);
+                Element.Components.Add(new CuiNeedsCursorComponent());
             }
 
             public UIStackPanel(BasePlayer player) : base(player)
@@ -60,7 +62,7 @@ namespace Oxide.Plugins
             protected void UpdateAbsoluteDimensions()
             {
                 var position = 0f;
-                foreach (var component in _components)
+                foreach (var component in ReverseComponents)
                 {
                     switch (Orientation)
                     {
@@ -73,6 +75,8 @@ namespace Oxide.Plugins
                             position += component.Height.Absolute;
                             break;
                     }
+
+                    position += 0f;
                 }
             }
 
@@ -80,7 +84,7 @@ namespace Oxide.Plugins
             {
                 var relative = 1f / _components.Count;
                 var position = 0f;
-                foreach (var component in _components)
+                foreach (var component in ReverseComponents)
                 {
                     switch (Orientation)
                     {
@@ -93,7 +97,7 @@ namespace Oxide.Plugins
                             UpdateDimension(component.Height, relative, true);
                             break;
                     }
-                    position += relative;
+                    position += relative + 40f;
                 }
             }
 
@@ -125,7 +129,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            protected override void UpdateCoordinates(bool force = false)
+            public override void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 if (AutoSize)
@@ -134,12 +138,12 @@ namespace Oxide.Plugins
                     switch (Orientation)
                     {
                         case Orientations.Horizontal:
-                            foreach (var component in _components)
+                            foreach (var component in ReverseComponents)
                                 size += component.Width.Absolute;
                             Width.Update(0, size);
                             break;
                         case Orientations.Vertical:
-                            foreach (var component in _components)
+                            foreach (var component in ReverseComponents)
                                 size += component.Height.Absolute;
                             Height.Update(0, size);
                             break;
@@ -148,12 +152,22 @@ namespace Oxide.Plugins
                 base.UpdateCoordinates(force);
             }
 
+            private IEnumerable<UIComponent> ReverseComponents
+            {
+                get
+                {
+                    for (int i = _components.Count - 1; i >= 0; i--)
+                        yield return _components[i];
+                }
+            }
+
             public override void Show(List<CuiElement> elements)
             {
                 UpdateDimensions(true);
                 UpdateCoordinates(true);
                 elements.Add(Element);
-                _components.ForEach(a=> a.Show(elements));
+                foreach(var component in _components)
+                    component.Show(elements);
                 Rendered = true;
             }
 
@@ -169,6 +183,18 @@ namespace Oxide.Plugins
                     _imageComponent.Color = value;
                     Refresh();
                 }
+            }
+
+            ~UIStackPanel()
+            {
+                Dispose();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                foreach(var component in _components.OfType<IDisposable>())
+                    component.Dispose();
             }
         }
     }

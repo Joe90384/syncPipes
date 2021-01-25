@@ -17,23 +17,76 @@ namespace Oxide.Plugins
             public MenuTest(PlayerHelper playerHelper)
             {
                 Instance.Puts("Creating Menu Test");
-                var nud = new UINumericUpDown(playerHelper.Player, "Test")
+                var nud = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 1")
                 {
                     Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 0.5f},
-                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-                _component = nud;
-                //var stackPanel = new UIStackPanel(playerHelper.Player, "StackPanel")
-                //{
-                //    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                //    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                //    AutoSize = true,
-                //    Orientation = UIStackPanel.Orientations.Vertical,
-                //    Width = new UIComponent.Dimension() { Absolute = 400f, Relative = 0f },
-                //    Colour = "1 1 1 1"
-                //};
+                var nud1 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 2")
+                {
+                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var toggle1 = new UIToggleButton(playerHelper.Player, "Toggle Button 2")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var grid = new UIGrid(playerHelper.Player, "grid1")
+                {
+                    AutoHeight = true,
+                    //Height = {Absolute = 50f, Relative = 0f},
+                    Width = {Absolute = 0f, Relative = 0.5f},
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    Colour = "0 0 1 0.75"
+                };
+                grid.AddColumns(
+                    new UIGrid.Dimension(0.5f, true, false),
+                    new UIGrid.Dimension(0.5f, true, false)
+                );
+                grid.AddRow(1f, true, true);
+
+
+
+                var stackPanel1 = new UIStackPanel(playerHelper.Player, "stackpanel1")
+                {
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Vertical,
+                    Width = new UIComponent.Dimension() { Relative = 1f },
+                    Colour = "0 0 0 0.75"
+                }; 
+                var stackPanel2 = new UIStackPanel(playerHelper.Player, "stackpanel2")
+                {
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Vertical,
+                    Width = new UIComponent.Dimension() { Relative = 1f },
+                    Colour = "0 0 0 0.75"
+                };
+                stackPanel1.Add(nud);
+                stackPanel1.Add(nud1);
+                stackPanel2.Add(toggle);
+                stackPanel2.Add(toggle1);
+                grid.Add(stackPanel1, 0, 0);
+                grid.Add(stackPanel2, 0, 1);
+                _component = grid;
 
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel2") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 0 1" });
@@ -64,6 +117,9 @@ namespace Oxide.Plugins
                 ////grid.AutoWidth = true;
 
                 ////_component = grid;
+                //List<CuiElement> elements = new List<CuiElement>();
+                //_component.Show(elements);
+                //Instance.Puts(CuiHelper.ToJson(elements));
             }
 
             public void Close()

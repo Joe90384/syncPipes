@@ -92,7 +92,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            protected virtual void UpdateCoordinates(bool force = false)
+            public virtual void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 float

@@ -23,6 +23,7 @@ namespace Oxide.Plugins
 
         class UINumericUpDown: UIComponent, IDisposable, INotifyPropertyChanged
         {
+            private bool _disposed = false;
             private float _buttonsWidth = 100f;
 
             private string MakeButtonCommand(bool increment)
@@ -63,7 +64,7 @@ namespace Oxide.Plugins
             public UINumericUpDown(BasePlayer player, string name, string text) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
-                Element.Components.Add(new CuiNeedsCursorComponent());
+                //Element.Components.Add(new CuiNeedsCursorComponent());
                 NumericUpDowns.TryAdd(Name, this);
                 _incrementText = new CuiTextComponent {Align = TextAnchor.MiddleCenter, Text = ">"};
                 _decrementText = new CuiTextComponent {Align = TextAnchor.MiddleCenter, Text = "<"};
@@ -94,7 +95,7 @@ namespace Oxide.Plugins
                     {
                         _labelBackground,
                         new CuiRectTransformComponent
-                            {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0", OffsetMax = $"-{_buttonsWidth} 0"}
+                            {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMax = $"-{_buttonsWidth} 0"}
                     }
                 };
 
@@ -106,7 +107,7 @@ namespace Oxide.Plugins
                     Components =
                     {
                         _labelText,
-                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0", OffsetMax = $"-{_buttonsWidth} 0"}
+                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0"}
                     }
                 };
 
@@ -131,7 +132,8 @@ namespace Oxide.Plugins
                     Components =
                     {
                         new CuiButtonComponent {Command = MakeButtonCommand(true), Color = "0 0 0 0.5"},
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent{AnchorMin = "0 0", AnchorMax = "1 1"},
+                        new CuiNeedsCursorComponent()
                     }
                 };
 
@@ -142,7 +144,7 @@ namespace Oxide.Plugins
                     Components =
                     {
                         _incrementText,
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1"}
                     }
                 };
 
@@ -167,7 +169,8 @@ namespace Oxide.Plugins
                     Components =
                     {
                         new CuiButtonComponent {Command = MakeButtonCommand(false), Color = "0 0 0 0.5"},
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "1 1"},
+                        new CuiNeedsCursorComponent()
                     }
                 };
 
@@ -191,7 +194,7 @@ namespace Oxide.Plugins
                     {
                         _labelBackground,
                         new CuiRectTransformComponent
-                            {AnchorMin = "1 0", AnchorMax = "1 1", OffsetMin = $"-{_buttonsWidth -30} 0", OffsetMax = "-30 0"}
+                            {AnchorMin = "1 0", AnchorMax = "1 1", OffsetMin = $"{31 - _buttonsWidth} 0", OffsetMax = "-31 0"}
                     }
                 };
 
@@ -202,7 +205,8 @@ namespace Oxide.Plugins
                     Parent = _valueBackgroundElement.Name,
                     Components =
                     {
-                        _valueText
+                        _valueText,
+                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "1 1"}
                     }
                 };
             }
@@ -295,10 +299,18 @@ namespace Oxide.Plugins
                 }
             }
 
+            ~UINumericUpDown()
+            {
+                Dispose();
+            }
+
             public void Dispose()
             {
+                if (_disposed) return;
                 UINumericUpDown nud;
                 NumericUpDowns.TryRemove(Name, out nud);
+                _disposed = true;
+
             }
 
             private void RefreshValue()

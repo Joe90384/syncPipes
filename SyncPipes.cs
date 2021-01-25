@@ -21,6 +21,7 @@ using Rust.Ai.HTN.ScientistAStar;
 using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
+using System.Runtime.Remoting.Messaging;
 namespace Oxide.Plugins
 {
     [Info("Sync Pipes", "Joe 90", "0.9.11")]
@@ -2232,23 +2233,76 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public MenuTest(PlayerHelper playerHelper)
             {
                 Instance.Puts("Creating Menu Test");
-                var nud = new UINumericUpDown(playerHelper.Player, "Test")
+                var nud = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 1")
                 {
                     Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 0.5f},
-                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-                _component = nud;
-                //var stackPanel = new UIStackPanel(playerHelper.Player, "StackPanel")
-                //{
-                //    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                //    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                //    AutoSize = true,
-                //    Orientation = UIStackPanel.Orientations.Vertical,
-                //    Width = new UIComponent.Dimension() { Absolute = 400f, Relative = 0f },
-                //    Colour = "1 1 1 1"
-                //};
+                var nud1 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 2")
+                {
+                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var toggle1 = new UIToggleButton(playerHelper.Player, "Toggle Button 2")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                var grid = new UIGrid(playerHelper.Player, "grid1")
+                {
+                    AutoHeight = true,
+                    //Height = {Absolute = 50f, Relative = 0f},
+                    Width = {Absolute = 0f, Relative = 0.5f},
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    Colour = "0 0 1 0.75"
+                };
+                grid.AddColumns(
+                    new UIGrid.Dimension(0.5f, true, false),
+                    new UIGrid.Dimension(0.5f, true, false)
+                );
+                grid.AddRow(1f, true, true);
+
+
+
+                var stackPanel1 = new UIStackPanel(playerHelper.Player, "stackpanel1")
+                {
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Vertical,
+                    Width = new UIComponent.Dimension() { Relative = 1f },
+                    Colour = "0 0 0 0.75"
+                }; 
+                var stackPanel2 = new UIStackPanel(playerHelper.Player, "stackpanel2")
+                {
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Vertical,
+                    Width = new UIComponent.Dimension() { Relative = 1f },
+                    Colour = "0 0 0 0.75"
+                };
+                stackPanel1.Add(nud);
+                stackPanel1.Add(nud1);
+                stackPanel2.Add(toggle);
+                stackPanel2.Add(toggle1);
+                grid.Add(stackPanel1, 0, 0);
+                grid.Add(stackPanel2, 0, 1);
+                _component = grid;
 
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel2") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "0 1 0 1" });
@@ -2279,6 +2333,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 ////grid.AutoWidth = true;
 
                 ////_component = grid;
+                //List<CuiElement> elements = new List<CuiElement>();
+                //_component.Show(elements);
+                //Instance.Puts(CuiHelper.ToJson(elements));
             }
 
             public void Close()
@@ -3591,9 +3648,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             protected virtual BaseEntity CreateSegment(Vector3 position, Quaternion rotation = default(Quaternion))
             {
-                var entity = GameManager.server.CreateEntity(Prefab, position, rotation);
-                entity.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                return entity;
+                return GameManager.server.CreateEntity(Prefab, position, rotation);
             }
 
             public abstract void Create();
@@ -3725,7 +3780,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         private class PipeFactoryBarrel : PipeFactory<StorageContainer>
         {
-            protected override string Prefab => "assets/bundled/prefabs/radtown/oil_barrel.prefab";
+            protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
 
             public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
 
@@ -4959,7 +5014,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected virtual void UpdateCoordinates(bool force = false)
+            public virtual void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 float
@@ -5105,19 +5160,22 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 UIComponent.IDimension Dimension { get; }
                 UIGrid Grid { set; }
                 float Size { get; }
-                bool Relative { get; }
+                bool Relative { get; set; }
+                bool AutoSize { get; set; }
             }
 
             public new class Dimension: IDimension
             {
                 private readonly float _size;
-                private readonly bool _relative;
+                private bool _relative;
                 private UIGrid _grid;
+                private bool _autoSize;
 
-                public Dimension(float size, bool relative)
+                public Dimension(float size, bool relative, bool autoSize)
                 {
                     _size = size;
                     _relative = relative;
+                    _autoSize = autoSize;
                 }
 
                 UIComponent.IDimension IDimension.Dimension { get; } = new UIComponent.Dimension();
@@ -5131,6 +5189,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 bool IDimension.Relative
                 {
                     get { return _relative; }
+                    set { _relative = value; }
+                }
+
+                bool IDimension.AutoSize
+                {
+                    get { return _autoSize; }
+                    set { _autoSize = value; }
                 }
             }
 
@@ -5206,6 +5271,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Update(_component.Left, _grid._columns.Take(Column));
                     Update(_component.Height, _grid._rows.Skip(Row).Take(RowSpan));
                     Update(_component.Width, _grid._columns.Skip(Column).Take(ColumnSpan));
+                    _component.HorizantalAlignement = HorizantalAlignements.Left;
+                    _component.VerticalAlignment = VerticalAlignements.Top;
                 }
 
                 public void Create(List<CuiElement> elements)
@@ -5224,6 +5291,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                     oldDimension.Update(relative, absolute);
                 }
+
+                public void UpdateCoordinates(bool force)
+                {
+                    _component.UpdateCoordinates(force);
+                }
+
+                public UIComponent.Dimension Width => _component.Width;
+                public UIComponent.Dimension Height => _component.Height;
             }
 
             private readonly CuiImageComponent _imageComponent = new CuiImageComponent(){Color = "0 0 0 0"};
@@ -5251,31 +5326,45 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 return gridComponent;
             }
 
-            public void AddRow(float height, bool relative)
+            public void AddRow(float height, bool relative, bool autoHieght)
             {
-                AddRows(new Dimension(height, relative));
+                AddRows(new Dimension(height, relative, autoHieght));
             }
 
             public void AddRows(params Dimension[] dimensions)
             {
                 _rows.AddRange(dimensions.OfType<IDimension>().Where(a=>a.Size > 0));
-                UpdateDimensions(_rows);
+                UpdateDimensions(true);
             }
 
-            public void AddColumn(float width, bool relative)
+            public void AddColumn(float width, bool relative, bool autoHeight)
             {
-                AddColumns(new Dimension(width, relative));
+                AddColumns(new Dimension(width, relative, autoHeight));
             }
 
             public void AddColumns(params Dimension[] dimensions)
             {
                 _columns.AddRange(dimensions.OfType<IDimension>().Where(a=>a.Size > 0));
-                UpdateDimensions(_columns);
+                UpdateDimensions(false);
             }
 
-            protected void UpdateDimensions(List<IDimension> dimensions, bool force = false)
+            protected void UpdateDimensions(bool updateRows, bool force = false)
             {
                 if (!Rendered && !force) return;
+                var maxSize = new Dictionary<int, float>();
+
+                foreach (var component in _gridComponents)
+                {
+                    component.UpdateCoordinates(true);
+                    var span = updateRows ? component.RowSpan : component.ColumnSpan;
+                    var index = updateRows ? component.Row : component.Column;
+                    var absolute = updateRows ? component.Height.Absolute : component.Width.Absolute;
+                    if (span == 1 && (!maxSize.ContainsKey(index) || absolute > maxSize[index]))
+                        maxSize[index] = absolute;
+                }
+
+                var dimensions = updateRows ? _rows : _columns;
+
                 var sumAbsolute = 0f;
                 var countRelative = 0;
                 var sumRelative = 0f;
@@ -5291,38 +5380,87 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
 
                 var absoluteCorrection = sumAbsolute / countRelative * -1;
-                foreach (var dimension in dimensions)
+                for (int i = 0; i < dimensions.Count; i++)
                 {
-                    dimension.Dimension.Absolute = dimension.Relative ? absoluteCorrection : dimension.Size;
-                    dimension.Dimension.Relative = dimension.Relative ? dimension.Size / sumRelative : 0f;
+                    var dimension = dimensions[i];
+                    if (dimension.AutoSize && maxSize.ContainsKey(i))
+                    {
+                        Instance.Puts("Autosize {2}: {0} - {1}", i, maxSize[i], updateRows);
+                        dimension.Dimension.Absolute = maxSize[i];
+                        dimension.Dimension.Relative = 0f;
+                        dimension.Relative = false;
+                    }
+                    else
+                    {
+                        dimension.Dimension.Absolute = dimension.Relative ? absoluteCorrection : dimension.Size;
+                        dimension.Dimension.Relative = dimension.Relative ? dimension.Size / sumRelative : 0f;
+                    }
                 }
             }
+
+            //protected void UpdateDimensions(List<IDimension> dimensions, bool force = false)
+            //{
+            //    if (!Rendered && !force) return;
+            //    var sumAbsolute = 0f;
+            //    var countRelative = 0;
+            //    var sumRelative = 0f;
+
+            //    var maxRowHeights = new Dictionary<int, float>();
+            //    var maxColumnWidths = new Dictionary<int, float>();
+
+            //    foreach (var component in _gridComponents)
+            //    {
+            //        component.UpdateCoordinates(true);
+            //        if (component.RowSpan == 1 && (!maxRowHeights.ContainsKey(component.Row) || component.Height.Absolute > maxRowHeights[component.Row]))
+            //            maxRowHeights[component.Row] = component.Height.Absolute;
+            //        if (component.ColumnSpan == 1 && (!maxColumnWidths.ContainsKey(component.Column) || component.Width.Absolute > maxColumnWidths[component.Column]))
+            //            maxColumnWidths[component.Column] = component.Width.Absolute;
+            //    }
+
+            //    foreach (var dimension in dimensions)
+            //    {
+            //        if (dimension.Relative)
+            //        {
+            //            sumRelative += dimension.Size;
+            //            countRelative++;
+            //        }
+            //        else
+            //            sumAbsolute += dimension.Size;
+            //    }
+
+            //    var absoluteCorrection = sumAbsolute / countRelative * -1;
+            //    foreach (var dimension in dimensions)
+            //    {
+            //        dimension.Dimension.Absolute = dimension.Relative ? absoluteCorrection : dimension.Size;
+            //        dimension.Dimension.Relative = dimension.Relative ? dimension.Size / sumRelative : 0f;
+            //    }
+            //}
 
             public void Remove(UIComponent component)
             {
                 component.Hide();
             }
 
-            protected override void UpdateCoordinates(bool force = false)
+            public override void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 if (AutoWidth)
                 {
                     _width.Absolute = 0f;
                     _width.Relative = 0f;
-                    foreach (var column in _columns.Where(a=>!a.Relative))
-                    {
-                        _width.Absolute += column.Dimension.Absolute;
-                    }
+                    //foreach (var column in _columns.Where(a=>!a.Relative))
+                    //{
+                    //    _width.Absolute += column.Dimension.Absolute;
+                    //}
                 }
                 if (AutoHeight)
                 {
                     _height.Absolute = 0f;
                     _height.Relative = 0f;
-                    foreach (var row in _rows.Where(a => !a.Relative))
-                    {
-                        _height.Absolute += row.Dimension.Absolute;
-                    }
+                    //foreach (var row in _rows.Where(a => !a.Relative))
+                    //{
+                    //    _height.Absolute += row.Dimension.Absolute;
+                    //}
                 }
                 base.UpdateCoordinates(force);
             }
@@ -5337,8 +5475,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public override void Show(List<CuiElement> elements)
             {
-                UpdateDimensions(_rows, true);
-                UpdateDimensions(_columns, true);
+                UpdateDimensions(true, true);
+                UpdateDimensions(false, true);
                 UpdateCoordinates(true);
                 elements.Add(Element);
                 _gridComponents.ForEach(a => a.Create(elements));
@@ -5422,7 +5560,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public UINumericUpDown(BasePlayer player, string name, string text) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
-                Element.Components.Add(new CuiNeedsCursorComponent());
+                //Element.Components.Add(new CuiNeedsCursorComponent());
                 NumericUpDowns.TryAdd(Name, this);
                 _incrementText = new CuiTextComponent {Align = TextAnchor.MiddleCenter, Text = ">"};
                 _decrementText = new CuiTextComponent {Align = TextAnchor.MiddleCenter, Text = "<"};
@@ -5453,7 +5591,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     {
                         _labelBackground,
                         new CuiRectTransformComponent
-                            {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0", OffsetMax = $"-{_buttonsWidth} 0"}
+                            {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMax = $"-{_buttonsWidth} 0"}
                     }
                 };
 
@@ -5465,7 +5603,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Components =
                     {
                         _labelText,
-                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0", OffsetMax = $"-{_buttonsWidth} 0"}
+                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0"}
                     }
                 };
 
@@ -5490,7 +5628,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Components =
                     {
                         new CuiButtonComponent {Command = MakeButtonCommand(true), Color = "0 0 0 0.5"},
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent{AnchorMin = "0 0", AnchorMax = "1 1"},
+                        new CuiNeedsCursorComponent()
                     }
                 };
 
@@ -5501,7 +5640,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Components =
                     {
                         _incrementText,
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1"}
                     }
                 };
 
@@ -5526,7 +5665,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Components =
                     {
                         new CuiButtonComponent {Command = MakeButtonCommand(false), Color = "0 0 0 0.5"},
-                        new CuiRectTransformComponent()
+                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "1 1"},
+                        new CuiNeedsCursorComponent()
                     }
                 };
 
@@ -5550,7 +5690,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     {
                         _labelBackground,
                         new CuiRectTransformComponent
-                            {AnchorMin = "1 0", AnchorMax = "1 1", OffsetMin = $"-{_buttonsWidth -30} 0", OffsetMax = "-30 0"}
+                            {AnchorMin = "1 0", AnchorMax = "1 1", OffsetMin = $"{31 - _buttonsWidth} 0", OffsetMax = "-31 0"}
                     }
                 };
 
@@ -5561,7 +5701,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Parent = _valueBackgroundElement.Name,
                     Components =
                     {
-                        _valueText
+                        _valueText,
+                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "1 1"}
                     }
                 };
             }
@@ -5804,6 +5945,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public UIStackPanel(BasePlayer player, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _imageComponent);
+                Element.Components.Add(new CuiNeedsCursorComponent());
             }
 
             public UIStackPanel(BasePlayer player) : base(player)
@@ -5836,7 +5978,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected void UpdateAbsoluteDimensions()
             {
                 var position = 0f;
-                foreach (var component in _components)
+                foreach (var component in ReverseComponents)
                 {
                     switch (Orientation)
                     {
@@ -5849,6 +5991,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             position += component.Height.Absolute;
                             break;
                     }
+
+                    position += 0f;
                 }
             }
 
@@ -5856,7 +6000,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var relative = 1f / _components.Count;
                 var position = 0f;
-                foreach (var component in _components)
+                foreach (var component in ReverseComponents)
                 {
                     switch (Orientation)
                     {
@@ -5869,7 +6013,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             UpdateDimension(component.Height, relative, true);
                             break;
                     }
-                    position += relative;
+                    position += relative + 40f;
                 }
             }
 
@@ -5901,7 +6045,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected override void UpdateCoordinates(bool force = false)
+            public override void UpdateCoordinates(bool force = false)
             {
                 if (!Rendered && !force) return;
                 if (AutoSize)
@@ -5910,12 +6054,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     switch (Orientation)
                     {
                         case Orientations.Horizontal:
-                            foreach (var component in _components)
+                            foreach (var component in ReverseComponents)
                                 size += component.Width.Absolute;
                             Width.Update(0, size);
                             break;
                         case Orientations.Vertical:
-                            foreach (var component in _components)
+                            foreach (var component in ReverseComponents)
                                 size += component.Height.Absolute;
                             Height.Update(0, size);
                             break;
@@ -5924,12 +6068,22 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 base.UpdateCoordinates(force);
             }
 
+            private IEnumerable<UIComponent> ReverseComponents
+            {
+                get
+                {
+                    for (int i = _components.Count - 1; i >= 0; i--)
+                        yield return _components[i];
+                }
+            }
+
             public override void Show(List<CuiElement> elements)
             {
                 UpdateDimensions(true);
                 UpdateCoordinates(true);
                 elements.Add(Element);
-                _components.ForEach(a=> a.Show(elements));
+                foreach(var component in _components)
+                    component.Show(elements);
                 Rendered = true;
             }
 
@@ -5945,6 +6099,331 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _imageComponent.Color = value;
                     Refresh();
                 }
+            }
+        }
+        #endregion
+        #region UIToggleButton
+
+        [SyncPipesConsoleCommand("toggle")]
+        void ToggleButtonCommand(ConsoleSystem.Arg arg)
+        {
+            if (arg?.Args?.Length != 1) return;
+            UIToggleButton.HandleButton(arg.Args[0]);
+        }
+
+        class UIToggleButton: UIComponent, IDisposable, INotifyPropertyChanged
+        {
+            private const float _buttonsWidth = 100f;
+            private const float _nubWidth = 20f;
+
+            private string MakeButtonCommand()
+            {
+                var command = $"{Instance.Name.ToLower()}.toggle {Name}";
+                Instance.Puts("{0}", command);
+                return command;
+            }
+
+            public static void Cleanup()
+            {
+                foreach (var button in ToggleButtons.ToArray())
+                    button.Value.Dispose();
+            }
+
+            private static readonly ConcurrentDictionary<string, UIToggleButton> ToggleButtons = new ConcurrentDictionary<string, UIToggleButton>();
+            public static void HandleButton(string numericUpDownName)
+            {
+                UIToggleButton toggleButton;
+                if (ToggleButtons.TryGetValue(numericUpDownName, out toggleButton))
+                    toggleButton.State = !toggleButton.State;
+            }
+
+            private readonly CuiImageComponent
+                _background = new CuiImageComponent {Color = "0 0 0 0"},
+                _labelBackground = new CuiImageComponent {Color = "0 0 0 0.7"},
+                _toggleLabelBackground = new CuiImageComponent {Color = "0 0 0 0.75"};
+
+
+            private readonly CuiRectTransformComponent _nubTransform = new CuiRectTransformComponent
+            {
+                AnchorMin = "0 0", AnchorMax = "0 1", OffsetMin = "2 2", OffsetMax = $"{_nubWidth} -2"
+            };
+
+            private readonly CuiRectTransformComponent _toggleLabelTransform = new CuiRectTransformComponent
+            {
+                AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = $"{_nubWidth} 2", OffsetMax = "-2 -2"
+            };
+
+            private readonly CuiOutlineComponent
+                _buttonOutline = new CuiOutlineComponent {Color = "0.5 0.5 0.5 0.5"};
+            private readonly CuiElement _labelElement, _labelBackgroundElement, _toggleBackgroundElement, _toggleNubElement, _toggleLabelElement, _toggleLabelBackgroundElement, _toggleButtonElement;
+            private readonly CuiTextComponent _labelText, _toggleText;
+            private bool _state;
+            private string _onColour = "0 1 0 0.75";
+            private string _offColour = "1 0 0 0.75";
+            private string _onText = "On";
+            private string _offText = "Off";
+
+
+            public UIToggleButton(BasePlayer player, string text) : this(player, CuiHelper.GetGuid(), text) { }
+
+            public UIToggleButton(BasePlayer player, string name, string text) : base(player, name)
+            {
+                Element.Components.Insert(0, _background);
+                Element.Components.Add(new CuiNeedsCursorComponent());
+                ToggleButtons.TryAdd(Name, this);
+                _labelText = new CuiTextComponent {Align = TextAnchor.MiddleLeft, Text = text};
+
+                _toggleBackgroundElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = Name,
+                    Components =
+                    {
+                        _labelBackground,
+                        _buttonOutline,
+                        new CuiRectTransformComponent { AnchorMin = "1 0", AnchorMax = "1 1", OffsetMin = $"-{_buttonsWidth} 0", OffsetMax = "0 0"}
+                    }
+                };
+
+                _labelBackgroundElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = Name,
+                    Components =
+                    {
+                        _labelBackground,
+                        new CuiRectTransformComponent
+                            {AnchorMin = "0 0", AnchorMax = "1 1",OffsetMax = $"-{_buttonsWidth} 0"}
+                    }
+                };
+
+                _toggleNubElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = _toggleBackgroundElement.Name,
+                    Components =
+                    {
+                        new CuiImageComponent{ Color = "0 0 0 0.8"},
+                        _nubTransform
+                    }
+                };
+
+                _toggleLabelBackgroundElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = _toggleBackgroundElement.Name,
+                    Components =
+                    {
+                        _toggleLabelBackground,
+                        _toggleLabelTransform
+                    }
+                };
+
+
+                _toggleText = new CuiTextComponent
+                {
+                    Align = TextAnchor.MiddleCenter,
+                    Color = "1 1 1 1",
+                    Text = _offText
+                };
+
+                _toggleLabelElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = _toggleLabelBackgroundElement.Name,
+                    Components =
+                    {
+                        _toggleText,
+                        new CuiRectTransformComponent{AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0"}
+                    }
+                };
+
+                _labelElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = _labelBackgroundElement.Name,
+                    Components =
+                    {
+                        _labelText,
+                        new CuiRectTransformComponent {AnchorMin = "0 0", AnchorMax = "1 1", OffsetMin = "5 0", OffsetMax = $"-{_buttonsWidth} 0"}
+                    }
+                };
+
+                _toggleButtonElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = _toggleBackgroundElement.Name,
+                    Components =
+                    {
+                        new CuiButtonComponent {Command = MakeButtonCommand(), Color = "0 0 0 0"},
+                        new CuiRectTransformComponent { AnchorMin = "0 0", AnchorMax = "1 1"},
+                        new CuiNeedsCursorComponent()
+                    }
+                };
+                SetToggle();
+            }
+
+            private void SetToggle()
+            {
+                if (_state)
+                {
+                    _toggleLabelTransform.OffsetMin = "2 2";
+                    _toggleLabelTransform.OffsetMax = $"-{_nubWidth} -2";
+                    _toggleText.Text = OnText;
+                    _toggleLabelBackground.Color = OnColour;
+                    _nubTransform.OffsetMin = $"-{_nubWidth} 2";
+                    _nubTransform.OffsetMax = "-2 -2";
+                    _nubTransform.AnchorMin = "1 0";
+                    _nubTransform.AnchorMax = "1 1";
+                }
+                else
+                {
+                    _toggleLabelTransform.OffsetMin = $"{_nubWidth} 2";
+                    _toggleLabelTransform.OffsetMax = "-2 -2";
+                    _toggleText.Text = OffText;
+                    _toggleLabelBackground.Color = OffColour;
+                    _nubTransform.OffsetMin = "2 2";
+                    _nubTransform.OffsetMax = $"{_nubWidth} -2";
+                    _nubTransform.AnchorMin = "0 0";
+                    _nubTransform.AnchorMax = "0 1";
+                }
+            }
+
+            public bool State
+            {
+                get { return _state;}
+                set
+                {
+                    if (_state == value) return;
+                    _state = value;
+                    SetToggle();
+                    OnPropertyChanged();
+                    Refresh();
+                }
+            }
+
+            public string BackgroundColour
+            {
+                get { return _background.Color; }
+                set
+                {
+                    if (_background.Color.Equals(value)) return;
+                    _background.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string ButtonColour
+            {
+                get { return _buttonOutline.Color; }
+                set
+                {
+                    if (_buttonOutline.Color.Equals(value)) return;
+                    _buttonOutline.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string OnColour
+            {
+                get { return _onColour; }
+                set
+                {
+                    if (_onColour.Equals(value)) return;
+                    _onColour = value;
+                    Refresh();
+                }
+            }
+
+            public string OffColour
+            {
+                get { return _offColour; }
+                set
+                {
+                    if (_offColour.Equals(value)) return;
+                    _offColour = value;
+                    Refresh();
+                }
+            }
+
+            public string OnText
+            {
+                get { return _onText; }
+                set
+                {
+                    if(_onText.Equals(value)) return;
+                    _onText = value;
+                    Refresh();
+                }
+            }
+
+            public string OffText
+            {
+                get { return _offText; }
+                set
+                {
+                    if (_offText.Equals(value)) return;
+                    _offText = value;
+                    Refresh();
+                }
+            }
+
+            public string TextColour
+            {
+                get { return _labelText.Color; }
+                set
+                {
+                    if (_labelText.Color.Equals(value)) return;
+                    _labelText.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string Label
+            {
+                get { return _labelText.Text; }
+                set
+                {
+                    if (_labelText.Text.Equals(value)) return;
+                    _labelText.Text = value;
+                    Refresh();
+                }
+            }
+
+            public void Dispose()
+            {
+                UIToggleButton toggleButton;
+                ToggleButtons.TryRemove(Name, out toggleButton);
+            }
+
+            public override void Show(List<CuiElement> elements)
+            {
+                base.Show(elements);
+                elements.AddRange(new []
+                {
+                    _labelBackgroundElement,
+                    _labelElement,
+                    _toggleBackgroundElement,
+                    _toggleNubElement,
+                    _toggleLabelBackgroundElement,
+                    _toggleLabelElement,
+                    _toggleButtonElement
+                });
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            [NotifyPropertyChangedInvocator]
+            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
         #endregion
