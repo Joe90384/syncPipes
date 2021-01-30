@@ -24,7 +24,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Remoting.Messaging;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.11")]
+    [Info("Sync Pipes", "Joe 90", "0.9.12")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -887,8 +887,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     .ToDictionary(a => a.Key, a => a.Select(b => b));
 
                 var unusedPipes = pipeGroup
-                    .Where(a => a.IsEnabled && !a.PipeFilter.Items.Any() ||
-                                a.PipeFilter.Items.Select(b=>b.info.itemid).Any(b => distinctItems.ContainsKey(b)))
+                    .Where(a => a.IsEnabled && (!a.PipeFilter.Items.Any() ||
+                                a.PipeFilter.Items.Select(b=>b.info.itemid).Any(b => distinctItems.ContainsKey(b))))
                     .OrderBy(a => a.Grade).ToList();
                 while (unusedPipes.Any() && distinctItems.Any())
                 {
@@ -918,7 +918,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                 Instance.FurnaceSplitter.Call("MoveSplitItem", toMove, validPipe.Destination.Storage,
                                     validPipe.FurnaceSplitterStacks);
                             else
-                                toMove.MoveToContainer(validPipe.Destination.Storage.inventory);
+                            {
+                                var toContainer = validPipe.Destination.Storage.inventory;
+                                if (!toMove.MoveToContainer(toContainer))
+                                {
+                                    // Fix for issue with Vending machines not being able to move the end of a stack stack from a container.
+                                    // Remove item from container and then move it. If it didn't actually move then add it back to the source.
+                                    toMove.RemoveFromContainer();
+                                    if (!toMove.MoveToContainer(toContainer))
+                                        toMove.MoveToContainer(validPipe.Source.Storage.inventory);
+                                }
+                            }
+
                             if (validPipe.IsAutoStart && validPipe.Destination.HasFuel())
                                 validPipe.Destination.Start();
                             amountToMove -= toMove.amount;
