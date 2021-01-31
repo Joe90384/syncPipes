@@ -21,8 +21,12 @@ namespace Oxide.Plugins
             UIToggleButton.HandleButton(arg.Args[0]);
         }
 
-        class UIToggleButton: UIComponent, IDisposable, INotifyPropertyChanged
+        class UIToggleButton: UIComponent, IDisposable
         {
+            public delegate void ButtonToggledEventHandler(object sender, bool state);
+
+            public event ButtonToggledEventHandler OnButtonToggled;
+
             private bool _disposed;
             private const float _buttonsWidth = 100f;
             private const float _nubWidth = 20f;
@@ -75,9 +79,9 @@ namespace Oxide.Plugins
             private string _offText = "Off";
 
 
-            public UIToggleButton(BasePlayer player, string text) : this(player, CuiHelper.GetGuid(), text) { }
+            public UIToggleButton(BasePlayer player, string text) : this(player, text, CuiHelper.GetGuid()) { }
 
-            public UIToggleButton(BasePlayer player, string name, string text) : base(player, name)
+            public UIToggleButton(BasePlayer player, string text, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
                 Element.Components.Add(new CuiNeedsCursorComponent());
@@ -215,8 +219,8 @@ namespace Oxide.Plugins
                     if (_state == value) return;
                     _state = value;
                     SetToggle();
-                    OnPropertyChanged();
                     Refresh();
+                    OnButtonToggled?.Invoke(this, _state);
                 }
             }
 
@@ -334,14 +338,6 @@ namespace Oxide.Plugins
                     _toggleLabelElement,
                     _toggleButtonElement
                 });
-            }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            [NotifyPropertyChangedInvocator]
-            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
     }

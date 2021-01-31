@@ -1,12 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using JetBrains.Annotations;
 using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
@@ -21,8 +15,12 @@ namespace Oxide.Plugins
             UINumericUpDown.HandleButton(arg.Args[0], arg.Args[1].Equals(true.ToString()));
         }
 
-        class UINumericUpDown: UIComponent, IDisposable, INotifyPropertyChanged
+        class UINumericUpDown: UIComponent, IDisposable
         {
+            public delegate void ValueChangedEventHandler(object sender, int newValue, int oldValue);
+
+            public event ValueChangedEventHandler OnValueChanged;
+
             private bool _disposed = false;
             private float _buttonsWidth = 100f;
 
@@ -59,9 +57,9 @@ namespace Oxide.Plugins
             private int _maxValue = 10;
 
 
-            public UINumericUpDown(BasePlayer player, string text) : this(player, CuiHelper.GetGuid(), text) { }
+            public UINumericUpDown(BasePlayer player, string text) : this(player, text, CuiHelper.GetGuid()) { }
 
-            public UINumericUpDown(BasePlayer player, string name, string text) : base(player, name)
+            public UINumericUpDown(BasePlayer player, string text, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
                 //Element.Components.Add(new CuiNeedsCursorComponent());
@@ -262,10 +260,11 @@ namespace Oxide.Plugins
                 get { return _value; }
                 set
                 {
+                    var oldValue = _value;
                     if (value == _value || value > _maxValue || value < _minValue) return;
                     SetValue(value);
                     RefreshValue();
-                    OnPropertyChanged();
+                    OnValueChanged?.Invoke(this, _value, oldValue);
                 }
             }
 
@@ -336,14 +335,6 @@ namespace Oxide.Plugins
                     _decrementButton,
                     _decrementLabel
                 });
-            }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            [NotifyPropertyChangedInvocator]
-            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
     }

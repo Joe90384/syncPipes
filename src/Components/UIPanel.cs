@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using Facepunch.Extend;
 using Oxide.Game.Rust.Cui;
 
 namespace Oxide.Plugins
@@ -11,8 +9,8 @@ namespace Oxide.Plugins
         {
             protected readonly List<UIComponent> _components = new List<UIComponent>();
             protected readonly List<CuiElement> _elements = new List<CuiElement>();
-            private readonly CuiImageComponent _imageComponent = new CuiImageComponent();
-            private CuiNeedsCursorComponent _needsCursorComponent;
+            protected readonly CuiImageComponent _imageComponent = new CuiImageComponent();
+            protected CuiNeedsCursorComponent _needsCursorComponent;
             private bool _needsCursor;
             public float FadeIn
             {
@@ -83,15 +81,13 @@ namespace Oxide.Plugins
                 elements.AddRange(_elements);
             }
 
-            public UIPanel(BasePlayer player) : base(player)
-            {
-                Element.Components.Insert(0, _imageComponent);
-            }
+            public UIPanel(BasePlayer player) : this(player, CuiHelper.GetGuid()) { }
 
             public UIPanel(BasePlayer player, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _imageComponent);
             }
         }
+
     }
 }

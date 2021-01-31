@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Oxide.Game.Rust.Cui;
-using UnityEngine;
 
 namespace Oxide.Plugins
 {
@@ -9,6 +7,8 @@ namespace Oxide.Plugins
     {
         abstract class UIComponent
         {
+            public object Tag { get; set; }
+
             public enum HorizantalAlignements
             {
                 Left,

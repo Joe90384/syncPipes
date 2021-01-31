@@ -2,26 +2,22 @@ using Rust;
 using System;
 using ConVar;
 using Oxide.Core;
-using Mono.Cecil;
 using System.Linq;
 using UnityEngine;
 using System.Text;
 using Newtonsoft.Json;
-using Facepunch.Extend;
 using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Cui;
 using System.ComponentModel;
 using JetBrains.Annotations;
 using System.Threading.Tasks;
 using Random = System.Random;
-using UnityEngine.PlayerLoop;
 using System.Linq.Expressions;
 using System.Collections.Generic;
 using Rust.Ai.HTN.ScientistAStar;
 using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
-using System.Runtime.Remoting.Messaging;
 namespace Oxide.Plugins
 {
     [Info("Sync Pipes", "Joe 90", "0.9.12")]
@@ -2244,44 +2240,67 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public MenuTest(PlayerHelper playerHelper)
             {
                 Instance.Puts("Creating Menu Test");
-                var nud = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 1")
+                var nud = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 1", "NUD-1")
                 {
                     Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
                     Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-                var nud1 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 2")
+                nud.OnValueChanged += (sender, value, oldValue) =>
+                    Instance.Puts("Nud Changed: {0} -> {1} ({2})", (sender as UIComponent).Name, value, oldValue);
+                var nud1 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 2", "NUD-2")
                 {
                     Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
                     Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1")
+                nud1.OnValueChanged += (sender, value, oldValue) =>
+                    Instance.Puts("Nud Changed: {0} -> {1} ({2})", (sender as UIComponent).Name, value, oldValue);
+                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1", "TOGGLE-1")
                 {
                     Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
                     Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
-                var toggle1 = new UIToggleButton(playerHelper.Player, "Toggle Button 2")
+                toggle.OnButtonToggled += (sender, state) =>
+                    Instance.Puts("Toggle Clicked: {0} -> {1}", (sender as UIComponent).Name, state);
+                var toggle1 = new UIToggleButton(playerHelper.Player, "Toggle Button 2", "TOGGLE-2")
                 {
                     Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
                     Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
+                toggle1.OnButtonToggled += (sender, state) =>
+                    Instance.Puts("Toggle Clicked: {0} -> {1}", (sender as UIComponent).Name, state);
+                var button = new UIButton(playerHelper.Player, "Button 1", "BUTTON-1")
+                {
+                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    BgColor = "0 0 0 0.75"
+                };
+                button.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name);
+                var button1 = new UIButton(playerHelper.Player, "Button 2", "BUTTON-2")
+                {
+                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
+                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    BgColor = "0 0 0 0.75"
+                };
+                button1.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name); 
                 var grid = new UIGrid(playerHelper.Player, "grid1")
                 {
                     AutoHeight = true,
                     //Height = {Absolute = 50f, Relative = 0f},
-                    Width = {Absolute = 0f, Relative = 0.5f},
+                    Width = {Absolute = 0f, Relative = 0.75f},
                     VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Left,
                     Colour = "0 0 1 0.75"
                 };
                 grid.AddColumns(
+                    new UIGrid.Dimension(0.5f, true, false),
                     new UIGrid.Dimension(0.5f, true, false),
                     new UIGrid.Dimension(0.5f, true, false)
                 );
@@ -2307,12 +2326,28 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Width = new UIComponent.Dimension() { Relative = 1f },
                     Colour = "0 0 0 0.75"
                 };
+
+                var panel = new UIPanel(playerHelper.Player, "Panel")
+                {
+                    Colour = "1 0 0 0.75"
+                };
+
+                var image = new UIImage(playerHelper.Player, "Image")
+                {
+                    Colour = "1 1 1 1",
+                    Url = "https://lh3.googleusercontent.com/proxy/MrgtXiShEOmuo88bcgYqWwf-K7Myei-5dXKs2J0U34RL9pjf61xd9piXfhh9uFW3RyVzolZ0UCyHt9FNFS85jW7Hzfzt3--Ym1bILKjLePN8gUO07j62cVwodyk"
+                };
+
                 stackPanel1.Add(nud);
                 stackPanel1.Add(nud1);
+                stackPanel1.Add(button);
                 stackPanel2.Add(toggle);
                 stackPanel2.Add(toggle1);
+                stackPanel2.Add(button1);
                 grid.Add(stackPanel1, 0, 0);
                 grid.Add(stackPanel2, 0, 1);
+                //grid.Add(panel, 0, 2);
+                grid.Add(image, 0, 2);
                 _component = grid;
 
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
@@ -2361,13 +2396,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
         }
 
-        [SyncPipesConsoleCommand("menutest.show")]
+        [SyncPipesConsoleCommand("uitest.show")]
         void OpenMenuTest(ConsoleSystem.Arg arg)
         {
             PlayerHelper.Get(arg.Player()).MenuTest.Show();
         }
 
-        [SyncPipesConsoleCommand("menutest.close")]
+        [SyncPipesConsoleCommand("uitest.close")]
         void CloseMenuTest(ConsoleSystem.Arg arg)
         {
             PlayerHelper.Get(arg.Player()).MenuTest.Close();
@@ -4928,6 +4963,138 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
         }
         #endregion
+        #region UIButton
+
+        [SyncPipesConsoleCommand("button")]
+        void ButtonCommand(ConsoleSystem.Arg arg)
+        {
+            if (arg?.Args?.Length != 1) return;
+            UIButton.HandleButton(arg.Args[0]);
+        }
+
+        class UIButton: UIComponent, IDisposable
+        {
+            public delegate void ClickedEventHandler(object sender);
+
+            public event ClickedEventHandler OnClicked;
+
+            private CuiElement _labelElement;
+
+            private CuiTextComponent _labelComponent;
+
+            private CuiButtonComponent _buttonComponent;
+
+            public string BgColor
+            {
+                get { return _buttonComponent.Color; }
+                set
+                {
+                    if (_buttonComponent.Color.Equals(value)) return;
+                    _buttonComponent.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string FgColour
+            {
+                get { return _labelComponent.Color; }
+                set
+                {
+                    if (_labelComponent.Color.Equals(value)) return;
+                    _labelComponent.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string Label
+            {
+                get { return _labelComponent.Text; }
+                set
+                {
+                    if (_labelComponent.Text.Equals(value)) return;
+                    _labelComponent.Text = value;
+                    Refresh();
+                }
+            }
+
+            private string MakeButtonCommand()
+            {
+                var command = $"{Instance.Name.ToLower()}.button {Name}";
+                return command;
+            }
+
+            public static void Cleanup()
+            {
+                foreach (var button in Buttons.ToArray())
+                    button.Value.Dispose();
+            }
+
+            private static readonly ConcurrentDictionary<string, UIButton> Buttons = new ConcurrentDictionary<string, UIButton>();
+            public static void HandleButton(string buttonName)
+            {
+                UIButton button;
+                if (Buttons.TryGetValue(buttonName, out button))
+                    button.OnClicked?.Invoke(button);
+            }
+
+            public UIButton(BasePlayer player, string label) : this(player, label, CuiHelper.GetGuid()) { }
+
+            public UIButton(BasePlayer player, string label, string name) : base(player, name)
+            {
+                Buttons.TryAdd(name, this);
+                _buttonComponent = new CuiButtonComponent()
+                {
+                    FadeIn = 0f,
+                    Command = MakeButtonCommand(),
+                    Color = "0 0 0 1"
+                };
+                Element.Components.Insert(0, _buttonComponent);
+                _labelComponent = new CuiTextComponent
+                {
+                    Text = label,
+                    Align = TextAnchor.MiddleCenter
+                };
+                _labelElement = new CuiElement
+                {
+                    FadeOut = 0f,
+                    Name = CuiHelper.GetGuid(),
+                    Parent = Name,
+                    Components =
+                    {
+                        _labelComponent,
+                        new CuiRectTransformComponent()
+                    }
+                };
+            }
+
+            public override void Show(List<CuiElement> elements)
+            {
+                base.Show(elements);
+                if (!string.IsNullOrEmpty(_labelComponent.Text))
+                {
+                    elements.AddRange(new[]
+                    {
+                        _labelElement
+                    });
+                }
+            }
+
+            ~UIButton()
+            {
+                Dispose();
+            }
+
+            private bool _disposed = false;
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                UIButton button;
+                Buttons.TryRemove(Name, out button);
+                _disposed = true;
+            }
+        }
+        #endregion
         #region UICleanup
 
         static class UICleanup
@@ -4942,6 +5109,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         abstract class UIComponent
         {
+            public object Tag { get; set; }
+
             public enum HorizantalAlignements
             {
                 Left,
@@ -5164,8 +5333,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #region UIGrid
 
 
-        class UIGrid : UIComponent
+        class UIGrid : UIComponent, IDisposable
         {
+            private bool _disposed = false;
+
             protected new interface IDimension
             {
                 UIComponent.IDimension Dimension { get; }
@@ -5210,8 +5381,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            public class Component
+            public class Component: IDisposable
             {
+                private bool _disposed = false;
                 private readonly UIGrid _grid;
                 private readonly UIComponent _component;
 
@@ -5230,6 +5402,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _columnSpan = columnSpan;
                     component.Parent = grid.Element;
                     UpdateRectTransform();
+                }
+
+                public void Hide()
+                {
+                    _component.Hide();
                 }
 
                 public int Row
@@ -5310,6 +5487,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                 public UIComponent.Dimension Width => _component.Width;
                 public UIComponent.Dimension Height => _component.Height;
+
+                ~Component()
+                {
+                    Dispose();
+                }
+
+                public void Dispose()
+                {
+                    if (_disposed) return;
+                    (_component as IDisposable)?.Dispose();
+                }
             }
 
             private readonly CuiImageComponent _imageComponent = new CuiImageComponent(){Color = "0 0 0 0"};
@@ -5518,6 +5706,81 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 get { return _autoHeight; }
                 set { _autoHeight = value; UpdateCoordinates(); }
             }
+
+            ~UIGrid()
+            {
+                Dispose();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                foreach(var component in _gridComponents)
+                    component.Dispose();
+            }
+
+            public override void Hide()
+            {
+                base.Hide();
+                foreach (var component in _gridComponents)
+                {
+                    component.Hide();
+                }
+            }
+        }
+        #endregion
+        #region UIImage
+
+        class UIImage : UIComponent
+        {
+            private readonly CuiRawImageComponent _imageComponent = new CuiRawImageComponent
+            {
+                Color = "0 0 0 0",
+                FadeIn = 0f,
+                Material = "assets/content/textures/generic/fulltransparent.tga",
+                Url = ""
+            };
+
+            public string Colour
+            {
+                get { return _imageComponent.Color; }
+                set
+                {
+                    if (_imageComponent.Color.Equals(value)) return;
+                    _imageComponent.Color = value;
+                    Refresh();
+                }
+            }
+
+            public string Material
+            {
+                get { return _imageComponent.Material; }
+                set
+                {
+                    if (_imageComponent.Material.Equals(value)) return;
+                    _imageComponent.Material = value;
+                    Refresh();
+                }
+            }
+
+            public string Url
+            {
+                get { return _imageComponent.Url; }
+                set
+                {
+                    if (_imageComponent.Url.Equals(value)) return;
+                    _imageComponent.Url = value;
+                }
+            }
+
+            public UIImage(BasePlayer player, string imageUrl) : this(player, imageUrl, CuiHelper.GetGuid())
+            {
+            }
+
+            public UIImage(BasePlayer player, string imageUrl, string name) : base(player, name)
+            {
+                Element.Components.Insert(0, _imageComponent);
+            }
         }
         #endregion
         #region UINumericUpDown
@@ -5529,8 +5792,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             UINumericUpDown.HandleButton(arg.Args[0], arg.Args[1].Equals(true.ToString()));
         }
 
-        class UINumericUpDown: UIComponent, IDisposable, INotifyPropertyChanged
+        class UINumericUpDown: UIComponent, IDisposable
         {
+            public delegate void ValueChangedEventHandler(object sender, int newValue, int oldValue);
+
+            public event ValueChangedEventHandler OnValueChanged;
+
+            private bool _disposed = false;
             private float _buttonsWidth = 100f;
 
             private string MakeButtonCommand(bool increment)
@@ -5566,9 +5834,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             private int _maxValue = 10;
 
 
-            public UINumericUpDown(BasePlayer player, string text) : this(player, CuiHelper.GetGuid(), text) { }
+            public UINumericUpDown(BasePlayer player, string text) : this(player, text, CuiHelper.GetGuid()) { }
 
-            public UINumericUpDown(BasePlayer player, string name, string text) : base(player, name)
+            public UINumericUpDown(BasePlayer player, string text, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
                 //Element.Components.Add(new CuiNeedsCursorComponent());
@@ -5769,10 +6037,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 get { return _value; }
                 set
                 {
+                    var oldValue = _value;
                     if (value == _value || value > _maxValue || value < _minValue) return;
                     SetValue(value);
                     RefreshValue();
-                    OnPropertyChanged();
+                    OnValueChanged?.Invoke(this, _value, oldValue);
                 }
             }
 
@@ -5806,10 +6075,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
+            ~UINumericUpDown()
+            {
+                Dispose();
+            }
+
             public void Dispose()
             {
+                if (_disposed) return;
                 UINumericUpDown nud;
                 NumericUpDowns.TryRemove(Name, out nud);
+                _disposed = true;
+
             }
 
             private void RefreshValue()
@@ -5836,14 +6113,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _decrementLabel
                 });
             }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            [NotifyPropertyChangedInvocator]
-            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            }
         }
         #endregion
         #region UIPanel
@@ -5852,8 +6121,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         {
             protected readonly List<UIComponent> _components = new List<UIComponent>();
             protected readonly List<CuiElement> _elements = new List<CuiElement>();
-            private readonly CuiImageComponent _imageComponent = new CuiImageComponent();
-            private CuiNeedsCursorComponent _needsCursorComponent;
+            protected readonly CuiImageComponent _imageComponent = new CuiImageComponent();
+            protected CuiNeedsCursorComponent _needsCursorComponent;
             private bool _needsCursor;
             public float FadeIn
             {
@@ -5924,22 +6193,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 elements.AddRange(_elements);
             }
 
-            public UIPanel(BasePlayer player) : base(player)
-            {
-                Element.Components.Insert(0, _imageComponent);
-            }
+            public UIPanel(BasePlayer player) : this(player, CuiHelper.GetGuid()) { }
 
             public UIPanel(BasePlayer player, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _imageComponent);
             }
         }
+
         #endregion
         #region UIStackPanel
 
 
-        class UIStackPanel : UIComponent
+        class UIStackPanel : UIComponent, IDisposable
         {
+            private bool _disposed = false;
             private readonly CuiImageComponent _imageComponent = new CuiImageComponent() { Color = "0 0 0 0" };
             private readonly List<UIComponent> _components = new List<UIComponent>();
             private bool _autoFit;
@@ -6111,6 +6379,27 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Refresh();
                 }
             }
+
+            ~UIStackPanel()
+            {
+                Dispose();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                foreach(var component in _components.OfType<IDisposable>())
+                    component.Dispose();
+            }
+
+            public override void Hide()
+            {
+                base.Hide();
+                foreach (var component in _components)
+                {
+                    component.Hide();
+                }
+            }
         }
         #endregion
         #region UIToggleButton
@@ -6122,8 +6411,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             UIToggleButton.HandleButton(arg.Args[0]);
         }
 
-        class UIToggleButton: UIComponent, IDisposable, INotifyPropertyChanged
+        class UIToggleButton: UIComponent, IDisposable
         {
+            public delegate void ButtonToggledEventHandler(object sender, bool state);
+
+            public event ButtonToggledEventHandler OnButtonToggled;
+
+            private bool _disposed;
             private const float _buttonsWidth = 100f;
             private const float _nubWidth = 20f;
 
@@ -6175,9 +6469,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             private string _offText = "Off";
 
 
-            public UIToggleButton(BasePlayer player, string text) : this(player, CuiHelper.GetGuid(), text) { }
+            public UIToggleButton(BasePlayer player, string text) : this(player, text, CuiHelper.GetGuid()) { }
 
-            public UIToggleButton(BasePlayer player, string name, string text) : base(player, name)
+            public UIToggleButton(BasePlayer player, string text, string name) : base(player, name)
             {
                 Element.Components.Insert(0, _background);
                 Element.Components.Add(new CuiNeedsCursorComponent());
@@ -6315,8 +6609,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     if (_state == value) return;
                     _state = value;
                     SetToggle();
-                    OnPropertyChanged();
                     Refresh();
+                    OnButtonToggled?.Invoke(this, _state);
                 }
             }
 
@@ -6408,10 +6702,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
+            ~UIToggleButton()
+            {
+                Dispose();
+            }
+
             public void Dispose()
             {
+                if (_disposed) return;
                 UIToggleButton toggleButton;
                 ToggleButtons.TryRemove(Name, out toggleButton);
+                _disposed = true;
             }
 
             public override void Show(List<CuiElement> elements)
@@ -6427,14 +6728,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _toggleLabelElement,
                     _toggleButtonElement
                 });
-            }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            [NotifyPropertyChangedInvocator]
-            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
         #endregion

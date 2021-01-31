@@ -1,12 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text;
-using System.Threading.Tasks;
-using Mono.Cecil;
 using Oxide.Game.Rust.Cui;
-using UnityEngine.PlayerLoop;
 
 namespace Oxide.Plugins
 {
@@ -82,6 +77,11 @@ namespace Oxide.Plugins
                     _columnSpan = columnSpan;
                     component.Parent = grid.Element;
                     UpdateRectTransform();
+                }
+
+                public void Hide()
+                {
+                    _component.Hide();
                 }
 
                 public int Row
@@ -392,6 +392,15 @@ namespace Oxide.Plugins
                 if (_disposed) return;
                 foreach(var component in _gridComponents)
                     component.Dispose();
+            }
+
+            public override void Hide()
+            {
+                base.Hide();
+                foreach (var component in _gridComponents)
+                {
+                    component.Hide();
+                }
             }
         }
     }

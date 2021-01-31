@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Oxide.Game.Rust.Cui;
 
 namespace Oxide.Plugins
@@ -195,6 +193,15 @@ namespace Oxide.Plugins
                 if (_disposed) return;
                 foreach(var component in _components.OfType<IDisposable>())
                     component.Dispose();
+            }
+
+            public override void Hide()
+            {
+                base.Hide();
+                foreach (var component in _components)
+                {
+                    component.Hide();
+                }
             }
         }
     }

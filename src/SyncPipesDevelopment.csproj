@@ -103,6 +103,7 @@
     <Compile Include="Components\UIComponentBase.cs" />
     <Compile Include="Components\ToggleButton.cs" />
     <Compile Include="Components\UIGrid.cs" />
+    <Compile Include="Components\UIImage.cs" />
     <Compile Include="Components\UIToggleButton.cs" />
     <Compile Include="Components\UINumericUpDown.cs" />
     <Compile Include="Components\UIPanel.cs" />
