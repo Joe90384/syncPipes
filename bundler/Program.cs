@@ -145,7 +145,8 @@ namespace Oxide.Plugins
             var primaryClass = "";
             var originalPrimaryClass = "";
             var classComments = "";
-            var partialClassContents = new Dictionary<string, string>();
+            var partialClassContents = new Dictionary<string, Dictionary<string, string>>();
+            partialClassContents.Add(seedDirectory.Name, new Dictionary<string, string>());
             #endregion
             
             #region Load Seed file
@@ -188,7 +189,7 @@ namespace Oxide.Plugins
                     sb.AppendLine("        }");
 
                     sb.AppendLine(classRead.Groups["PostInit"]?.Value);
-                    partialClassContents.Add(seedFile.Name.Replace(seedFile.Extension, ""), sb.ToString());
+                    partialClassContents[seedDirectory.Name].Add(seedFile.Name.Replace(seedFile.Extension, ""), sb.ToString());
                 }
             }
             #endregion
@@ -197,8 +198,10 @@ namespace Oxide.Plugins
             var secondaryRegex =
                 new Regex(
                     $@".*partial *class *{primaryClass}.*\r\n.*\{{ *(?<Content>(?:\r\n.*)*)\r\n.*\}} *\r\n.*\}}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.ExplicitCapture);
-            foreach (var file in seedDirectory.GetFiles("*.cs").Where(a=>a.Name != seedFile.Name))
+            foreach (var file in seedDirectory.GetFiles("*.cs", SearchOption.AllDirectories).Where(a=>a.Name != seedFile.Name))
             {
+                if (!partialClassContents.ContainsKey(file.Directory.Name))
+                    partialClassContents.Add(file.Directory.Name, new Dictionary<string, string>());
                 using (var sr = new StreamReader(file.FullName))
                 {
                     if (file.Name.Equals("Attributes.cs", StringComparison.InvariantCultureIgnoreCase))
@@ -219,8 +222,7 @@ namespace Oxide.Plugins
                         if (classRead.Success && (classRead.Groups["Content"]?.Success ?? false))
                         {
                             var content = classRead.Groups["Content"]?.Value;
-                            partialClassContents.Add(file.Name.Replace(file.Extension, ""),
-                                content);
+                            partialClassContents[file.Directory.Name].Add(file.Name.Replace(file.Extension, ""), content);
 
                             usings.AddRange(usingRegex.Matches(data).OfType<Match>()
                                 .Where(a => a.Success && (a.Groups["Using"]?.Success ?? false))
@@ -244,38 +246,50 @@ namespace Oxide.Plugins
                 sw.WriteLine($"    {description}");
                 sw.WriteLine($"    class {primaryClass} : RustPlugin");
                 sw.WriteLine("    {");
-                foreach (var content in partialClassContents)
+                foreach (var folderGroup in partialClassContents.Where(a=>a.Value.Any()))
                 {
-                    sw.WriteLine($"        #region {content.Key}");
-                    var value = attributeReplaceRegex.Replace(content.Value, "");
-                    sw.WriteLine(value.Replace(originalPrimaryClass, primaryClass));
-                    if (content.Key.Equals("Messages"))
+                    var isSubfolder =
+                        !folderGroup.Key.Equals(seedDirectory.Name, StringComparison.InvariantCultureIgnoreCase);
+                    if(isSubfolder)
+                        sw.WriteLine($"        #region {folderGroup.Key}");
+                    foreach (var content in folderGroup.Value)
                     {
-                        sw.WriteLine();
-                        sw.WriteLine("        protected override void LoadDefaultMessages()");
-                        sw.WriteLine("        {");
-                        var languages = types.Where(a => a.BaseType == typeof(SyncPipesDevelopment.LanguageAttribute)).ToArray();
-                        foreach (var language in languages)
+                        sw.WriteLine($"        #region {content.Key}");
+                        var value = attributeReplaceRegex.Replace(content.Value, "");
+                        sw.WriteLine(value.Replace(originalPrimaryClass, primaryClass));
+                        if (content.Key.Equals("Messages"))
                         {
-                            var lang = language.GetField("Language").GetRawConstantValue().ToString();
-                            sw.WriteLine($"            var {lang} = new Dictionary<string, string>");
-                            sw.WriteLine(GenerateLanguage(languageEnums, language));
-                            if (lang == "en")
+                            sw.WriteLine();
+                            sw.WriteLine("        protected override void LoadDefaultMessages()");
+                            sw.WriteLine("        {");
+                            var languages = types
+                                .Where(a => a.BaseType == typeof(SyncPipesDevelopment.LanguageAttribute)).ToArray();
+                            foreach (var language in languages)
                             {
-                                sw.WriteLine($"            LocalizationHelpers.FallBack = {lang};");
-                                sw.WriteLine($"            lang.RegisterMessages({lang}, this);");
-                            }
-                            else
-                            {
-                                sw.WriteLine($"            lang.RegisterMessages({lang}, this, \"{lang}\");");
-                            }
-                            sw.WriteLine($"            Puts(\"Registered language for '{lang}'\");");
-                        }
-                        sw.WriteLine("        }");
-                        sw.WriteLine();
-                    }
+                                var lang = language.GetField("Language").GetRawConstantValue().ToString();
+                                sw.WriteLine($"            var {lang} = new Dictionary<string, string>");
+                                sw.WriteLine(GenerateLanguage(languageEnums, language));
+                                if (lang == "en")
+                                {
+                                    sw.WriteLine($"            LocalizationHelpers.FallBack = {lang};");
+                                    sw.WriteLine($"            lang.RegisterMessages({lang}, this);");
+                                }
+                                else
+                                {
+                                    sw.WriteLine($"            lang.RegisterMessages({lang}, this, \"{lang}\");");
+                                }
 
-                    sw.WriteLine("        #endregion");
+                                sw.WriteLine($"            Puts(\"Registered language for '{lang}'\");");
+                            }
+
+                            sw.WriteLine("        }");
+                            sw.WriteLine();
+                        }
+
+                        sw.WriteLine("        #endregion");
+                    }
+                    if(isSubfolder)
+                        sw.WriteLine("        #endregion");
                 }
                 sw.WriteLine("    }");
                 sw.WriteLine("}");

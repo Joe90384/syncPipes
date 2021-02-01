@@ -176,7 +176,7 @@ namespace Oxide.Plugins
                 if (_container == null)
                     Kill();
                 if (_destroyed || !HasAnyPipes) return;
-                _cumulativeDeltaTime += Time.deltaTime;
+                _cumulativeDeltaTime += UnityEngine.Time.deltaTime;
                 if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
                 _cumulativeDeltaTime = 0f;
                 if (_container.inventory.itemList.FirstOrDefault() == null)
