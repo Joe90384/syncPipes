@@ -14,7 +14,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// The data for all the pipes
             /// </summary>
-            public IEnumerable<Pipe.Data> PipeData { get; set; }
+            public PipeData[] PipeData { get; set; }
 
             /// <summary>
             /// The data for all the container managers
@@ -28,13 +28,13 @@ namespace Oxide.Plugins
             {
                 var data = new Data
                 {
-                    PipeData = Pipe.Save(),
+                    PipeData = Pipe.Save().ToArray(),
                     ContainerData = ContainerManager.Save()
                 };
-
                 Interface.Oxide.DataFileSystem.WriteObject(Instance.Name, data);
                 Instance.Puts("Saved {0} pipes", data.PipeData?.Count());
                 Instance.Puts("Saved {0} managers", data.ContainerData?.Count());
+                
             }
 
             /// <summary>

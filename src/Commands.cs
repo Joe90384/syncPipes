@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Oxide.Core.Libraries.Covalence;
+﻿using Oxide.Core.Libraries.Covalence;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -44,7 +43,7 @@ namespace Oxide.Plugins
                 if (playerHelper == null) return;
                 if(!playerHelper.IsUser)
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
-                switch (args.FirstOrDefault()?.ToLower())
+                switch (args.Length > 0 ? args[0] : null)
                 {
                     case null:
                     case "p":
@@ -68,7 +67,7 @@ namespace Oxide.Plugins
                         Stats(playerHelper);
                         break;
                     case "n":
-                        var name = string.Join(" ", args.Skip(1));
+                        var name = string.Join(" ", args.Length > 1 ? args[1] : null);
                         Name(playerHelper, name);
                         break;
                 }
@@ -117,7 +116,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 if (playerHelper == null) return;
                 var total = playerHelper.Pipes.Count;
-                var running = playerHelper.Pipes.Count(a => a.Value.IsEnabled);
+                var running = 0;
+                foreach (var pipe in playerHelper.Pipes)
+                {
+                    if (pipe.Value.IsEnabled)
+                        running++;
+                }
                 var disabled = total - running;
                 playerHelper.PrintToChatWithTitle(
                     playerHelper.PipeLimit != -1 ? Chat.StatsUnlimited : Chat.StatsLimited,

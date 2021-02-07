@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Oxide.Plugins
 {
@@ -90,7 +89,7 @@ Upgrading your pipes increases the flow rate (items/second) and Filter Size")]
             /// <returns>The message for the enum</returns>
             public static string Get(Enum key, BasePlayer player, params object[] args)
             {
-                var argsList = args.ToList();
+                var argsList = new List<object>(args);
                 var keyStr = $"{key.GetType().Name}.{key}";
                 var localization =
                     Instance.lang.GetMessage(keyStr, Instance, player.UserIDString);

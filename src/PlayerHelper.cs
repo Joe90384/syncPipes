@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Linq;
+using System.Collections.Generic;
 using Oxide.Core.Libraries.Covalence;
 
 namespace Oxide.Plugins
@@ -157,9 +157,23 @@ namespace Oxide.Plugins
             /// <summary>
             /// Gets the syncPipes privileges currently held by this player
             /// </summary>
-            private SyncPipesConfig.PermissionLevel[] Permissions =>
-                Instance.permission.GetUserPermissions(Player.UserIDString)
-                    .Select(a => GetPermission(a)).Where(a => a != null).ToArray();
+            private IEnumerable<SyncPipesConfig.PermissionLevel> Permissions
+            {
+                get
+                {
+                    var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
+                    for (var i = 0; i < permissions.Length; i++)
+                    {
+                        Instance.Puts("Permission: {0}", permissions[i]);
+                        var permission = GetPermission(permissions[i]);
+                        if (permission != null)
+                        {
+                            Instance.Puts("Good: {0}", permission.MaximumGrade);
+                            yield return permission;
+                        }
+                    }
+                }
+            }
 
 
             /// <summary>
@@ -181,14 +195,41 @@ namespace Oxide.Plugins
             /// <summary>
             /// Gives the maximum number of pipes this player can place just by permission level (ignoring admin)
             /// </summary>
-            private int PermissionLevelMaxPipes => Permissions.Any(a => a.MaximumPipes == -1) ? -1 : Permissions.DefaultIfEmpty(SyncPipesConfig.PermissionLevel.Default).Max(a => a.MaximumPipes);
+            private int PermissionLevelMaxPipes
+            {
+                get
+                {
+                    var maxPipes = 0;
+                    foreach (var permission in Permissions)
+                    {
+                        if (permission.MaximumPipes == -1)
+                            return -1;
+                        if (permission.MaximumPipes > maxPipes)
+                            maxPipes = permission.MaximumPipes;
+                    }
+
+                    return maxPipes;
+                }
+            }
 
             /// <summary>
             /// Give the maximum number grade the player can upgrade the pipes to by permission level (ignoring admin)
             /// </summary>
-            private int PermissionLevelMaxUpgrade => Permissions.Any(a => a.MaximumGrade == -1)
-                ? -1
-                : Permissions.DefaultIfEmpty(SyncPipesConfig.PermissionLevel.Default).Max(a => a.MaximumGrade);
+            private int PermissionLevelMaxUpgrade
+            {
+                get
+                {
+                    var maxUpgrade = 0;
+                    foreach (var permission in Permissions)
+                    {
+                        if (permission.MaximumGrade == -1)
+                            return -1;
+                        if (permission.MaximumGrade > maxUpgrade)
+                            maxUpgrade = permission.MaximumGrade;
+                    }
+                    return maxUpgrade;
+                }
+            }
 
             /// <summary>
             /// Maximum number of pipes this player can build
