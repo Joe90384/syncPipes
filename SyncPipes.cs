@@ -2,13 +2,13 @@ using Rust;
 using System;
 using Oxide.Core;
 using UnityEngine;
-using System.Linq;
 using Newtonsoft.Json;
 using Oxide.Core.Plugins;
+using System.Collections;
+using System.Diagnostics;
 using Oxide.Game.Rust.Cui;
 using Random = System.Random;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
@@ -131,7 +131,7 @@ namespace Oxide.Plugins
         /// </summary>
         void Unload()
         {
-            Data.Save();
+            DataStore1_0.Save(false);
             Puts("Unloading All Pipes");
             Pipe.Cleanup();
             ContainerManager.Cleanup();
@@ -513,6 +513,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             [JsonProperty("permLevels", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
 
+            [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
+
             public class PermissionLevel
             {
                 [JsonProperty("upgradeLimit")]
@@ -582,10 +584,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     config = New();
                     Instance.Config.WriteObject(config);
                 }
-                foreach (var error in config.Validate())
-                {
-                    Instance.PrintWarning(error);
-                }
+
+                var errors = config.Validate();
+                for(var i =0; i < errors.Length; i++)
+                    Instance.PrintWarning(errors[i]);
                 return config;
             }
 
@@ -713,6 +715,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         ///     This then allows for items to move through pipes in a more synchronous manner.
         ///     Items can be split evenly between all pipes of the same priority.
         /// </summary>
+        [JsonConverter(typeof(ContainerManager.Converter))]
         public class ContainerManager : MonoBehaviour
         {
             /// <summary>
@@ -762,22 +765,22 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
             /// </summary>
             /// <param name="dataToLoad">Data to load into container managers</param>
-            public static void Load(IEnumerable<Data> dataToLoad)
+            public static void Load(List<Data> dataToLoad)
             {
                 if (dataToLoad == null) return;
-                ContainerManager manager;
                 var containerCount = 0;
-                foreach (var data in dataToLoad)
+                for(int i = 0; i < dataToLoad.Count; i++)
                 {
-                    if (ManagedContainerLookup.TryGetValue(data.ContainerId, out manager))
+                    ContainerManager manager;
+                    if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
                         containerCount++;
-                        manager.DisplayName = data.DisplayName;
-                        manager.CombineStacks = data.CombineStacks;
+                        manager.DisplayName = dataToLoad[i].DisplayName;
+                        manager.CombineStacks = dataToLoad[i].CombineStacks;
                     }
                     else
                     {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", data.ContainerId, data.DisplayName);
+                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].DisplayName);
                     }
                 }
                 Instance.Puts("Successfully loaded {0} managers", containerCount);
@@ -788,7 +791,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             private static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
                 new Dictionary<uint, ContainerManager>();
-            private static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
+            public static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
 
             // Which pipes have been attached to this container manager
             //private readonly Dictionary<ulong, Pipe> _attachedPipeLookup = new Dictionary<ulong, Pipe>();
@@ -835,12 +838,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </param>
             private void Kill(bool cleanup = false)
             {
-                foreach (var pipe in _attachedPipes)
+                for(var i = 0; i < _attachedPipes.Count; i++)
                 {
-                    if (pipe?.Destination?.ContainerManager == this)
-                        pipe.Remove(cleanup);
-                    if (pipe?.Source?.ContainerManager == this)
-                        pipe.Remove(cleanup);
+                    if (_attachedPipes[i]?.Destination?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
+                    if (_attachedPipes[i]?.Source?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
                 }
 
                 _destroyed = true;
@@ -1033,8 +1036,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
-                        foreach (var itemStack in item)
+                        for(var j = 0; i < item.Count; i++)
                         {
+                            var itemStack = item[j];
                             var toMove = itemStack;
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
@@ -1169,6 +1173,33 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 return minStackSize < 0 ? 0 : minStackSize;
             }
+
+            public class Converter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var container = value as ContainerManager;
+                    if (container == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("ci");
+                    writer.WriteValue(container.ContainerId);
+                    writer.WritePropertyName("cs");
+                    writer.WriteValue(container.CombineStacks);
+                    writer.WritePropertyName("dn");
+                    writer.WriteValue(container.DisplayName);
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return null;
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(ContainerManager);
+                }
+            }
         }
 
         #endregion
@@ -1177,6 +1208,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <summary>
         /// The data handler for loading and saving data to disk
         /// </summary>
+        //[JsonConverter(typeof(DataConverter))]
         class Data
         {
             /// <summary>
@@ -1187,24 +1219,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The data for all the container managers
             /// </summary>
-            public IEnumerable<ContainerManager.Data> ContainerData { get; set; }
-
-            /// <summary>
-            /// Save syncPipes data to disk
-            /// </summary>
-            public static void Save()
-            {
-                var data = new Data
-                {
-                    PipeData = Pipe.Save().ToArray(),
-                    ContainerData = ContainerManager.Save()
-                };
-                Interface.Oxide.DataFileSystem.WriteObject(Instance.Name, data);
-                Instance.Puts("Saved {0} pipes", data.PipeData?.Count());
-                Instance.Puts("Saved {0} managers", data.ContainerData?.Count());
-                
-            }
-
+            public List<ContainerManager.Data> ContainerData { get; set; }
             /// <summary>
             /// Load syncPipes data from disk
             /// </summary>
@@ -1216,6 +1231,204 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Pipe.Load(data.PipeData);
                     ContainerManager.Load(data.ContainerData);
                 }
+            }
+        }
+
+        class DataStore1_0: MonoBehaviour
+        {
+            private static GameObject _saverGameObject;
+            private static DataStore1_0 _dataStore;
+
+            private static DataStore1_0 DataStore
+            {
+                get
+                {
+                    if (_dataStore == null)
+                    {
+                        _saverGameObject =
+                            new GameObject($"{Instance.Name.ToLower()}-datastore-1-0");
+                        _dataStore = _saverGameObject.AddComponent<DataStore1_0>();
+                    }
+                    return _dataStore;
+                }
+            }
+            private static string _filename;
+            private static string Filename => _filename ?? (_filename = $"{Instance.Name} v1-0");
+
+            public static bool Save(bool backgroundSave = true)
+            {
+                if (backgroundSave && _running)
+                {
+                    if(DataStore._coroutine != null)
+                        DataStore.StopCoroutine(DataStore._coroutine);
+                    _running = false;
+                }
+                if (_running)
+                    return false;
+                _running = true;
+                if (backgroundSave)
+                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave());
+                else
+                {
+                    var enumerator = DataStore.BufferedSave();
+                    while (enumerator.MoveNext()) { }
+                }
+                return true;
+            }
+
+            public static bool Load()
+            {
+                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename) || _running) 
+                    return false;
+                _running = true;
+                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad());
+                return true;
+            }
+
+            private Coroutine _coroutine;
+            private static bool _running;
+
+            class Converter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var buffer = value as Buffer;
+                    if (buffer == null) return;
+
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("pipes");
+                    writer.WriteStartArray();
+                    for(int i = 0; i < buffer.Pipes.Count; i++)
+                        writer.WriteRawValue(buffer.Pipes[i]);
+                    writer.WriteEndArray();
+                    writer.WritePropertyName("containers");
+                    writer.WriteStartArray();
+                    for(int i = 0; i < buffer.Containers.Count; i++)
+                        writer.WriteRawValue(buffer.Containers[i]);
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                    JsonSerializer serializer)
+                {
+                    var buffer = new Loader();
+                    while (reader.Read())
+                    {
+                        if (reader.TokenType == JsonToken.PropertyName)
+                        {
+                            switch ((string) reader.Value)
+                            {
+                                case "pipes":
+                                    reader.Read();
+                                    reader.Read();
+                                    while (reader.TokenType != JsonToken.EndArray)
+                                    {
+                                        var pipe = serializer.Deserialize<Pipe>(reader);
+                                        if (pipe.Validity == Pipe.Status.Success)
+                                            buffer.Pipes.Add(pipe);
+                                        else
+                                            Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                                    }
+                                    break;
+                                case "containers":
+                                    reader.Read();
+                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                    {
+                                        var data = new ContainerManager.Data();
+                                        while (reader.Read() && reader.TokenType != JsonToken.EndObject)
+                                        {
+                                            if (reader.TokenType == JsonToken.PropertyName)
+                                            {
+                                                switch (reader.Value.ToString())
+                                                {
+                                                    case "ci":
+                                                        reader.Read();
+                                                        uint.TryParse(reader.Value.ToString(), out data.ContainerId);
+                                                        break;
+                                                    case "cs":
+                                                        data.CombineStacks = reader.ReadAsBoolean() ?? true;
+                                                        break;
+                                                    case "dn":
+                                                        data.DisplayName = reader.ReadAsString();
+                                                        break;
+                                                }
+                                            }
+                                        }
+                                        buffer.Containers.Add(data);
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+
+                    return buffer;
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return true;
+                }
+            }
+
+            [JsonConverter(typeof(Converter))]
+            class Buffer
+            {
+                public List<string> Pipes { get; } = new List<string>();
+                public List<string> Containers { get; } = new List<string>();
+            }
+
+            [JsonConverter(typeof(Converter))]
+            class Loader
+            {
+                public List<Pipe> Pipes { get; } = new List<Pipe>();
+                public List<ContainerManager.Data> Containers { get; } = new List<ContainerManager.Data>();
+            }
+            
+            IEnumerator BufferedSave()
+            {
+                var sw = Stopwatch.StartNew();
+                yield return null;
+                Instance.Puts("Save v1.0 starting");
+                var buffer = new Buffer();
+                var pipeSnapshot = new List<Pipe>(Pipe.Pipes);
+                var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
+                for (int i = 0; i < pipeSnapshot.Count; i++)
+                {
+                    buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                    yield return null;
+                }
+                Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
+                for(int i = 0; i < containerSnapshot.Count; i++)
+                {
+                    if (!containerSnapshot[i].HasAnyPipes) continue;
+                    buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                    yield return null;
+                }
+                Instance.Puts("Saved {0} managers", buffer.Containers.Count);
+                Interface.Oxide.DataFileSystem.WriteObject(Filename, buffer);
+                Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
+                Instance.Puts("Save v1.0 complete ({0}.{1}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds.ToString().PadRight(0).Substring(0,2));
+                sw.Stop();
+                _running = false;
+                yield return null;
+            }
+
+            IEnumerator BufferedLoad()
+            {
+                yield return null;
+                Instance.Puts("Load v1.0 starting");
+                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(Filename);
+                for (int i = 0; i < loader.Pipes.Count; i++)
+                {
+                    loader.Pipes[i].Create();
+                    yield return null;
+                }
+                Instance.Puts("Successfully loaded {0} pipes", loader.Pipes.Count);
+                ContainerManager.Load(loader.Containers);
+                Instance.Puts("Load v1.0 complete");
+                _running = false;
+                yield return null;
             }
         }
         #endregion
@@ -1257,6 +1470,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="hit">Information about the hit</param>
         void OnHammerHit(BasePlayer player, HitInfo hit)
         {
+            Instance.Puts("Hammer Hit");
             var playerHelper = PlayerHelper.Get(player);
             var handled =
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
@@ -1893,7 +2107,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 AddLabel(infoPanel, _playerHelper.GetPipeMenuInfo(InfoLabel.FilterLimit), 12, TextAnchor.MiddleLeft, "0.02 0.45", "0.4 0.5", LabelColour);
                 AddLabel(infoPanel, InstanceConfig.FilterSizes[(int) _pipe.Grade].ToString(), 12, TextAnchor.MiddleLeft, "0.4 0.45", "1 0.5");
                 AddLabel(infoPanel, _playerHelper.GetPipeMenuInfo(InfoLabel.FilterItems), 12, TextAnchor.MiddleLeft, "0.02 0.4", "0.4 0.45", LabelColour);
-                AddLabel(infoPanel, string.Join(", ", _pipe.PipeFilter.Items.Select(a => a.info.displayName.translated)), 10,
+                var items = new List<string>();
+                for (int i = 0; i < _pipe.PipeFilter.Items.Count; i++)
+                    items.Add(_pipe.PipeFilter.Items[i].info.displayName.translated);
+                AddLabel(infoPanel, string.Join(", ", items), 10,
                     TextAnchor.UpperLeft, "0.4 0.01", "1 0.45");
             }
 
@@ -2612,7 +2829,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 IsEnabled = true;
             }
         }
-        [JsonObject(MemberSerialization.OptIn)]
+        [JsonConverter(typeof(Pipe.Converter))]
         public class Pipe
         {
 
@@ -2717,7 +2934,101 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
                 Validate();
-                if (Validity != Status.Success)
+                Create();
+            }
+
+            private Pipe(JsonReader reader, JsonSerializer serializer)
+            {
+                Id = GenerateId();
+                var depth = 1;
+                if (reader.TokenType != JsonToken.StartObject)
+                    return;
+                uint sourceId = 0, destinationId = 0;
+                ContainerType sourceType = ContainerType.General, destinationType = ContainerType.General;
+                while (reader.Read() && depth > 0)
+                {
+                    switch (reader.TokenType)
+                    {
+                        case JsonToken.StartObject:
+                            depth++;
+                            break;
+                        case JsonToken.EndObject:
+                            depth--;
+                            break;
+                        case JsonToken.PropertyName:
+                            switch (reader.Value.ToString())
+                            {
+                                case "enb":
+                                    IsEnabled = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "grd":
+                                    Grade = (BuildingGrade.Enum)(reader.ReadAsInt32() ?? 0);
+                                    break;
+                                case "sid":
+                                    reader.Read();
+                                    uint.TryParse(reader.Value.ToString(), out sourceId);
+                                    break;
+                                case "did":
+                                    reader.Read();
+                                    uint.TryParse(reader.Value.ToString(), out destinationId);
+                                    break;
+                                case "sct":
+                                    sourceType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    break;
+                                case "dct":
+                                    destinationType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    break;
+                                case "hth":
+                                    _initialHealth = (float)(reader.ReadAsDecimal() ?? 0);
+                                    break;
+                                case "mst":
+                                    IsMultiStack = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "ast":
+                                    IsAutoStart = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "fso":
+                                    IsFurnaceSplitterEnabled = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "fss":
+                                    FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+                                    break;
+                                case "oid":
+                                    reader.Read();
+                                    ulong ownerId;
+                                    if (ulong.TryParse(reader.Value.ToString(), out ownerId))
+                                        OwnerId = ownerId;
+                                    break;
+                                case "onm":
+                                    OwnerName = reader.ReadAsString();
+                                    break;
+                                case "nme":
+                                    DisplayName = reader.ReadAsString();
+                                    break;
+                                case "flr":
+                                    reader.Read();
+                                    var filterIds = new List<int>();
+                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                    {
+                                        if (reader.ValueType == typeof(int))
+                                            filterIds.Add((int)reader.Value);
+                                    }
+                                    _initialFilterItems = filterIds;
+                                    break;
+                            }
+                            break;
+                    }
+                }
+                var source = ContainerHelper.Find(sourceId, sourceType);
+                var destination = ContainerHelper.Find(destinationId, destinationType);
+                Source = new PipeEndContainer(source, sourceType, this);
+                Destination = new PipeEndContainer(destination, destinationType, this);
+                Validate();
+            }
+
+            public void Create()
+            {
+                if(PrimarySegment != null || Validity != Status.Success)
                     return;
                 Source.Attach();
                 Destination.Attach();
@@ -2727,19 +3038,20 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     PipeLookup.Add(Id, this);
                     Pipes.Add(this);
                 }
-                ConnectedContainers.GetOrAdd(data.SourceId, new ConcurrentDictionary<uint, bool>())
-                    .TryAdd(data.DestinationId, true);
+                if(!ConnectedContainers.ContainsKey(Source.Id))
+                    ConnectedContainers.Add(Source.Id, new Dictionary<uint, bool>());
+                ConnectedContainers[Source.Id][Destination.Id] = true;
                 PlayerHelper.AddPipe(this);
-                _initialFilterItems = data.ItemFilter;
-                if(data.Health != 0)
-                    SetHealth(data.Health);
+                if(_initialHealth > 0)
+                    SetHealth(_initialHealth);
             }
 
             // Filter object. This remains null until it is needed
             private PipeFilter _pipeFilter;
 
             // This is the initial state of the filter. This is the fallback if the filter is not initialized
-            private List<int> _initialFilterItems;
+            private List<int> _initialFilterItems = new List<int>();
+
 
             /// <summary>
             /// The Filter object for this pipe.
@@ -2788,11 +3100,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The Id of the player who built the pipe
             /// </summary>
-            public ulong OwnerId { get; }
+            public ulong OwnerId { get; private set; }
             /// <summary>
             /// Name of the player who built the pipe
             /// </summary>
-            public string OwnerName { get; }
+            public string OwnerName { get; private set; }
 
             /// <summary>
             /// List of all players who are viewing the Pipe menu
@@ -2835,6 +3147,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public float Health => PrimarySegment.Health();
 
+            private float _initialHealth;
             /// <summary>
             /// Used to indicate this pipe is being repaired to prevent multiple repair triggers
             /// </summary>
@@ -2882,8 +3195,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// All the connections between containers to prevent duplications
             /// </summary>
-            public static ConcurrentDictionary<uint, ConcurrentDictionary<uint, bool>> ConnectedContainers { get; } =
-                new ConcurrentDictionary<uint, ConcurrentDictionary<uint, bool>>();
+            public static Dictionary<uint, Dictionary<uint, bool>> ConnectedContainers { get; } =
+                new Dictionary<uint, Dictionary<uint, bool>>();
 
             /// <summary>
             /// Controls if the pipe will transfer any items along it
@@ -2915,7 +3228,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var sourceId = data.SourceId;
                 var destinationId = data.DestinationId;
-                ConcurrentDictionary<uint, bool> linked;
+                Dictionary<uint, bool> linked;
                 return
                     ConnectedContainers.TryGetValue(sourceId, out linked) && linked.ContainsKey(destinationId) ||
                     ConnectedContainers.TryGetValue(destinationId, out linked) && linked.ContainsKey(sourceId);
@@ -3199,8 +3512,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             private void RefreshMenu()
             {
-                foreach (var player in PlayersViewingMenu)
-                    player.SendSyncPipesConsoleCommand("refreshmenu", Id);
+                for(var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i].SendSyncPipesConsoleCommand("refreshmenu", Id);
             }
 
             /// <summary>
@@ -3215,20 +3528,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="cleanup">If true then destruction animations are disabled</param>
             public void Kill(bool cleanup = false)
             {
-                foreach (var player in PlayersViewingMenu)
-                    player?.SendSyncPipesConsoleCommand("forceclosemenu");
+                for(var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i]?.SendSyncPipesConsoleCommand("forceclosemenu");
                 PipeFilter?.Kill();
                 ContainerManager.Detach(Source.Id, this);
                 ContainerManager.Detach(Destination.Id, this);
                 PlayerHelper.RemovePipe(this);
-                bool removed;
-                ConcurrentDictionary<uint, bool> connectedTo;
+                Dictionary<uint, bool> connectedTo;
                 if (ConnectedContainers.ContainsKey(Source.Id) &&
                     ConnectedContainers.TryGetValue(Source.Id, out connectedTo))
-                    connectedTo?.TryRemove(Destination.Id, out removed);
+                    connectedTo?.Remove(Destination.Id);
                 if (ConnectedContainers.ContainsKey(Destination.Id) &&
                     ConnectedContainers.TryGetValue(Destination.Id, out connectedTo))
-                    connectedTo?.TryRemove(Source.Id, out removed);
+                    connectedTo?.Remove(Source.Id);
                 if (PipeLookup.ContainsKey(Id))
                 {
                     PipeLookup.Remove(Id);
@@ -3389,8 +3701,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="pipe">The pipe to copy the settings from</param>
             public void CopyFrom(Pipe pipe)
             {
-                foreach (var player in PlayersViewingMenu)
-                    player.SendSyncPipesConsoleCommand("closemenu", Id);
+                for (var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i].SendSyncPipesConsoleCommand("closemenu", Id);
                 _pipeFilter?.Kill();
                 _pipeFilter = null;
                 _initialFilterItems = new List<int>(pipe.FilterItems);
@@ -3401,6 +3713,63 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 InvertFilter = pipe.InvertFilter;
                 FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
                 Priority = pipe.Priority;
+            }
+
+            public class Converter: JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var pipe = value as Pipe;
+                    if (pipe == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("enb");
+                    writer.WriteValue(pipe.IsEnabled);
+                    writer.WritePropertyName("grd");
+                    writer.WriteValue(pipe.Grade);
+                    writer.WritePropertyName("sid");
+                    writer.WriteValue(pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
+                    writer.WritePropertyName("did");
+                    writer.WriteValue(pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
+                    writer.WritePropertyName("sct");
+                    writer.WriteValue(pipe.Source.ContainerType);
+                    writer.WritePropertyName("dct");
+                    writer.WriteValue(pipe.Destination.ContainerType);
+                    writer.WritePropertyName("hth");
+                    writer.WriteValue(pipe.Health);
+                    writer.WritePropertyName("mst");
+                    writer.WriteValue(pipe.IsMultiStack);
+                    writer.WritePropertyName("ast");
+                    writer.WriteValue(pipe.IsAutoStart);
+                    writer.WritePropertyName("fso");
+                    writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
+                    writer.WritePropertyName("fss");
+                    writer.WriteValue(pipe.FurnaceSplitterStacks);
+                    writer.WritePropertyName("oid");
+                    writer.WriteValue(pipe.OwnerId);
+                    writer.WritePropertyName("onm");
+                    writer.WriteValue(pipe.OwnerName);
+                    writer.WritePropertyName("nme");
+                    writer.WriteValue(pipe.DisplayName);
+                    writer.WritePropertyName("flr");
+                    writer.WriteStartArray();
+                    if (pipe._pipeFilter != null)
+                    {
+                        for (int i = 0; i < pipe._pipeFilter.Items.Count; i++)
+                            writer.WriteValue(pipe._pipeFilter.Items[i].info.itemid);
+                    }
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return new Pipe(reader, serializer);
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(Pipe);
+                }
             }
         }
         #endregion
@@ -3625,13 +3994,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>> AllPipes = new ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>>();
+            private static readonly Dictionary<ulong, Dictionary<ulong, Pipe>> AllPipes = new Dictionary<ulong, Dictionary<ulong, Pipe>>();
 
             /// <summary>
             /// Add a pipe to the PlayerPipes store
             /// </summary>
             /// <param name="pipe">Pipe to add to the store</param>
-            public static void AddPipe(Pipe pipe) => AllPipes.GetOrAdd(pipe.OwnerId, new ConcurrentDictionary<ulong, Pipe>()).TryAdd(pipe.Id, pipe);
+            public static void AddPipe(Pipe pipe)
+            {
+                if(!AllPipes.ContainsKey(pipe.OwnerId))
+                    AllPipes.Add(pipe.OwnerId, new Dictionary<ulong, Pipe>());
+                AllPipes[pipe.OwnerId][pipe.Id] = pipe;
+            }
 
             /// <summary>
             /// Remove a pipe from the PlayaerPipes
@@ -3639,16 +4013,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="pipe">Pipe to remove from the store</param>
             public static void RemovePipe(Pipe pipe)
             {
-                ConcurrentDictionary<ulong, Pipe> ownerPipes;
-                Pipe removedPipe;
+                Dictionary<ulong, Pipe> ownerPipes;
                 if (AllPipes.TryGetValue(pipe.OwnerId, out ownerPipes))
-                    ownerPipes.TryRemove(pipe.Id, out removedPipe);
+                    ownerPipes.Remove(pipe.Id);
             }
 
             /// <summary>
             /// The store of player helpers for all players (once they have carried out any actions)
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, PlayerHelper> Players = new ConcurrentDictionary<ulong, PlayerHelper>();
+            private static readonly Dictionary<ulong, PlayerHelper> Players = new Dictionary<ulong, PlayerHelper>();
             
             /// <summary>
             /// Get a player helper using the player details given by the commands
@@ -3662,8 +4035,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             /// <param name="player">Player to get the player helper for</param>
             /// <returns></returns>
-            public static PlayerHelper Get(BasePlayer player) => 
-                player == null ? null : Players.GetOrAdd(player.userID, new PlayerHelper(player));
+            public static PlayerHelper Get(BasePlayer player)
+            {
+                if (player == null)
+                    return null;
+                if(!Players.ContainsKey(player.userID))
+                    Players.Add(player.userID, new PlayerHelper(player));
+                return Players[player.userID];
+            }
 
             /// <summary>
             /// Create a player helper
@@ -3844,7 +4223,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// Pipes that this player has created
             /// </summary>
-            public ConcurrentDictionary<ulong, Pipe> Pipes => AllPipes.GetOrAdd(Player.userID, new ConcurrentDictionary<ulong, Pipe>());
+            public Dictionary<ulong, Pipe> Pipes
+            {
+                get
+                {
+                    if(!AllPipes.ContainsKey(Player.userID))
+                        AllPipes.Add(Player.userID, new Dictionary<ulong, Pipe>());
+                    return AllPipes[Player.userID];
+                }
+            }
 
             /// <summary>
             /// Checks if this player has permission to open the container
@@ -4099,7 +4486,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static void Remove(BasePlayer player)
             {
                 PlayerHelper playerHelper;
-                if (Players.TryRemove(player.userID, out playerHelper))
+                if (Players.TryGetValue(player.userID, out playerHelper) && Players.Remove(player.userID))
                     playerHelper?.Menu?.Close(playerHelper);
             }
 
@@ -4212,13 +4599,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerInitialized()
         {
-            Data.Load();
+
+            if (!DataStore1_0.Load())
+            {
+                Instance.Puts("Upgrading from old data store");
+                Data.Load();
+            }
         }
 
         /// <summary>
         /// Hook: Save all the pipe data when the server saves
         /// </summary>
-        void OnServerSave() => Data.Save();
+        void OnServerSave()
+        {
+            DataStore1_0.Save();
+        }
         #endregion
         #region StorageHelper
 
@@ -4430,6 +4825,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             if (pipe == null || hitInfo == null) return null;
             if (InstanceConfig.NoDecay)
                 hitInfo.damageTypes.Scale(DamageType.Decay, 0f);
+            if (InstanceConfig.DestroyWithSalvage && hitInfo.WeaponPrefab.prefabID == 1744180387 && PlayerHelper.Get(hitInfo.InitiatorPlayer).HasBuildPrivilege)
+            {
+                pipe.Remove();
+                return true;
+            }
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {

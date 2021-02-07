@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -12,6 +12,7 @@ namespace Oxide.Plugins
         ///     This then allows for items to move through pipes in a more synchronous manner.
         ///     Items can be split evenly between all pipes of the same priority.
         /// </summary>
+        [JsonConverter(typeof(ContainerManager.Converter))]
         public class ContainerManager : MonoBehaviour
         {
             /// <summary>
@@ -61,22 +62,22 @@ namespace Oxide.Plugins
             /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
             /// </summary>
             /// <param name="dataToLoad">Data to load into container managers</param>
-            public static void Load(IEnumerable<Data> dataToLoad)
+            public static void Load(List<Data> dataToLoad)
             {
                 if (dataToLoad == null) return;
-                ContainerManager manager;
                 var containerCount = 0;
-                foreach (var data in dataToLoad)
+                for(int i = 0; i < dataToLoad.Count; i++)
                 {
-                    if (ManagedContainerLookup.TryGetValue(data.ContainerId, out manager))
+                    ContainerManager manager;
+                    if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
                         containerCount++;
-                        manager.DisplayName = data.DisplayName;
-                        manager.CombineStacks = data.CombineStacks;
+                        manager.DisplayName = dataToLoad[i].DisplayName;
+                        manager.CombineStacks = dataToLoad[i].CombineStacks;
                     }
                     else
                     {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", data.ContainerId, data.DisplayName);
+                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].DisplayName);
                     }
                 }
                 Instance.Puts("Successfully loaded {0} managers", containerCount);
@@ -87,7 +88,7 @@ namespace Oxide.Plugins
             /// </summary>
             private static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
                 new Dictionary<uint, ContainerManager>();
-            private static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
+            public static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
 
             // Which pipes have been attached to this container manager
             //private readonly Dictionary<ulong, Pipe> _attachedPipeLookup = new Dictionary<ulong, Pipe>();
@@ -134,12 +135,12 @@ namespace Oxide.Plugins
             /// </param>
             private void Kill(bool cleanup = false)
             {
-                foreach (var pipe in _attachedPipes)
+                for(var i = 0; i < _attachedPipes.Count; i++)
                 {
-                    if (pipe?.Destination?.ContainerManager == this)
-                        pipe.Remove(cleanup);
-                    if (pipe?.Source?.ContainerManager == this)
-                        pipe.Remove(cleanup);
+                    if (_attachedPipes[i]?.Destination?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
+                    if (_attachedPipes[i]?.Source?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
                 }
 
                 _destroyed = true;
@@ -332,8 +333,9 @@ namespace Oxide.Plugins
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
-                        foreach (var itemStack in item)
+                        for(var j = 0; i < item.Count; i++)
                         {
+                            var itemStack = item[j];
                             var toMove = itemStack;
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
@@ -467,6 +469,33 @@ namespace Oxide.Plugins
                         minStackSize = itemStacks[i].amount;
                 }
                 return minStackSize < 0 ? 0 : minStackSize;
+            }
+
+            public class Converter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var container = value as ContainerManager;
+                    if (container == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("ci");
+                    writer.WriteValue(container.ContainerId);
+                    writer.WritePropertyName("cs");
+                    writer.WriteValue(container.CombineStacks);
+                    writer.WritePropertyName("dn");
+                    writer.WriteValue(container.DisplayName);
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return null;
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(ContainerManager);
+                }
             }
         }
 

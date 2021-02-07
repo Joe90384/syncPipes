@@ -7,12 +7,20 @@
         /// </summary>
         void OnServerInitialized()
         {
-            Data.Load();
+
+            if (!DataStore1_0.Load())
+            {
+                Instance.Puts("Upgrading from old data store");
+                Data.Load();
+            }
         }
 
         /// <summary>
         /// Hook: Save all the pipe data when the server saves
         /// </summary>
-        void OnServerSave() => Data.Save();
+        void OnServerSave()
+        {
+            DataStore1_0.Save();
+        }
     }
 }

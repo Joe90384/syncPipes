@@ -38,6 +38,7 @@
         /// <param name="hit">Information about the hit</param>
         void OnHammerHit(BasePlayer player, HitInfo hit)
         {
+            Instance.Puts("Hammer Hit");
             var playerHelper = PlayerHelper.Get(player);
             var handled =
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||

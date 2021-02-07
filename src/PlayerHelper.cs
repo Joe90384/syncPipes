@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Oxide.Core.Libraries.Covalence;
 
@@ -25,13 +24,18 @@ namespace Oxide.Plugins
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>> AllPipes = new ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>>();
+            private static readonly Dictionary<ulong, Dictionary<ulong, Pipe>> AllPipes = new Dictionary<ulong, Dictionary<ulong, Pipe>>();
 
             /// <summary>
             /// Add a pipe to the PlayerPipes store
             /// </summary>
             /// <param name="pipe">Pipe to add to the store</param>
-            public static void AddPipe(Pipe pipe) => AllPipes.GetOrAdd(pipe.OwnerId, new ConcurrentDictionary<ulong, Pipe>()).TryAdd(pipe.Id, pipe);
+            public static void AddPipe(Pipe pipe)
+            {
+                if(!AllPipes.ContainsKey(pipe.OwnerId))
+                    AllPipes.Add(pipe.OwnerId, new Dictionary<ulong, Pipe>());
+                AllPipes[pipe.OwnerId][pipe.Id] = pipe;
+            }
 
             /// <summary>
             /// Remove a pipe from the PlayaerPipes
@@ -39,16 +43,15 @@ namespace Oxide.Plugins
             /// <param name="pipe">Pipe to remove from the store</param>
             public static void RemovePipe(Pipe pipe)
             {
-                ConcurrentDictionary<ulong, Pipe> ownerPipes;
-                Pipe removedPipe;
+                Dictionary<ulong, Pipe> ownerPipes;
                 if (AllPipes.TryGetValue(pipe.OwnerId, out ownerPipes))
-                    ownerPipes.TryRemove(pipe.Id, out removedPipe);
+                    ownerPipes.Remove(pipe.Id);
             }
 
             /// <summary>
             /// The store of player helpers for all players (once they have carried out any actions)
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, PlayerHelper> Players = new ConcurrentDictionary<ulong, PlayerHelper>();
+            private static readonly Dictionary<ulong, PlayerHelper> Players = new Dictionary<ulong, PlayerHelper>();
             
             /// <summary>
             /// Get a player helper using the player details given by the commands
@@ -62,8 +65,14 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="player">Player to get the player helper for</param>
             /// <returns></returns>
-            public static PlayerHelper Get(BasePlayer player) => 
-                player == null ? null : Players.GetOrAdd(player.userID, new PlayerHelper(player));
+            public static PlayerHelper Get(BasePlayer player)
+            {
+                if (player == null)
+                    return null;
+                if(!Players.ContainsKey(player.userID))
+                    Players.Add(player.userID, new PlayerHelper(player));
+                return Players[player.userID];
+            }
 
             /// <summary>
             /// Create a player helper
@@ -244,7 +253,15 @@ namespace Oxide.Plugins
             /// <summary>
             /// Pipes that this player has created
             /// </summary>
-            public ConcurrentDictionary<ulong, Pipe> Pipes => AllPipes.GetOrAdd(Player.userID, new ConcurrentDictionary<ulong, Pipe>());
+            public Dictionary<ulong, Pipe> Pipes
+            {
+                get
+                {
+                    if(!AllPipes.ContainsKey(Player.userID))
+                        AllPipes.Add(Player.userID, new Dictionary<ulong, Pipe>());
+                    return AllPipes[Player.userID];
+                }
+            }
 
             /// <summary>
             /// Checks if this player has permission to open the container
@@ -499,7 +516,7 @@ namespace Oxide.Plugins
             public static void Remove(BasePlayer player)
             {
                 PlayerHelper playerHelper;
-                if (Players.TryRemove(player.userID, out playerHelper))
+                if (Players.TryGetValue(player.userID, out playerHelper) && Players.Remove(player.userID))
                     playerHelper?.Menu?.Close(playerHelper);
             }
 

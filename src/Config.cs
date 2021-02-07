@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Oxide.Plugins
@@ -55,6 +54,8 @@ namespace Oxide.Plugins
 
             [JsonProperty("permLevels", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
+
+            [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
 
             public class PermissionLevel
             {
@@ -125,10 +126,10 @@ namespace Oxide.Plugins
                     config = New();
                     Instance.Config.WriteObject(config);
                 }
-                foreach (var error in config.Validate())
-                {
-                    Instance.PrintWarning(error);
-                }
+
+                var errors = config.Validate();
+                for(var i =0; i < errors.Length; i++)
+                    Instance.PrintWarning(errors[i]);
                 return config;
             }
 
