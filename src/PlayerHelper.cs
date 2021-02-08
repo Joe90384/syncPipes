@@ -173,11 +173,9 @@ namespace Oxide.Plugins
                     var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
                     for (var i = 0; i < permissions.Length; i++)
                     {
-                        Instance.Puts("Permission: {0}", permissions[i]);
                         var permission = GetPermission(permissions[i]);
                         if (permission != null)
                         {
-                            Instance.Puts("Good: {0}", permission.MaximumGrade);
                             yield return permission;
                         }
                     }

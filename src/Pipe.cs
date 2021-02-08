@@ -225,6 +225,7 @@ namespace Oxide.Plugins
                 Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
+                _initialFilterItems = data.ItemFilter;
                 Validate();
                 Create();
             }
@@ -254,7 +255,7 @@ namespace Oxide.Plugins
                                     IsEnabled = reader.ReadAsBoolean() ?? false;
                                     break;
                                 case "grd":
-                                    Grade = (BuildingGrade.Enum)(reader.ReadAsInt32() ?? 0);
+                                    Grade = (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "sid":
                                     reader.Read();
@@ -265,13 +266,13 @@ namespace Oxide.Plugins
                                     uint.TryParse(reader.Value.ToString(), out destinationId);
                                     break;
                                 case "sct":
-                                    sourceType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    sourceType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "dct":
-                                    destinationType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    destinationType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "hth":
-                                    _initialHealth = (float)(reader.ReadAsDecimal() ?? 0);
+                                    _initialHealth = (float)reader.ReadAsDecimal().GetValueOrDefault(0);
                                     break;
                                 case "mst":
                                     IsMultiStack = reader.ReadAsBoolean() ?? false;
@@ -284,6 +285,9 @@ namespace Oxide.Plugins
                                     break;
                                 case "fss":
                                     FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+                                    break;
+                                case "prt":
+                                    Priority = (PipePriority)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "oid":
                                     reader.Read();
@@ -298,12 +302,12 @@ namespace Oxide.Plugins
                                     DisplayName = reader.ReadAsString();
                                     break;
                                 case "flr":
-                                    reader.Read();
                                     var filterIds = new List<int>();
                                     while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                     {
-                                        if (reader.ValueType == typeof(int))
-                                            filterIds.Add((int)reader.Value);
+                                        int value;
+                                        if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
+                                            filterIds.Add(value);
                                     }
                                     _initialFilterItems = filterIds;
                                     break;
@@ -359,11 +363,9 @@ namespace Oxide.Plugins
             {
                 get
                 {
-                    if(_pipeFilter == null)
-                        yield break;
-                    for (var i = 0; i < _pipeFilter.Items.Count; i++)
+                    for (var i = 0; i < PipeFilter.Items.Count; i++)
                     {
-                        yield return _pipeFilter.Items[i].info.itemid;
+                        yield return PipeFilter.Items[i].info.itemid;
                     }
                 }
             }
@@ -1036,6 +1038,8 @@ namespace Oxide.Plugins
                     writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
                     writer.WritePropertyName("fss");
                     writer.WriteValue(pipe.FurnaceSplitterStacks);
+                    writer.WritePropertyName("prt");
+                    writer.WriteValue(pipe.Priority);
                     writer.WritePropertyName("oid");
                     writer.WriteValue(pipe.OwnerId);
                     writer.WritePropertyName("onm");
@@ -1044,11 +1048,8 @@ namespace Oxide.Plugins
                     writer.WriteValue(pipe.DisplayName);
                     writer.WritePropertyName("flr");
                     writer.WriteStartArray();
-                    if (pipe._pipeFilter != null)
-                    {
-                        for (int i = 0; i < pipe._pipeFilter.Items.Count; i++)
-                            writer.WriteValue(pipe._pipeFilter.Items[i].info.itemid);
-                    }
+                    for (int i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
                     writer.WriteEndArray();
                     writer.WriteEndObject();
                 }

@@ -904,7 +904,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 catch (Exception e)
                 {
-                    Instance.Puts("{0}", e.StackTrace);
+                    Instance.PrintError("{0}", e.StackTrace);
                 }
             }
 
@@ -976,6 +976,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     for (var j = 0; j < pipeGroup[i].Count; j++)
                     {
                         var pipe = pipeGroup[i][j];
+                        if (pipe.Source.Id != ContainerId)
+                            continue;
                         if (pipe.PipeFilter.Items.Count > 0)
                         {
                             var found = false;
@@ -991,10 +993,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
 
-                //var unusedPipes = pipeGroup
-                //    .Where(a => a.IsEnabled && (!a.PipeFilter.Items.Any() ||
-                //                a.PipeFilter.Items.Select(b=>b.info.itemid).Any(b => distinctItems.ContainsKey(b))))
-                //    .OrderBy(a => a.Grade).ToList();
                 while (unusedPipes.Count > 0 && distinctItems.Count > 0)
                 {
                     var itemId = distinctItemIds[0];
@@ -1023,9 +1021,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                         validPipes.Add(pipe);
                     }
-                    //var validPipes = unusedPipes.Where(a =>
-                    //        !a.PipeFilter.Items.Any() || a.PipeFilter.Items.Any(b => b.info.itemid == item.Key))
-                    //    .ToArray();
                     var pipesLeft = validPipes.Count;
                     for(var i = 0; i < validPipes.Count; i++)
                     {
@@ -1036,7 +1031,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
-                        for(var j = 0; i < item.Count; i++)
+                        for(var j = 0; j < item.Count; j++)
                         {
                             var itemStack = item[j];
                             var toMove = itemStack;
@@ -1065,7 +1060,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             amountToMove -= toMove.amount;
                         }
 
-                        // If all items have been taken allow the pipe to transport something else. This will only occur if the intial quantity is less than the number of pipes
+                        // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
                         if (quantity <= 0)
                             break;
                     }
@@ -1285,7 +1280,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 return true;
             }
 
-            private Coroutine _coroutine;
+            private UnityEngine.Coroutine _coroutine;
             private static bool _running;
 
             class Converter : JsonConverter
@@ -1470,7 +1465,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="hit">Information about the hit</param>
         void OnHammerHit(BasePlayer player, HitInfo hit)
         {
-            Instance.Puts("Hammer Hit");
             var playerHelper = PlayerHelper.Get(player);
             var handled =
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
@@ -2933,6 +2927,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
+                _initialFilterItems = data.ItemFilter;
                 Validate();
                 Create();
             }
@@ -2962,7 +2957,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     IsEnabled = reader.ReadAsBoolean() ?? false;
                                     break;
                                 case "grd":
-                                    Grade = (BuildingGrade.Enum)(reader.ReadAsInt32() ?? 0);
+                                    Grade = (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "sid":
                                     reader.Read();
@@ -2973,13 +2968,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     uint.TryParse(reader.Value.ToString(), out destinationId);
                                     break;
                                 case "sct":
-                                    sourceType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    sourceType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "dct":
-                                    destinationType = (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                    destinationType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "hth":
-                                    _initialHealth = (float)(reader.ReadAsDecimal() ?? 0);
+                                    _initialHealth = (float)reader.ReadAsDecimal().GetValueOrDefault(0);
                                     break;
                                 case "mst":
                                     IsMultiStack = reader.ReadAsBoolean() ?? false;
@@ -2992,6 +2987,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     break;
                                 case "fss":
                                     FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+                                    break;
+                                case "prt":
+                                    Priority = (PipePriority)reader.ReadAsInt32().GetValueOrDefault(0);
                                     break;
                                 case "oid":
                                     reader.Read();
@@ -3006,12 +3004,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     DisplayName = reader.ReadAsString();
                                     break;
                                 case "flr":
-                                    reader.Read();
                                     var filterIds = new List<int>();
                                     while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                     {
-                                        if (reader.ValueType == typeof(int))
-                                            filterIds.Add((int)reader.Value);
+                                        int value;
+                                        if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
+                                            filterIds.Add(value);
                                     }
                                     _initialFilterItems = filterIds;
                                     break;
@@ -3067,11 +3065,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 get
                 {
-                    if(_pipeFilter == null)
-                        yield break;
-                    for (var i = 0; i < _pipeFilter.Items.Count; i++)
+                    for (var i = 0; i < PipeFilter.Items.Count; i++)
                     {
-                        yield return _pipeFilter.Items[i].info.itemid;
+                        yield return PipeFilter.Items[i].info.itemid;
                     }
                 }
             }
@@ -3744,6 +3740,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
                     writer.WritePropertyName("fss");
                     writer.WriteValue(pipe.FurnaceSplitterStacks);
+                    writer.WritePropertyName("prt");
+                    writer.WriteValue(pipe.Priority);
                     writer.WritePropertyName("oid");
                     writer.WriteValue(pipe.OwnerId);
                     writer.WritePropertyName("onm");
@@ -3752,11 +3750,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     writer.WriteValue(pipe.DisplayName);
                     writer.WritePropertyName("flr");
                     writer.WriteStartArray();
-                    if (pipe._pipeFilter != null)
-                    {
-                        for (int i = 0; i < pipe._pipeFilter.Items.Count; i++)
-                            writer.WriteValue(pipe._pipeFilter.Items[i].info.itemid);
-                    }
+                    for (int i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
                     writer.WriteEndArray();
                     writer.WriteEndObject();
                 }
@@ -4143,11 +4138,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
                     for (var i = 0; i < permissions.Length; i++)
                     {
-                        Instance.Puts("Permission: {0}", permissions[i]);
                         var permission = GetPermission(permissions[i]);
                         if (permission != null)
                         {
-                            Instance.Puts("Good: {0}", permission.MaximumGrade);
                             yield return permission;
                         }
                     }
@@ -4825,7 +4818,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             if (pipe == null || hitInfo == null) return null;
             if (InstanceConfig.NoDecay)
                 hitInfo.damageTypes.Scale(DamageType.Decay, 0f);
-            if (InstanceConfig.DestroyWithSalvage && hitInfo.WeaponPrefab.prefabID == 1744180387 && PlayerHelper.Get(hitInfo.InitiatorPlayer).HasBuildPrivilege)
+            if (InstanceConfig.DestroyWithSalvage && hitInfo.WeaponPrefab?.prefabID == 1744180387 && PlayerHelper.Get(hitInfo.InitiatorPlayer).HasBuildPrivilege)
             {
                 pipe.Remove();
                 return true;

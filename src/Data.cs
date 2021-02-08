@@ -90,7 +90,7 @@ namespace Oxide.Plugins
                 return true;
             }
 
-            private Coroutine _coroutine;
+            private UnityEngine.Coroutine _coroutine;
             private static bool _running;
 
             class Converter : JsonConverter

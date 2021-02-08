@@ -201,7 +201,7 @@ namespace Oxide.Plugins
                 }
                 catch (Exception e)
                 {
-                    Instance.Puts("{0}", e.StackTrace);
+                    Instance.PrintError("{0}", e.StackTrace);
                 }
             }
 
@@ -273,6 +273,8 @@ namespace Oxide.Plugins
                     for (var j = 0; j < pipeGroup[i].Count; j++)
                     {
                         var pipe = pipeGroup[i][j];
+                        if (pipe.Source.Id != ContainerId)
+                            continue;
                         if (pipe.PipeFilter.Items.Count > 0)
                         {
                             var found = false;
@@ -288,10 +290,6 @@ namespace Oxide.Plugins
                     }
                 }
 
-                //var unusedPipes = pipeGroup
-                //    .Where(a => a.IsEnabled && (!a.PipeFilter.Items.Any() ||
-                //                a.PipeFilter.Items.Select(b=>b.info.itemid).Any(b => distinctItems.ContainsKey(b))))
-                //    .OrderBy(a => a.Grade).ToList();
                 while (unusedPipes.Count > 0 && distinctItems.Count > 0)
                 {
                     var itemId = distinctItemIds[0];
@@ -320,9 +318,6 @@ namespace Oxide.Plugins
 
                         validPipes.Add(pipe);
                     }
-                    //var validPipes = unusedPipes.Where(a =>
-                    //        !a.PipeFilter.Items.Any() || a.PipeFilter.Items.Any(b => b.info.itemid == item.Key))
-                    //    .ToArray();
                     var pipesLeft = validPipes.Count;
                     for(var i = 0; i < validPipes.Count; i++)
                     {
@@ -333,7 +328,7 @@ namespace Oxide.Plugins
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
-                        for(var j = 0; i < item.Count; i++)
+                        for(var j = 0; j < item.Count; j++)
                         {
                             var itemStack = item[j];
                             var toMove = itemStack;
@@ -362,7 +357,7 @@ namespace Oxide.Plugins
                             amountToMove -= toMove.amount;
                         }
 
-                        // If all items have been taken allow the pipe to transport something else. This will only occur if the intial quantity is less than the number of pipes
+                        // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
                         if (quantity <= 0)
                             break;
                     }
