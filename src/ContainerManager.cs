@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -13,6 +12,7 @@ namespace Oxide.Plugins
         ///     This then allows for items to move through pipes in a more synchronous manner.
         ///     Items can be split evenly between all pipes of the same priority.
         /// </summary>
+        [JsonConverter(typeof(ContainerManager.Converter))]
         public class ContainerManager : MonoBehaviour
         {
             /// <summary>
@@ -45,29 +45,39 @@ namespace Oxide.Plugins
             /// Get the save data for all container managers
             /// </summary>
             /// <returns>data for all container managers</returns>
-            public static IEnumerable<Data> Save() => Managed.Where(a => a.Value.HasAnyPipes).Select(a => new Data(a.Value));
+            public static IEnumerable<Data> Save()
+            {
+                using (var enumerator = ManagedContainerLookup.GetEnumerator())
+                {
+                    while (enumerator.MoveNext())
+                    {
+                        if (enumerator.Current.Value.HasAnyPipes)
+                            yield return new Data(enumerator.Current.Value);
+                    }
+                }
+            }
 
             /// <summary>
             /// Load all data into the container managers.
             /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
             /// </summary>
             /// <param name="dataToLoad">Data to load into container managers</param>
-            public static void Load(IEnumerable<Data> dataToLoad)
+            public static void Load(List<Data> dataToLoad)
             {
                 if (dataToLoad == null) return;
-                ContainerManager manager;
                 var containerCount = 0;
-                foreach (var data in dataToLoad)
+                for(int i = 0; i < dataToLoad.Count; i++)
                 {
-                    if (Managed.TryGetValue(data.ContainerId, out manager))
+                    ContainerManager manager;
+                    if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
                         containerCount++;
-                        manager.DisplayName = data.DisplayName;
-                        manager.CombineStacks = data.CombineStacks;
+                        manager.DisplayName = dataToLoad[i].DisplayName;
+                        manager.CombineStacks = dataToLoad[i].CombineStacks;
                     }
                     else
                     {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", data.ContainerId, data.DisplayName);
+                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].DisplayName);
                     }
                 }
                 Instance.Puts("Successfully loaded {0} managers", containerCount);
@@ -76,11 +86,13 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Keeps track of all the container managers that have been created.
             /// </summary>
-            private static readonly ConcurrentDictionary<uint, ContainerManager> Managed =
-                new ConcurrentDictionary<uint, ContainerManager>();
+            private static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
+                new Dictionary<uint, ContainerManager>();
+            public static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
 
             // Which pipes have been attached to this container manager
-            private readonly ConcurrentDictionary<ulong, Pipe> _attachedPipes = new ConcurrentDictionary<ulong, Pipe>();
+            //private readonly Dictionary<ulong, Pipe> _attachedPipeLookup = new Dictionary<ulong, Pipe>();
+            private readonly List<Pipe> _attachedPipes = new List<Pipe>();
 
             // Pull from multiple stack of the same type whe moving or only move one stack per priority level
             // This has been implemented but the controlling systems have not been developed
@@ -96,16 +108,22 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Checks if there are any pipes attached to this container.
             /// </summary>
-            public bool HasAnyPipes => _attachedPipes.Any();
+            public bool HasAnyPipes => _attachedPipes.Count > 0;
 
             /// <summary>
             ///     Cleanup all container managers. Normally used at unload.
             /// </summary>
             public static void Cleanup()
             {
-                foreach (var containerManager in Managed.Values.ToArray())
-                    containerManager?.Kill(true);
-                Managed.Clear();
+                while (ManagedContainers.Count > 0)
+                {
+                    if(ManagedContainers[0] == null)
+                        ManagedContainers.RemoveAt(0);
+                    else
+                        ManagedContainers[0].Kill(true);
+                }
+                ManagedContainerLookup.Clear();
+                ManagedContainers.Clear();
             }
 
             /// <summary>
@@ -117,17 +135,21 @@ namespace Oxide.Plugins
             /// </param>
             private void Kill(bool cleanup = false)
             {
-                foreach (var pipe in _attachedPipes.Values)
+                for(var i = 0; i < _attachedPipes.Count; i++)
                 {
-                    if (pipe?.Destination?.ContainerManager == this)
-                        pipe.Remove(cleanup);
-                    if (pipe?.Source?.ContainerManager == this)
-                        pipe.Remove(cleanup);
+                    if (_attachedPipes[i]?.Destination?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
+                    if (_attachedPipes[i]?.Source?.ContainerManager == this)
+                        _attachedPipes[i].Remove(cleanup);
                 }
 
                 _destroyed = true;
-                ContainerManager manager;
-                Managed.TryRemove(ContainerId, out manager);
+                if (ManagedContainerLookup.ContainsKey(ContainerId))
+                {
+                    ManagedContainerLookup.Remove(ContainerId);
+                    ManagedContainers.Remove(this);
+                }
+
                 Destroy(this);
             }
 
@@ -141,8 +163,21 @@ namespace Oxide.Plugins
             public static ContainerManager Attach(BaseEntity entity, StorageContainer container, Pipe pipe)
             {
                 if (entity == null || container == null || pipe == null) return null;
-                var containerManager = Managed.GetOrAdd(entity.net.ID, entity.gameObject.AddComponent<ContainerManager>());
-                containerManager._attachedPipes.TryAdd(pipe.Id, pipe);
+                ContainerManager containerManager = null;
+                if (!ManagedContainerLookup.ContainsKey(entity.net.ID))
+                {
+                    containerManager = entity.gameObject.AddComponent<ContainerManager>();
+                    ManagedContainerLookup.Add(entity.net.ID, containerManager);
+                    ManagedContainers.Add(containerManager);
+                }
+                else
+                {
+                    containerManager = ManagedContainerLookup[entity.net.ID];
+                }
+                if (!containerManager._attachedPipes.Contains(pipe))
+                {
+                    containerManager._attachedPipes.Add(pipe);
+                }
                 containerManager.ContainerId = entity.net.ID;
                 containerManager._container = container;
                 return containerManager;
@@ -157,14 +192,16 @@ namespace Oxide.Plugins
             {
                 try
                 {
-                    ContainerManager containerManager;
-                    Pipe removedPipe;
-                    if (Managed.TryGetValue(containerId, out containerManager) && pipe != null)
-                        containerManager._attachedPipes?.TryRemove(pipe.Id, out removedPipe);
+                    if (pipe != null && ManagedContainerLookup.ContainsKey(containerId))
+                    {
+                        var containerManager = ManagedContainerLookup[containerId];
+                        if (containerManager._attachedPipes?.Contains(pipe) ?? false)
+                            containerManager._attachedPipes?.Remove(pipe);
+                    }
                 }
                 catch (Exception e)
                 {
-                    Instance.Puts("{0}", e.StackTrace);
+                    Instance.PrintError("{0}", e.StackTrace);
                 }
             }
 
@@ -179,15 +216,32 @@ namespace Oxide.Plugins
                 _cumulativeDeltaTime += UnityEngine.Time.deltaTime;
                 if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
                 _cumulativeDeltaTime = 0f;
-                if (_container.inventory.itemList.FirstOrDefault() == null)
+                if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
                     return;
-                var pipeGroups = _attachedPipes.Values.Where(a => a.Source.ContainerManager == this)
-                    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
-                foreach (var pipeGroup in pipeGroups)
-                    if (CombineStacks)
-                        MoveCombineStacks(pipeGroup);
+                var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
+                for (var i = 0; i < _attachedPipes.Count; i++)
+                {
+                    var pipe = _attachedPipes[i];
+                    if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
+                        continue;
+                    var priority = (int) pipe.Priority;
+                    var grade = (int) pipe.Grade;
+                    if(!pipeGroups.ContainsKey(priority))
+                        pipeGroups.Add(priority, new Dictionary<int, List<Pipe>>());
+                    if(!pipeGroups[priority].ContainsKey(grade))
+                        pipeGroups[priority].Add(grade, new List<Pipe>());
+                    pipeGroups[priority][grade].Add(pipe);
+                }
+                //var pipeGroups = _attachedPipeLookup.Values.Where(a => a.Source.ContainerManager == this)
+                //    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
+                for (int i = (int)Pipe.PipePriority.Highest; i > (int)Pipe.PipePriority.Demand; i--)
+                {
+                    if (!pipeGroups.ContainsKey(i)) continue;
+                    if(CombineStacks)
+                        MoveCombineStacks(pipeGroups[i]);
                     else
-                        MoveIndividualStacks(pipeGroup);
+                        MoveIndividualStacks(pipeGroups[i]);
+                }
             }
 
             /// <summary>
@@ -195,34 +249,88 @@ namespace Oxide.Plugins
             ///     Items will be split as evenly as possible down all the pipes (limited by flow rate)
             /// </summary>
             /// <param name="pipeGroup">Pipes grouped by their priority</param>
-            private void MoveCombineStacks(IGrouping<Pipe.PipePriority, Pipe> pipeGroup)
+            private void MoveCombineStacks(Dictionary<int, List<Pipe>> pipeGroup)
             {
-                var distinctItems = _container.inventory.itemList.GroupBy(a => a.info.itemid)
-                    .ToDictionary(a => a.Key, a => a.Select(b => b));
-
-                var unusedPipes = pipeGroup
-                    .Where(a => a.IsEnabled && (!a.PipeFilter.Items.Any() ||
-                                a.PipeFilter.Items.Select(b=>b.info.itemid).Any(b => distinctItems.ContainsKey(b))))
-                    .OrderBy(a => a.Grade).ToList();
-                while (unusedPipes.Any() && distinctItems.Any())
+                var distinctItemIds = new List<int>();
+                var distinctItems = new Dictionary<int, List<Item>>();
+                var itemList = _container.inventory.itemList;
+                for (var i = 0; i < itemList.Count; i++)
                 {
-                    var firstItem = distinctItems.First();
-                    distinctItems.Remove(firstItem.Key);
-                    var quantity = firstItem.Value.Sum(a => a.amount);
-                    var validPipes = unusedPipes.Where(a =>
-                            !a.PipeFilter.Items.Any() || a.PipeFilter.Items.Any(b => b.info.itemid == firstItem.Key))
-                        .ToArray();
-                    var pipesLeft = validPipes.Length;
-                    foreach (var validPipe in validPipes)
+                    var itemId = itemList[i].info.itemid;
+                    if (!distinctItems.ContainsKey(itemList[i].info.itemid))
                     {
+                        distinctItems.Add(itemId, new List<Item>());
+                        distinctItemIds.Add(itemId);
+                    }
+
+                    distinctItems[itemId].Add(itemList[i]);
+                }
+                var unusedPipes = new List<Pipe>();
+                for (var i = (int) BuildingGrade.Enum.Twigs; i <= (int) BuildingGrade.Enum.TopTier; i++)
+                {
+                    if (!pipeGroup.ContainsKey(i))
+                        continue;
+                    for (var j = 0; j < pipeGroup[i].Count; j++)
+                    {
+                        var pipe = pipeGroup[i][j];
+                        if (pipe.Source.Id != ContainerId)
+                            continue;
+                        if (pipe.PipeFilter.Items.Count > 0)
+                        {
+                            var found = false;
+                            for (var k = 0; k < pipe.PipeFilter.Items.Count; k++)
+                            {
+                                if (distinctItems.ContainsKey(pipe.PipeFilter.Items[k].info.itemid))
+                                    found = true;
+                            }
+                            if (!found) 
+                                continue;
+                        }
+                        unusedPipes.Add(pipe);
+                    }
+                }
+
+                while (unusedPipes.Count > 0 && distinctItems.Count > 0)
+                {
+                    var itemId = distinctItemIds[0];
+                    var item = distinctItems[itemId];
+                    distinctItems.Remove(distinctItemIds[0]);
+                    distinctItemIds.RemoveAt(0);
+                    var quantity = 0;
+                    for (var i = 0; i < item.Count; i++)
+                        quantity += item[0].amount;
+                    var validPipes = new List<Pipe>();
+                    for (var i = 0; i < unusedPipes.Count; i++)
+                    {
+                        var pipe = unusedPipes[i];
+                        if (pipe.PipeFilter.Items.Count > 0)
+                        {
+                            bool found = false;
+                            for (var j = 0; j < pipe.PipeFilter.Items.Count; j++)
+                            {
+                                if (pipe.PipeFilter.Items[j].info.itemid == itemId)
+                                    found = true;
+                            }
+
+                            if (!found) 
+                                continue;
+                        }
+
+                        validPipes.Add(pipe);
+                    }
+                    var pipesLeft = validPipes.Count;
+                    for(var i = 0; i < validPipes.Count; i++)
+                    {
+                        var validPipe = validPipes[i];
                         unusedPipes.Remove(validPipe);
-                        var amountToMove = GetAmountToMove(firstItem.Key, quantity, pipesLeft--, validPipe,
-                            firstItem.Value.FirstOrDefault()?.MaxStackable() ?? 0);
+                        var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
+                            item[0]?.MaxStackable() ?? 0);
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
-                        foreach (var itemStack in firstItem.Value)
+                        for(var j = 0; j < item.Count; j++)
                         {
+                            var itemStack = item[j];
                             var toMove = itemStack;
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
@@ -249,7 +357,7 @@ namespace Oxide.Plugins
                             amountToMove -= toMove.amount;
                         }
 
-                        // If all items have been taken allow the pipe to transport something else. This will only occur if the intial quantity is less than the number of pipes
+                        // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
                         if (quantity <= 0)
                             break;
                     }
@@ -261,13 +369,20 @@ namespace Oxide.Plugins
             ///     Items will be split as evenly as possible down all the pipes (limited by flow rate)
             /// </summary>
             /// <param name="pipeGroup">Pipes grouped by their priority</param>
-            private void MoveIndividualStacks(IGrouping<Pipe.PipePriority, Pipe> pipeGroup)
+            private void MoveIndividualStacks(Dictionary<int, List<Pipe>> pipeGroup)
             {
-                foreach (var pipe in pipeGroup)
+                for (var i = 0; i < (int) BuildingGrade.Enum.TopTier; i++)
                 {
-                    var item = _container.inventory.itemList.FirstOrDefault();
-                    if (item == null) return;
-                    GetItemToMove(item, pipe)?.MoveToContainer(pipe.Destination.Storage.inventory);
+                    if (!pipeGroup.ContainsKey(i))
+                        continue;
+                    var pipes = pipeGroup[i];
+                    for (var j = 0; j < pipes.Count; j++)
+                    {
+                        var pipe = pipes[j];
+                        var item = _container.inventory.itemList.Count > 0 ? _container.inventory.itemList[0] : null;
+                        if (item == null) return;
+                        GetItemToMove(item, pipe)?.MoveToContainer(pipe.Destination.Storage.inventory);
+                    }
                 }
             }
 
@@ -290,8 +405,8 @@ namespace Oxide.Plugins
                 var emptySlots = destinationContainer.inventory.capacity -
                                  destinationContainer.inventory.itemList.Count;
                 var itemStacks = destinationContainer.inventory.FindItemsByItemID(itemId);
-                var minStackSize = itemStacks.Any() ? itemStacks.Min(a => a.amount) : 0;
-                if (minStackSize == 0 && emptySlots == 0)
+                int minStackSize = GetMinStackSize(itemStacks);
+                if (minStackSize <= 0 && emptySlots == 0)
                     return 0;
                 if (!pipe.IsMultiStack)
                 {
@@ -329,7 +444,7 @@ namespace Oxide.Plugins
                 if (!pipe.IsMultiStack || noEmptyStacks)
                 {
                     var itemStacks = destinationContainer.inventory.FindItemsByItemID(item.info.itemid);
-                    var minStackSize = itemStacks.Any() ? itemStacks.Min(a => a.amount) : 0;
+                    int minStackSize = GetMinStackSize(itemStacks);
                     if (minStackSize == 0 && noEmptyStacks || minStackSize == maxStackable)
                         return null;
                     var space = maxStackable - minStackSize;
@@ -340,6 +455,44 @@ namespace Oxide.Plugins
 
                 return item;
             }
+            private static int GetMinStackSize(List<Item> itemStacks)
+            {
+                int minStackSize = -1;
+                for (var i = 0; i < itemStacks.Count; i++)
+                {
+                    if (minStackSize < 0 || itemStacks[i].amount < minStackSize)
+                        minStackSize = itemStacks[i].amount;
+                }
+                return minStackSize < 0 ? 0 : minStackSize;
+            }
+
+            public class Converter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var container = value as ContainerManager;
+                    if (container == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("ci");
+                    writer.WriteValue(container.ContainerId);
+                    writer.WritePropertyName("cs");
+                    writer.WriteValue(container.CombineStacks);
+                    writer.WritePropertyName("dn");
+                    writer.WriteValue(container.DisplayName);
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return null;
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(ContainerManager);
+                }
+            }
         }
+
     }
 }

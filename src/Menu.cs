@@ -1,5 +1,5 @@
-﻿using Oxide.Game.Rust.Cui;
-using System.Linq;
+﻿using System.Collections.Generic;
+using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -312,7 +312,10 @@ The more you upgrade your pipe the more filter slots you'll have.")]
                 AddLabel(infoPanel, _playerHelper.GetPipeMenuInfo(InfoLabel.FilterLimit), 12, TextAnchor.MiddleLeft, "0.02 0.45", "0.4 0.5", LabelColour);
                 AddLabel(infoPanel, InstanceConfig.FilterSizes[(int) _pipe.Grade].ToString(), 12, TextAnchor.MiddleLeft, "0.4 0.45", "1 0.5");
                 AddLabel(infoPanel, _playerHelper.GetPipeMenuInfo(InfoLabel.FilterItems), 12, TextAnchor.MiddleLeft, "0.02 0.4", "0.4 0.45", LabelColour);
-                AddLabel(infoPanel, string.Join(", ", _pipe.PipeFilter.Items.Select(a => a.info.displayName.translated)), 10,
+                var items = new List<string>();
+                for (int i = 0; i < _pipe.PipeFilter.Items.Count; i++)
+                    items.Add(_pipe.PipeFilter.Items[i].info.displayName.translated);
+                AddLabel(infoPanel, string.Join(", ", items), 10,
                     TextAnchor.UpperLeft, "0.4 0.01", "1 0.45");
             }
 

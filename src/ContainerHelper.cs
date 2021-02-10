@@ -1,6 +1,4 @@
-﻿using System.Linq;
-
-namespace Oxide.Plugins
+﻿namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
 	{
@@ -53,8 +51,16 @@ namespace Oxide.Plugins
                 var entity = (BaseEntity)BaseNetworkable.serverEntities.Find(parentId);
                 if (containerType != ContainerType.ResourceExtractor && containerType != ContainerType.FuelStorage)
                     return entity;
-                return entity?.GetComponent<BaseResourceExtractor>()?.children
-                    .OfType<ResourceExtractorFuelStorage>().FirstOrDefault(a =>a.panelName == (containerType == ContainerType.FuelStorage ? "fuelstorage" : "generic"));
+                var children = entity?.GetComponent<BaseResourceExtractor>()?.children;
+                if (children == null)
+                    return null;
+                for (var i = 0; i < children.Count; i++)
+                {
+                    var fuelStorage = children[i] as ResourceExtractorFuelStorage;
+                    if (fuelStorage?.panelName == (containerType == ContainerType.FuelStorage ? "fuelstorage" : "generic"))
+                        return children[i];
+                }
+                return null;
             }
 
             public static StorageContainer Find(BaseEntity parent) => parent?.GetComponent<StorageContainer>();

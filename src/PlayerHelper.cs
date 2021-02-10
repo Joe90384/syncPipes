@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using Oxide.Core.Libraries.Covalence;
 
@@ -31,13 +29,18 @@ namespace Oxide.Plugins
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>> AllPipes = new ConcurrentDictionary<ulong, ConcurrentDictionary<ulong, Pipe>>();
+            private static readonly Dictionary<ulong, Dictionary<ulong, Pipe>> AllPipes = new Dictionary<ulong, Dictionary<ulong, Pipe>>();
 
             /// <summary>
             /// Add a pipe to the PlayerPipes store
             /// </summary>
             /// <param name="pipe">Pipe to add to the store</param>
-            public static void AddPipe(Pipe pipe) => AllPipes.GetOrAdd(pipe.OwnerId, new ConcurrentDictionary<ulong, Pipe>()).TryAdd(pipe.Id, pipe);
+            public static void AddPipe(Pipe pipe)
+            {
+                if(!AllPipes.ContainsKey(pipe.OwnerId))
+                    AllPipes.Add(pipe.OwnerId, new Dictionary<ulong, Pipe>());
+                AllPipes[pipe.OwnerId][pipe.Id] = pipe;
+            }
 
             /// <summary>
             /// Remove a pipe from the PlayaerPipes
@@ -45,16 +48,15 @@ namespace Oxide.Plugins
             /// <param name="pipe">Pipe to remove from the store</param>
             public static void RemovePipe(Pipe pipe)
             {
-                ConcurrentDictionary<ulong, Pipe> ownerPipes;
-                Pipe removedPipe;
+                Dictionary<ulong, Pipe> ownerPipes;
                 if (AllPipes.TryGetValue(pipe.OwnerId, out ownerPipes))
-                    ownerPipes.TryRemove(pipe.Id, out removedPipe);
+                    ownerPipes.Remove(pipe.Id);
             }
 
             /// <summary>
             /// The store of player helpers for all players (once they have carried out any actions)
             /// </summary>
-            private static readonly ConcurrentDictionary<ulong, PlayerHelper> Players = new ConcurrentDictionary<ulong, PlayerHelper>();
+            private static readonly Dictionary<ulong, PlayerHelper> Players = new Dictionary<ulong, PlayerHelper>();
             
             /// <summary>
             /// Get a player helper using the player details given by the commands
@@ -68,8 +70,14 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="player">Player to get the player helper for</param>
             /// <returns></returns>
-            public static PlayerHelper Get(BasePlayer player) => 
-                player == null ? null : Players.GetOrAdd(player.userID, (p) => new PlayerHelper(player));
+            public static PlayerHelper Get(BasePlayer player)
+            {
+                if (player == null)
+                    return null;
+                if(!Players.ContainsKey(player.userID))
+                    Players.Add(player.userID, new PlayerHelper(player));
+                return Players[player.userID];
+            }
 
             /// <summary>
             /// Create a player helper
@@ -165,9 +173,21 @@ namespace Oxide.Plugins
             /// <summary>
             /// Gets the syncPipes privileges currently held by this player
             /// </summary>
-            private SyncPipesConfig.PermissionLevel[] Permissions =>
-                Instance.permission.GetUserPermissions(Player.UserIDString)
-                    .Select(a => GetPermission(a)).Where(a => a != null).ToArray();
+            private IEnumerable<SyncPipesConfig.PermissionLevel> Permissions
+            {
+                get
+                {
+                    var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
+                    for (var i = 0; i < permissions.Length; i++)
+                    {
+                        var permission = GetPermission(permissions[i]);
+                        if (permission != null)
+                        {
+                            yield return permission;
+                        }
+                    }
+                }
+            }
 
 
             /// <summary>
@@ -189,14 +209,41 @@ namespace Oxide.Plugins
             /// <summary>
             /// Gives the maximum number of pipes this player can place just by permission level (ignoring admin)
             /// </summary>
-            private int PermissionLevelMaxPipes => Permissions.Any(a => a.MaximumPipes == -1) ? -1 : Permissions.DefaultIfEmpty(SyncPipesConfig.PermissionLevel.Default).Max(a => a.MaximumPipes);
+            private int PermissionLevelMaxPipes
+            {
+                get
+                {
+                    var maxPipes = 0;
+                    foreach (var permission in Permissions)
+                    {
+                        if (permission.MaximumPipes == -1)
+                            return -1;
+                        if (permission.MaximumPipes > maxPipes)
+                            maxPipes = permission.MaximumPipes;
+                    }
+
+                    return maxPipes;
+                }
+            }
 
             /// <summary>
             /// Give the maximum number grade the player can upgrade the pipes to by permission level (ignoring admin)
             /// </summary>
-            private int PermissionLevelMaxUpgrade => Permissions.Any(a => a.MaximumGrade == -1)
-                ? -1
-                : Permissions.DefaultIfEmpty(SyncPipesConfig.PermissionLevel.Default).Max(a => a.MaximumGrade);
+            private int PermissionLevelMaxUpgrade
+            {
+                get
+                {
+                    var maxUpgrade = 0;
+                    foreach (var permission in Permissions)
+                    {
+                        if (permission.MaximumGrade == -1)
+                            return -1;
+                        if (permission.MaximumGrade > maxUpgrade)
+                            maxUpgrade = permission.MaximumGrade;
+                    }
+                    return maxUpgrade;
+                }
+            }
 
             /// <summary>
             /// Maximum number of pipes this player can build
@@ -211,7 +258,15 @@ namespace Oxide.Plugins
             /// <summary>
             /// Pipes that this player has created
             /// </summary>
-            public ConcurrentDictionary<ulong, Pipe> Pipes => AllPipes.GetOrAdd(Player.userID, new ConcurrentDictionary<ulong, Pipe>());
+            public Dictionary<ulong, Pipe> Pipes
+            {
+                get
+                {
+                    if(!AllPipes.ContainsKey(Player.userID))
+                        AllPipes.Add(Player.userID, new Dictionary<ulong, Pipe>());
+                    return AllPipes[Player.userID];
+                }
+            }
 
             /// <summary>
             /// Checks if this player has permission to open the container
@@ -468,7 +523,7 @@ namespace Oxide.Plugins
             public static void Remove(BasePlayer player)
             {
                 PlayerHelper playerHelper;
-                if (Players.TryRemove(player.userID, out playerHelper))
+                if (Players.TryGetValue(player.userID, out playerHelper) && Players.Remove(player.userID))
                     playerHelper?.Menu?.Close(playerHelper);
             }
 

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Oxide.Plugins
+﻿namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {

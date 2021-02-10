@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using Newtonsoft.Json;
 using UnityEngine;
 using Random = System.Random;
@@ -10,6 +8,7 @@ namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
+        [JsonConverter(typeof(Pipe.Converter))]
         public class Pipe
         {
             private PipeFactory _factory;
@@ -31,7 +30,7 @@ namespace Oxide.Plugins
                 public bool IsAutoStart = false;
                 public bool IsFurnaceSplitter = false;
                 public int FurnaceSplitterStacks = 1;
-                public PipePriority Priority = PipePriority.Medium;
+                public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
                 public ulong OwnerId;
                 public string OwnerName;
                 private BaseEntity _source;
@@ -82,7 +81,7 @@ namespace Oxide.Plugins
                     SourceContainerType = pipe.Source.ContainerType;
                     DestinationContainerType = pipe.Destination.ContainerType;
                     Health = pipe.Health;
-                    ItemFilter = pipe.FilterItems;
+                    ItemFilter = new List<int>(pipe.FilterItems);
                     IsMultiStack = pipe.IsMultiStack;
                     IsAutoStart = pipe.IsAutoStart;
                     IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
@@ -114,21 +113,31 @@ namespace Oxide.Plugins
             /// Get the save data for all pipes
             /// </summary>
             /// <returns>Data for all pipes</returns>
-            public static IEnumerable<Data> Save() => Pipes.Select(a => new Data(a.Value));
+            public static IEnumerable<Data> Save()
+            {
+                for (int i = 0; i < Pipes.Count; i++)
+                {
+                    yield return new Data(Pipes[i]);
+                }
+            }
 
             /// <summary>
             /// Load all data and re-create the saved pipes.
             /// </summary>
             /// <param name="dataToLoad">Data to create the pipes from</param>
-            public static void Load(IEnumerable<Data> dataToLoad)
+            public static void Load(Data[] dataToLoad)
             {
                 if (dataToLoad == null) return;
-                var pipes = dataToLoad.Select(a => new Pipe(a)).ToList();
-                foreach (var pipe in pipes.Where(a => a.Validity != Status.Success))
+                var validCount = 0;
+                for (var i = 0; i < dataToLoad.Length; i++)
                 {
-                    Instance.PrintWarning("Failed to load pipe [{0}]: {1}", pipe.Id, pipe.Validity);
+                    var newPipe = new Pipe(dataToLoad[i]);
+                    if(newPipe.Validity != Status.Success)
+                        Instance.PrintWarning("Failed to load pipe [{0}]: {1}", newPipe.Id, newPipe.Validity);
+                    else
+                        validCount++;
                 }
-                Instance.Puts("Successfully loaded {0} pipes", pipes.Count(a => a.Validity == Status.Success));
+                Instance.Puts("Successfully loaded {0} pipes", validCount);
             }
 
             // Length of each segment
@@ -218,25 +227,128 @@ namespace Oxide.Plugins
                 Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
+                _initialFilterItems = data.ItemFilter;
                 Validate();
-                if (Validity != Status.Success)
+                Create();
+            }
+
+            private Pipe(JsonReader reader, JsonSerializer serializer)
+            {
+                Id = GenerateId();
+                var depth = 1;
+                if (reader.TokenType != JsonToken.StartObject)
+                    return;
+                uint sourceId = 0, destinationId = 0;
+                ContainerType sourceType = ContainerType.General, destinationType = ContainerType.General;
+                while (reader.Read() && depth > 0)
+                {
+                    switch (reader.TokenType)
+                    {
+                        case JsonToken.StartObject:
+                            depth++;
+                            break;
+                        case JsonToken.EndObject:
+                            depth--;
+                            break;
+                        case JsonToken.PropertyName:
+                            switch (reader.Value.ToString())
+                            {
+                                case "enb":
+                                    IsEnabled = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "grd":
+                                    Grade = (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
+                                    break;
+                                case "sid":
+                                    reader.Read();
+                                    uint.TryParse(reader.Value.ToString(), out sourceId);
+                                    break;
+                                case "did":
+                                    reader.Read();
+                                    uint.TryParse(reader.Value.ToString(), out destinationId);
+                                    break;
+                                case "sct":
+                                    sourceType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+                                    break;
+                                case "dct":
+                                    destinationType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+                                    break;
+                                case "hth":
+                                    _initialHealth = (float)reader.ReadAsDecimal().GetValueOrDefault(0);
+                                    break;
+                                case "mst":
+                                    IsMultiStack = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "ast":
+                                    IsAutoStart = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "fso":
+                                    IsFurnaceSplitterEnabled = reader.ReadAsBoolean() ?? false;
+                                    break;
+                                case "fss":
+                                    FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+                                    break;
+                                case "prt":
+                                    Priority = (PipePriority)reader.ReadAsInt32().GetValueOrDefault(0);
+                                    break;
+                                case "oid":
+                                    reader.Read();
+                                    ulong ownerId;
+                                    if (ulong.TryParse(reader.Value.ToString(), out ownerId))
+                                        OwnerId = ownerId;
+                                    break;
+                                case "onm":
+                                    OwnerName = reader.ReadAsString();
+                                    break;
+                                case "nme":
+                                    DisplayName = reader.ReadAsString();
+                                    break;
+                                case "flr":
+                                    var filterIds = new List<int>();
+                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                    {
+                                        int value;
+                                        if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
+                                            filterIds.Add(value);
+                                    }
+                                    _initialFilterItems = filterIds;
+                                    break;
+                            }
+                            break;
+                    }
+                }
+                var source = ContainerHelper.Find(sourceId, sourceType);
+                var destination = ContainerHelper.Find(destinationId, destinationType);
+                Source = new PipeEndContainer(source, sourceType, this);
+                Destination = new PipeEndContainer(destination, destinationType, this);
+                Validate();
+            }
+
+            public void Create()
+            {
+                if(Validity != Status.Success)
+                    return;
+                Distance = Vector3.Distance(Source.Position, Destination.Position);
+                Rotation = GetRotation();
+                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false ?
+                    (PipeFactory)new PipeFactoryBarrel(this) :
+                    (PipeFactory)new PipeFactoryLowWall(this);
+                _factory.Create();
+                if (PrimarySegment == null)
                     return;
                 Source.Attach();
                 Destination.Attach();
-                Pipes.TryAdd(Id, this);
-                ConnectedContainers.GetOrAdd(data.SourceId, new ConcurrentDictionary<uint, bool>())
-                    .TryAdd(data.DestinationId, true);
+                if (!PipeLookup.ContainsKey(Id))
+                {
+                    PipeLookup.Add(Id, this);
+                    Pipes.Add(this);
+                }
+                if(!ConnectedContainers.ContainsKey(Source.Id))
+                    ConnectedContainers.Add(Source.Id, new Dictionary<uint, bool>());
+                ConnectedContainers[Source.Id][Destination.Id] = true;
                 PlayerHelper.AddPipe(this);
-                _initialFilterItems = data.ItemFilter;
-
-                Distance = Vector3.Distance(Source.Position, Destination.Position);
-                Rotation = GetRotation();
-                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false ? 
-                    (PipeFactory)new PipeFactoryBarrel(this) : 
-                    (PipeFactory)new PipeFactoryLowWall(this);
-                _factory.Create();
-                if (data.Health != 0)
-                    SetHealth(data.Health);
+                if(_initialHealth > 0)
+                    SetHealth(_initialHealth);
             }
 
             private Quaternion GetRotation() => Quaternion.LookRotation(Destination.Position - Source.Position);
@@ -245,7 +357,8 @@ namespace Oxide.Plugins
             private PipeFilter _pipeFilter;
 
             // This is the initial state of the filter. This is the fallback if the filter is not initialized
-            private List<int> _initialFilterItems;
+            private List<int> _initialFilterItems = new List<int>();
+
 
             /// <summary>
             /// The Filter object for this pipe.
@@ -257,12 +370,22 @@ namespace Oxide.Plugins
             /// This will return all the items in the filter.
             /// If the Filter object has been created then it will pull from that otherwise it will pull from the initial filter items
             /// </summary>
-            public List<int> FilterItems => _pipeFilter?.Items.Select(a => a.info.itemid).ToList() ?? _initialFilterItems ?? new List<int>();
+            public IEnumerable<int> FilterItems
+            {
+                get
+                {
+                    for (var i = 0; i < PipeFilter.Items.Count; i++)
+                    {
+                        yield return PipeFilter.Items[i].info.itemid;
+                    }
+                }
+            }
 
             /// <summary>
             /// Is furnace splitter enabled
             /// </summary>
             public bool IsFurnaceSplitterEnabled { get; private set; }
+
             /// <summary>
             /// Number of stacks to use in the furnace splitter
             /// </summary>
@@ -282,11 +405,11 @@ namespace Oxide.Plugins
             /// <summary>
             /// The Id of the player who built the pipe
             /// </summary>
-            public ulong OwnerId { get; }
+            public ulong OwnerId { get; private set; }
             /// <summary>
             /// Name of the player who built the pipe
             /// </summary>
-            public string OwnerName { get; }
+            public string OwnerName { get; private set; }
 
             /// <summary>
             /// List of all players who are viewing the Pipe menu
@@ -298,10 +421,6 @@ namespace Oxide.Plugins
             ///// </summary>
             //private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
 
-            ///// <summary>
-            ///// The primary physical section of the pipe
-            ///// </summary>
-            //public BaseEntity PrimarySegment => Segments.FirstOrDefault();
 
             /// <summary>
             /// The name a player has given to the pipe.
@@ -329,6 +448,7 @@ namespace Oxide.Plugins
             /// </summary>
             public float Health => _factory.PrimarySegment.Health();
 
+            private float _initialHealth;
             /// <summary>
             /// Used to indicate this pipe is being repaired to prevent multiple repair triggers
             /// </summary>
@@ -370,13 +490,14 @@ namespace Oxide.Plugins
             /// <summary>
             /// All pipes that have been created
             /// </summary>
-            public static ConcurrentDictionary<ulong, Pipe> Pipes { get; } = new ConcurrentDictionary<ulong, Pipe>();
+            public static Dictionary<ulong, Pipe> PipeLookup { get; } = new Dictionary<ulong, Pipe>();
+            public static List<Pipe> Pipes { get; } = new List<Pipe>();
 
             /// <summary>
             /// All the connections between containers to prevent duplications
             /// </summary>
-            public static ConcurrentDictionary<uint, ConcurrentDictionary<uint, bool>> ConnectedContainers { get; } =
-                new ConcurrentDictionary<uint, ConcurrentDictionary<uint, bool>>();
+            public static Dictionary<uint, Dictionary<uint, bool>> ConnectedContainers { get; } =
+                new Dictionary<uint, Dictionary<uint, bool>>();
 
             /// <summary>
             /// Controls if the pipe will transfer any items along it
@@ -391,7 +512,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// The length of the pipe
             /// </summary>
-            public float Distance { get; }
+            public float Distance { get; private set; }
 
             /// <summary>
             /// The rotation of the pipe
@@ -410,7 +531,7 @@ namespace Oxide.Plugins
             {
                 var sourceId = data.SourceId;
                 var destinationId = data.DestinationId;
-                ConcurrentDictionary<uint, bool> linked;
+                Dictionary<uint, bool> linked;
                 return
                     ConnectedContainers.TryGetValue(sourceId, out linked) && linked.ContainsKey(destinationId) ||
                     ConnectedContainers.TryGetValue(destinationId, out linked) && linked.ContainsKey(sourceId);
@@ -434,7 +555,7 @@ namespace Oxide.Plugins
                         Validity = Status.IdGenerationFailed;
                         return 0;
                     }
-                } while (Pipes.ContainsKey(Id));
+                } while (PipeLookup.ContainsKey(Id));
 
                 return id;
             }
@@ -457,7 +578,7 @@ namespace Oxide.Plugins
             public static Pipe Get(ulong id)
             {
                 Pipe pipe;
-                return Pipes.TryGetValue(id, out pipe) ? pipe : null;
+                return PipeLookup.TryGetValue(id, out pipe) ? pipe : null;
             }
 
             /// <summary>
@@ -516,7 +637,7 @@ namespace Oxide.Plugins
             public static void Cleanup()
             {
                 KillAll();
-                Pipes.Clear();
+                PipeLookup.Clear();
                 ConnectedContainers.Clear();
             }
 
@@ -579,8 +700,8 @@ namespace Oxide.Plugins
             /// </summary>
             private void RefreshMenu()
             {
-                foreach (var player in PlayersViewingMenu)
-                    player.SendSyncPipesConsoleCommand("refreshmenu", Id);
+                for(var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i].SendSyncPipesConsoleCommand("refreshmenu", Id);
             }
 
             /// <summary>
@@ -596,24 +717,26 @@ namespace Oxide.Plugins
             /// <param name="cleanup">If true then destruction animations are disabled</param>
             public void Kill(bool cleanup = false)
             {
-                foreach (var player in PlayersViewingMenu)
-                    player?.SendSyncPipesConsoleCommand("forceclosemenu");
+                Instance.Puts("Kill Pipe");
+                for (var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i]?.SendSyncPipesConsoleCommand("forceclosemenu");
                 PipeFilter?.Kill();
+                KillSegments(cleanup);
                 ContainerManager.Detach(Source.Id, this);
                 ContainerManager.Detach(Destination.Id, this);
                 PlayerHelper.RemovePipe(this);
-                bool removed;
-                ConcurrentDictionary<uint, bool> connectedTo;
+                Dictionary<uint, bool> connectedTo;
                 if (ConnectedContainers.ContainsKey(Source.Id) &&
                     ConnectedContainers.TryGetValue(Source.Id, out connectedTo))
-                    connectedTo?.TryRemove(Destination.Id, out removed);
+                    connectedTo?.Remove(Destination.Id);
                 if (ConnectedContainers.ContainsKey(Destination.Id) &&
                     ConnectedContainers.TryGetValue(Destination.Id, out connectedTo))
-                    connectedTo?.TryRemove(Source.Id, out removed);
-
-                Pipe removedPipe;
-                Pipes.TryRemove(Id, out removedPipe);
-                KillSegments(cleanup);
+                    connectedTo?.Remove(Source.Id);
+                if (PipeLookup.ContainsKey(Id))
+                {
+                    PipeLookup.Remove(Id);
+                    Pipes.Remove(this);
+                }
             }
 
             private void KillSegments(bool cleanup)
@@ -659,8 +782,11 @@ namespace Oxide.Plugins
             {
                 PlayerHelper.RemovePipe(this);
                 Kill(cleanup);
-                Pipe deletedPipe;
-                Pipes.TryRemove(Id, out deletedPipe);
+                if (PipeLookup.ContainsKey(Id))
+                {
+                    PipeLookup.Remove(Id);
+                    Pipes.Remove(this);
+                }
             }
 
             /// <summary>
@@ -668,8 +794,10 @@ namespace Oxide.Plugins
             /// </summary>
             private static void KillAll()
             {
-                foreach (var pipe in Pipes.Values)
-                    pipe.Kill();
+                while (Pipes.Count > 0)
+                {
+                    Pipes[0].Kill(true);
+                }
             }
 
             /// <summary>
@@ -679,7 +807,6 @@ namespace Oxide.Plugins
             public void Upgrade(BuildingGrade.Enum grade)
             {
                 _factory.Upgrade(grade);
-
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
                 RefreshMenu();
@@ -753,11 +880,11 @@ namespace Oxide.Plugins
             /// <param name="pipe">The pipe to copy the settings from</param>
             public void CopyFrom(Pipe pipe)
             {
-                foreach (var player in PlayersViewingMenu)
-                    player.SendSyncPipesConsoleCommand("closemenu", Id);
+                for (var i = 0; i < PlayersViewingMenu.Count; i++)
+                    PlayersViewingMenu[i].SendSyncPipesConsoleCommand("closemenu", Id);
                 _pipeFilter?.Kill();
                 _pipeFilter = null;
-                _initialFilterItems = pipe.FilterItems.ToList();
+                _initialFilterItems = new List<int>(pipe.FilterItems);
                 IsAutoStart = pipe.IsAutoStart;
                 IsEnabled = pipe.IsEnabled;
                 IsFurnaceSplitterEnabled = pipe.IsFurnaceSplitterEnabled;
@@ -765,6 +892,62 @@ namespace Oxide.Plugins
                 InvertFilter = pipe.InvertFilter;
                 FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
                 Priority = pipe.Priority;
+            }
+
+            public class Converter: JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var pipe = value as Pipe;
+                    if (pipe == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("enb");
+                    writer.WriteValue(pipe.IsEnabled);
+                    writer.WritePropertyName("grd");
+                    writer.WriteValue(pipe.Grade);
+                    writer.WritePropertyName("sid");
+                    writer.WriteValue(pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
+                    writer.WritePropertyName("did");
+                    writer.WriteValue(pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
+                    writer.WritePropertyName("sct");
+                    writer.WriteValue(pipe.Source.ContainerType);
+                    writer.WritePropertyName("dct");
+                    writer.WriteValue(pipe.Destination.ContainerType);
+                    writer.WritePropertyName("hth");
+                    writer.WriteValue(pipe.Health);
+                    writer.WritePropertyName("mst");
+                    writer.WriteValue(pipe.IsMultiStack);
+                    writer.WritePropertyName("ast");
+                    writer.WriteValue(pipe.IsAutoStart);
+                    writer.WritePropertyName("fso");
+                    writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
+                    writer.WritePropertyName("fss");
+                    writer.WriteValue(pipe.FurnaceSplitterStacks);
+                    writer.WritePropertyName("prt");
+                    writer.WriteValue(pipe.Priority);
+                    writer.WritePropertyName("oid");
+                    writer.WriteValue(pipe.OwnerId);
+                    writer.WritePropertyName("onm");
+                    writer.WriteValue(pipe.OwnerName);
+                    writer.WritePropertyName("nme");
+                    writer.WriteValue(pipe.DisplayName);
+                    writer.WritePropertyName("flr");
+                    writer.WriteStartArray();
+                    for (int i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return new Pipe(reader, serializer);
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(Pipe);
+                }
             }
         }
     }

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Oxide.Plugins
@@ -57,6 +55,8 @@ namespace Oxide.Plugins
             [JsonProperty("permLevels", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
 
+            [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
+
             [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public ExperimentalConfig Experimental { get; set; }
 
@@ -74,13 +74,37 @@ namespace Oxide.Plugins
             private string[] Validate()
             {
                 var errors = new List<string>();
-                if (FilterSizes.Count != 5 || FilterSizes.Any(a => a < 0 || a > 42))
+                var filterSizeError = FilterSizes.Count != 5;
+                if (!filterSizeError)
+                {
+                    for (var i = 0; i < FilterSizes.Count; i++)
+                    {
+                        if (FilterSizes[i] < 0 || FilterSizes[i] > 42)
+                        {
+                            filterSizeError = true;
+                            break;
+                        }
+                    }
+                }
+                if (filterSizeError)
                 {
                     errors.Add("filterSizes must have 5 values between 0 and 42");
                     FilterSizes = new List<int>(Default.FilterSizes);
                 }
 
-                if (FlowRates.Count != 5 || FlowRates.Any(a=>a <= 0))
+                var flowRateError = FlowRates.Count != 5;
+                if (!flowRateError)
+                {
+                    for (var i = 0; i < FlowRates.Count; i++)
+                    {
+                        if (FlowRates[i] <= 0)
+                        {
+                            flowRateError = true;
+                            break;
+                        }
+                    }
+                }
+                if (flowRateError)
                 {
                     errors.Add("flowRates must have 5 values greater than 0");
                     FlowRates = new List<int>(Default.FlowRates);
@@ -105,10 +129,10 @@ namespace Oxide.Plugins
                     config = New();
                     Instance.Config.WriteObject(config);
                 }
-                foreach (var error in config.Validate())
-                {
-                    Instance.PrintWarning(error);
-                }
+
+                var errors = config.Validate();
+                for(var i =0; i < errors.Length; i++)
+                    Instance.PrintWarning(errors[i]);
                 return config;
             }
 

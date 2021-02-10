@@ -24,6 +24,11 @@ namespace Oxide.Plugins
             if (pipe == null || hitInfo == null) return null;
             if (InstanceConfig.NoDecay)
                 hitInfo.damageTypes.Scale(DamageType.Decay, 0f);
+            if (InstanceConfig.DestroyWithSalvage && hitInfo.WeaponPrefab?.prefabID == 1744180387 && PlayerHelper.Get(hitInfo.InitiatorPlayer).HasBuildPrivilege)
+            {
+                pipe.Remove();
+                return true;
+            }
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {

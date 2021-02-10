@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Oxide.Plugins
 {
@@ -135,7 +134,13 @@ namespace Oxide.Plugins
                     case ContainerType.Oven:
                         return (Container as BaseOven)?.FindBurnable() != null;
                     case ContainerType.FuelStorage:
-                        return Storage.inventory.itemList.Any(a => a.info.name == "fuel.lowgrade.item");
+                        var items = Storage.inventory.itemList;
+                        for (var i = 0; i < items.Count; i++)
+                        {
+                            if (items[i].info.name == "fuel.lowgrade.item")
+                                return true;
+                        }
+                        return false;
                     case ContainerType.Recycler:
                         return true;
                     default:

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -52,7 +51,7 @@ namespace Oxide.Plugins
             /// </summary>
             private void ForceClosePlayers()
             {
-                foreach (var player in _playersInFilter.ToList())
+                foreach (var player in _playersInFilter.ToArray())
                     ForceClosePlayer(player);
             }
 
@@ -94,10 +93,8 @@ namespace Oxide.Plugins
 
                 };
                 _filterContainer.GiveUID();
-                // if the number of items is too great for the capacity then trim off the excess
-                filterItems = filterItems?.Take(capacity).ToList() ?? new List<int>();
-                foreach (var item in filterItems.Select(a => ItemManager.CreateByItemID(a)))
-                    item.MoveToContainer(_filterContainer);
+                for (var i = 0; i < capacity && i < filterItems.Count; i++)
+                    ItemManager.CreateByItemID(filterItems[i]).MoveToContainer(_filterContainer);
             }
 
             /// <summary>
