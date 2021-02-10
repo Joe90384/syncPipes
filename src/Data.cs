@@ -19,7 +19,7 @@ namespace Oxide.Plugins
             /// <summary>
             /// The data for all the pipes
             /// </summary>
-            public PipeData[] PipeData { get; set; }
+            public Pipe.Data[] PipeData { get; set; }
 
             /// <summary>
             /// The data for all the container managers

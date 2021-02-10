@@ -8,114 +8,114 @@ namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
-        /// <summary>
-        /// This is the serializable data format for creating, loading or saving pipes with
-        /// </summary>
-        public class PipeData
-        {
-            public bool IsEnabled = true;
-            public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
-            public uint SourceId;
-            public uint DestinationId;
-            public ContainerType SourceContainerType;
-            public ContainerType DestinationContainerType;
-            public float Health;
-            public List<int> ItemFilter = new List<int>();
-            public bool IsMultiStack = true;
-            public bool IsAutoStart = false;
-            public bool IsFurnaceSplitter = false;
-            public int FurnaceSplitterStacks = 1;
-            public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
-            public ulong OwnerId;
-            public string OwnerName;
-            private BaseEntity _source;
-            private BaseEntity _destination;
-
-            [JsonIgnore]
-            public BaseEntity Source
-            {
-                get
-                {
-                    return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType));
-                }
-                private set
-                {
-                    _source = value;
-                }
-            }
-
-            [JsonIgnore]
-            public BaseEntity Destination
-            {
-                get
-                {
-                    return _destination ?? (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
-                }
-                private set
-                {
-                    _destination = value;
-                }
-            }
-
-
-            /// <summary>
-            /// This is required to deserialize from json
-            /// </summary>
-            public PipeData() { }
-
-            /// <summary>
-            /// Create data from a pipe for saving
-            /// </summary>
-            /// <param name="pipe">Pipe to extract settings from</param>
-            public PipeData(Pipe pipe)
-            {
-                IsEnabled = pipe.IsEnabled;
-                Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
-                DestinationId = pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
-                SourceContainerType = pipe.Source.ContainerType;
-                DestinationContainerType = pipe.Destination.ContainerType;
-                Health = pipe.Health;
-                ItemFilter = new List<int>(pipe.FilterItems);
-                IsMultiStack = pipe.IsMultiStack;
-                IsAutoStart = pipe.IsAutoStart;
-                IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
-                FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
-                Priority = pipe.Priority;
-                OwnerId = pipe.OwnerId;
-                OwnerName = pipe.OwnerName;
-            }
-
-            /// <summary>
-            /// Create a pipe data from the player helper's source and destination
-            /// </summary>
-            /// <param name="playerHelper">Player helper to pull the source and destination from</param>
-            public PipeData(PlayerHelper playerHelper)
-            {
-                OwnerId = playerHelper.Player.userID;
-                OwnerName = playerHelper.Player.displayName;
-                Source = playerHelper.Source;
-                Destination = playerHelper.Destination;
-                SourceId = Source.net.ID;
-                DestinationId = Destination.net.ID;
-                SourceContainerType = ContainerHelper.GetEntityType(playerHelper.Source);
-                DestinationContainerType = ContainerHelper.GetEntityType(playerHelper.Destination);
-                IsEnabled = true;
-            }
-        }
         [JsonConverter(typeof(Pipe.Converter))]
         public class Pipe
         {
+            /// <summary>
+            /// This is the serializable data format for creating, loading or saving pipes with
+            /// </summary>
+            public class Data
+            {
+                public bool IsEnabled = true;
+                public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
+                public uint SourceId;
+                public uint DestinationId;
+                public ContainerType SourceContainerType;
+                public ContainerType DestinationContainerType;
+                public float Health;
+                public List<int> ItemFilter = new List<int>();
+                public bool IsMultiStack = true;
+                public bool IsAutoStart = false;
+                public bool IsFurnaceSplitter = false;
+                public int FurnaceSplitterStacks = 1;
+                public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
+                public ulong OwnerId;
+                public string OwnerName;
+                private BaseEntity _source;
+                private BaseEntity _destination;
+
+                [JsonIgnore]
+                public BaseEntity Source
+                {
+                    get
+                    {
+                        return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType));
+                    }
+                    private set
+                    {
+                        _source = value;
+                    }
+                }
+
+                [JsonIgnore]
+                public BaseEntity Destination
+                {
+                    get
+                    {
+                        return _destination ?? (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
+                    }
+                    private set
+                    {
+                        _destination = value;
+                    }
+                }
+
+
+                /// <summary>
+                /// This is required to deserialize from json
+                /// </summary>
+                public Data() { }
+
+                /// <summary>
+                /// Create data from a pipe for saving
+                /// </summary>
+                /// <param name="pipe">Pipe to extract settings from</param>
+                public Data(Pipe pipe)
+                {
+                    IsEnabled = pipe.IsEnabled;
+                    Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
+                    SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
+                    DestinationId = pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
+                    SourceContainerType = pipe.Source.ContainerType;
+                    DestinationContainerType = pipe.Destination.ContainerType;
+                    Health = pipe.Health;
+                    ItemFilter = new List<int>(pipe.FilterItems);
+                    IsMultiStack = pipe.IsMultiStack;
+                    IsAutoStart = pipe.IsAutoStart;
+                    IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
+                    FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
+                    Priority = pipe.Priority;
+                    OwnerId = pipe.OwnerId;
+                    OwnerName = pipe.OwnerName;
+                }
+
+                /// <summary>
+                /// Create a pipe data from the player helper's source and destination
+                /// </summary>
+                /// <param name="playerHelper">Player helper to pull the source and destination from</param>
+                public Data(PlayerHelper playerHelper)
+                {
+                    OwnerId = playerHelper.Player.userID;
+                    OwnerName = playerHelper.Player.displayName;
+                    Source = playerHelper.Source;
+                    Destination = playerHelper.Destination;
+                    SourceId = Source.net.ID;
+                    DestinationId = Destination.net.ID;
+                    SourceContainerType = ContainerHelper.GetEntityType(playerHelper.Source);
+                    DestinationContainerType = ContainerHelper.GetEntityType(playerHelper.Destination);
+                    IsEnabled = true;
+                }
+            }
 
             /// <summary>
             /// Get the save data for all pipes
             /// </summary>
             /// <returns>Data for all pipes</returns>
-            public static IEnumerable<PipeData> Save()
+            public static IEnumerable<Data> Save()
             {
                 for (int i = 0; i < Pipes.Count; i++)
                 {
-                    yield return new PipeData(Pipes[i]);
+                    yield return new Data(Pipes[i]);
                 }
             }
 
@@ -123,7 +123,7 @@ namespace Oxide.Plugins
             /// Load all data and re-create the saved pipes.
             /// </summary>
             /// <param name="dataToLoad">Data to create the pipes from</param>
-            public static void Load(PipeData[] dataToLoad)
+            public static void Load(Data[] dataToLoad)
             {
                 if (dataToLoad == null) return;
                 var validCount = 0;
@@ -211,7 +211,7 @@ namespace Oxide.Plugins
             /// Creates a new pipe from PipeData
             /// </summary>
             /// <param name="data">Pipe data used to initialize the pipe.</param>
-            public Pipe(PipeData data)
+            public Pipe(Data data)
             {
                 Id = GenerateId();
                 IsEnabled = data.IsEnabled;
@@ -518,7 +518,7 @@ namespace Oxide.Plugins
             /// <param name="data">Pipe data which includes the source and destination Ids</param>
             /// <returns>True if the is an overlap to prevent another pipe being created
             /// False if it is fine to create the pipe</returns>
-            private static bool IsOverlapping(PipeData data)
+            private static bool IsOverlapping(Data data)
             {
                 var sourceId = data.SourceId;
                 var destinationId = data.DestinationId;
@@ -596,7 +596,7 @@ namespace Oxide.Plugins
             /// <returns>True if the pipe was successfully created</returns>
             public static void TryCreate(PlayerHelper playerHelper)
             {
-                var newPipeData = new PipeData(playerHelper);
+                var newPipeData = new Data(playerHelper);
                 if (IsOverlapping(newPipeData))
                 {
                     playerHelper.ShowOverlay(Overlay.AlreadyConnected);
