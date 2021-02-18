@@ -335,10 +335,16 @@ namespace Oxide.Plugins
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
-                            if (Instance.FurnaceSplitter != null && validPipe.Destination.ContainerType == ContainerType.Oven &&
+                            if (Instance.FurnaceSplitter != null &&
+                                validPipe.Destination.ContainerType == ContainerType.Oven &&
                                 validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
-                                Instance.FurnaceSplitter.Call("MoveSplitItem", toMove, validPipe.Destination.Storage,
+                            {
+                                var result = Instance.FurnaceSplitter.Call("MoveSplitItem", toMove,
+                                    validPipe.Destination.Storage,
                                     validPipe.FurnaceSplitterStacks);
+                                if(!result.ToString().Equals("ok", StringComparison.InvariantCultureIgnoreCase))
+                                    toMove.MoveToContainer(validPipe.Source.Storage.inventory);
+                            }
                             else
                             {
                                 var toContainer = validPipe.Destination.Storage.inventory;
