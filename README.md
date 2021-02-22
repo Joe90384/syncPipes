@@ -258,11 +258,11 @@ If this is true then a string of lights is attached to the top of each pipe.
 
 ### Permissions
 
-You can either assign a player as an admin or assign them to a permission level.
+In order to use Sync Pipes you will need to be assigned to the `syncpipes.user` group. If you don't then you will get a "You've not been given permission to user syncPipes" message.
 
 #### Admin Permissions
 
-- `syncpipes.admin` gives the player admin privileges. They can build as many pipes as they like and upgrade to any level. It also allow them to build and open pipes even in range of an unauthorised TC.
+- `syncpipes.admin` gives the player admin privileges. They can build as many pipes as they like and upgrade to any level. It also allow them to build and open pipes even in range of an unauthorised TC. (`syncpipes.user` is not required if you are an admin).
 
 #### Permission Levels
 

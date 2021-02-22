@@ -20,6 +20,12 @@
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Naming)
                     return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (containerManager != null && containerManager.HasAnyPipes)
                     containerManager.DisplayName = playerHelper.NamingName;
                 else if (pipe != null)
@@ -42,11 +48,18 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
+
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 
                     entity.GetComponent<StorageContainer>() == null) 
                     return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
@@ -79,6 +92,12 @@
             {
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Copying || pipe == null) return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (playerHelper.CanBuild)
                 {
                     if (playerHelper.CopyFrom == null)
@@ -121,6 +140,12 @@
             {
 
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 pipe.OpenMenu(playerHelper);
                 return true;
@@ -134,12 +159,19 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandleContainerManagerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                var containerManager = entity?.GetComponent<ContainerManager>();
-
-                if (containerManager == null || !containerManager.HasAnyPipes) return false;
-                var container = entity as StorageContainer;
-                //ToDo: Implement this...
-                return true;
+                return false;
+                // var containerManager = entity?.GetComponent<ContainerManager>();
+                //
+                // if (containerManager == null || !containerManager.HasAnyPipes) return false;
+                // if (!playerHelper.IsUser)
+                // {
+                //     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                //     OverlayText.Hide(playerHelper.Player, 2f);
+                //     return false;
+                // }
+                // var container = entity as StorageContainer;
+                // //ToDo: Implement this...
+                // return true;
             }
 
             /// <summary>
@@ -154,7 +186,7 @@
                 var pipe = entity?.GetComponent<PipeSegment>()?.Pipe;
                 if (pipe == null || playerHelper == null) return null;
                 var maxUpgrade = playerHelper.MaxUpgrade;
-                if (!(playerHelper.IsAdmin || playerHelper.IsUser))
+                if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);

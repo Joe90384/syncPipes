@@ -177,8 +177,13 @@ namespace Oxide.Plugins
             public static void Args(PlayerHelper playerHelper, string[] args)
             {
                 if (playerHelper == null) return;
-                if(!playerHelper.IsUser)
+                if (!playerHelper.IsUser)
+                {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
+
                 switch (args.Length > 0 ? args[0] : null)
                 {
                     case null:
@@ -213,7 +218,16 @@ namespace Oxide.Plugins
             /// Start or stop placing a pipe
             /// </summary>
             /// <param name="playerHelper">The player calling the command</param>
-            public static void PlacePipe(PlayerHelper playerHelper) => playerHelper?.TogglePlacingPipe(true);
+            public static void PlacePipe(PlayerHelper playerHelper)
+            {
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
+                playerHelper?.TogglePlacingPipe(true);
+            }
 
             /// <summary>
             /// Displays help information in the player chat bar.
@@ -242,7 +256,16 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Switch into or out of remove pipe mode
             /// </summary>
             /// <param name="playerHelper">Player wanting to remove pipes</param>
-            public static void Remove(PlayerHelper playerHelper) => playerHelper?.ToggleRemovingPipe();
+            public static void Remove(PlayerHelper playerHelper)
+            {
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
+                playerHelper?.ToggleRemovingPipe();
+            }
 
             /// <summary>
             /// Show player stats about how many pipes they have, their pipe limit (if applicable) and the state of those pipes.
@@ -251,6 +274,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static void Stats(PlayerHelper playerHelper)
             {
                 if (playerHelper == null) return;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
                 var total = playerHelper.Pipes.Count;
                 var running = 0;
                 foreach (var pipe in playerHelper.Pipes)
@@ -272,7 +301,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Open a pipe menu
             /// </summary>
             /// <param name="arg">Used to get the player and the pipe id</param>
-            public static void OpenMenu(ConsoleSystem.Arg arg) => GetPipe(arg)?.OpenMenu(PlayerHelper.Get(arg.Player()));
+            public static void OpenMenu(ConsoleSystem.Arg arg)
+            {
+                var playerHelper = PlayerHelper.Get(arg.Player());
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
+                GetPipe(arg)?.OpenMenu(playerHelper);
+            }
 
             /// <summary>
             /// Close a pipe menu
@@ -285,7 +324,16 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             /// <param name="playerHelper">Player wanting to name a pipe or container</param>
             /// <param name="name">The name to be applied</param>
-            public static void Name(PlayerHelper playerHelper,  string name) => playerHelper.StartNaming(name);
+            public static void Name(PlayerHelper playerHelper,  string name)
+            {
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return;
+                }
+                playerHelper.StartNaming(name);
+            }
 
             /// <summary>
             /// Close the player's menus. This is normally done when something affects the pipes they are looking at.
@@ -1704,6 +1752,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Naming)
                     return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (containerManager != null && containerManager.HasAnyPipes)
                     containerManager.DisplayName = playerHelper.NamingName;
                 else if (pipe != null)
@@ -1726,11 +1780,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
+
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 
                     entity.GetComponent<StorageContainer>() == null) 
                     return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
@@ -1763,6 +1824,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Copying || pipe == null) return false;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (playerHelper.CanBuild)
                 {
                     if (playerHelper.CopyFrom == null)
@@ -1805,6 +1872,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
 
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                if (!playerHelper.IsUser)
+                {
+                    playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 pipe.OpenMenu(playerHelper);
                 return true;
@@ -1818,12 +1891,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandleContainerManagerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                var containerManager = entity?.GetComponent<ContainerManager>();
-
-                if (containerManager == null || !containerManager.HasAnyPipes) return false;
-                var container = entity as StorageContainer;
-                //ToDo: Implement this...
-                return true;
+                return false;
+                // var containerManager = entity?.GetComponent<ContainerManager>();
+                //
+                // if (containerManager == null || !containerManager.HasAnyPipes) return false;
+                // if (!playerHelper.IsUser)
+                // {
+                //     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
+                //     OverlayText.Hide(playerHelper.Player, 2f);
+                //     return false;
+                // }
+                // var container = entity as StorageContainer;
+                // //ToDo: Implement this...
+                // return true;
             }
 
             /// <summary>
@@ -1838,7 +1918,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 var pipe = entity?.GetComponent<PipeSegment>()?.Pipe;
                 if (pipe == null || playerHelper == null) return null;
                 var maxUpgrade = playerHelper.MaxUpgrade;
-                if (!(playerHelper.IsAdmin || playerHelper.IsUser))
+                if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
