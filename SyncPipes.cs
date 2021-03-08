@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.15")]
+    [Info("Sync Pipes", "Joe 90", "0.9.17")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -1457,7 +1457,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);
                 Interface.Oxide.DataFileSystem.WriteObject(Filename, buffer);
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
-                Instance.Puts("Save v1.0 complete ({0}.{1}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds.ToString().PadRight(0).Substring(0,2));
+                Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
                 _running = false;
                 yield return null;
