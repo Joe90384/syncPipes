@@ -213,7 +213,7 @@ namespace Oxide.Plugins
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);
                 Interface.Oxide.DataFileSystem.WriteObject(Filename, buffer);
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
-                Instance.Puts("Save v1.0 complete ({0}.{1}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds.ToString().PadRight(0).Substring(0,2));
+                Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
                 _running = false;
                 yield return null;
