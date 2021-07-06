@@ -1,6 +1,5 @@
 using Rust;
 using System;
-using ConVar;
 using Oxide.Core;
 using UnityEngine;
 using System.Linq;
@@ -14,9 +13,7 @@ using System.ComponentModel;
 using JetBrains.Annotations;
 using System.Threading.Tasks;
 using Random = System.Random;
-using System.Linq.Expressions;
 using System.Collections.Generic;
-using Rust.Ai.HTN.ScientistAStar;
 using System.Collections.Concurrent;
 using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
@@ -2706,8 +2703,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Instance.Puts("Creating Menu Test");
                 var nud = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 1", "NUD-1")
                 {
-                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
@@ -2715,67 +2712,100 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Instance.Puts("Nud Changed: {0} -> {1} ({2})", (sender as UIComponent).Name, value, oldValue);
                 var nud1 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 2", "NUD-2")
                 {
-                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
                 };
                 nud1.OnValueChanged += (sender, value, oldValue) =>
                     Instance.Puts("Nud Changed: {0} -> {1} ({2})", (sender as UIComponent).Name, value, oldValue);
-                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1", "TOGGLE-1")
+                var nud2 = new UINumericUpDown(playerHelper.Player, "Numeric Up and Down 3", "NUD-3")
                 {
                     Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
                     Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
                     //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                };
+                nud2.OnValueChanged += (sender, value, oldValue) =>
+                    Instance.Puts("Nud Changed: {0} -> {1} ({2})", (sender as UIComponent).Name, value, oldValue);
+                var toggle = new UIToggleButton(playerHelper.Player, "Toggle Button 1", "TOGGLE-1")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f }
                 };
                 toggle.OnButtonToggled += (sender, state) =>
                     Instance.Puts("Toggle Clicked: {0} -> {1}", (sender as UIComponent).Name, state);
                 var toggle1 = new UIToggleButton(playerHelper.Player, "Toggle Button 2", "TOGGLE-2")
                 {
                     Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
-                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
-                    //HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    //VerticalAlignment = UIComponent.VerticalAlignements.Middle
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f }
                 };
                 toggle1.OnButtonToggled += (sender, state) =>
                     Instance.Puts("Toggle Clicked: {0} -> {1}", (sender as UIComponent).Name, state);
+                var toggle2 = new UIToggleButton(playerHelper.Player, "Toggle Button 3", "TOGGLE-3")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f }
+                };
+                toggle2.OnButtonToggled += (sender, state) =>
+                    Instance.Puts("Toggle Clicked: {0} -> {1}", (sender as UIComponent).Name, state);
                 var button = new UIButton(playerHelper.Player, "Button 1", "BUTTON-1")
                 {
-                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     BgColor = "0 0 0 0.75"
                 };
                 button.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name);
                 var button1 = new UIButton(playerHelper.Player, "Button 2", "BUTTON-2")
                 {
-                    Height = new UIComponent.Dimension {Absolute = 30f, Relative = 0f},
-                    Width = new UIComponent.Dimension {Absolute = 0f, Relative = 1f},
+                    Height = new UIComponent.Dimension { Absolute = 30f, Relative = 0f },
+                    Width = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
                     BgColor = "0 0 0 0.75"
                 };
-                button1.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name); 
+                button1.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name);
+
+
+                var button2 = new UIButton(playerHelper.Player, "Button 3", "BUTTON-3")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    Width = new UIComponent.Dimension { Absolute = 200f, Relative = 0f },
+                    BgColor = "0 0 0 0.75"
+                };
+                button2.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name);
+                var button3 = new UIButton(playerHelper.Player, "Button 4", "BUTTON-4")
+                {
+                    Height = new UIComponent.Dimension { Absolute = 0f, Relative = 1f },
+                    Width = new UIComponent.Dimension { Absolute = 200f, Relative = 0f },
+                    BgColor = "0 0 0 0.75"
+                };
+                button3.OnClicked += sender => Instance.Puts("Button Clicked: {0}", (sender as UIComponent).Name);
+
                 var grid = new UIGrid(playerHelper.Player, "grid1")
                 {
                     AutoHeight = true,
-                    //Height = {Absolute = 50f, Relative = 0f},
+                    Height = {Absolute = 0f, Relative = 0.5f},
                     Width = {Absolute = 0f, Relative = 0.75f},
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
-                    HorizantalAlignement = UIComponent.HorizantalAlignements.Left,
-                    Colour = "0 0 1 0.75"
+                    VerticalAlignment = UIComponent.VerticalAlignements.Top,
+                    HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
+                    Colour = "1 1 1 1",
+                    Bottom = new UIComponent.Dimension(){Absolute = -100f}
+
                 };
                 grid.AddColumns(
                     new UIGrid.Dimension(0.5f, true, false),
                     new UIGrid.Dimension(0.5f, true, false),
-                    new UIGrid.Dimension(0.5f, true, false)
+                    new UIGrid.Dimension(100f, false, false)
                 );
-                grid.AddRow(1f, true, true);
+                grid.AddRow(100f, false, false);
+                grid.AddRow(200f, false, true);
+                grid.AddRow(100f, false, false);
 
 
 
                 var stackPanel1 = new UIStackPanel(playerHelper.Player, "stackpanel1")
                 {
                     HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Top,
                     AutoSize = true,
                     Orientation = UIStackPanel.Orientations.Vertical,
                     Width = new UIComponent.Dimension() { Relative = 1f },
@@ -2784,17 +2814,33 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 var stackPanel2 = new UIStackPanel(playerHelper.Player, "stackpanel2")
                 {
                     HorizantalAlignement = UIComponent.HorizantalAlignements.Center,
-                    VerticalAlignment = UIComponent.VerticalAlignements.Middle,
+                    VerticalAlignment = UIComponent.VerticalAlignements.Top,
                     AutoSize = true,
                     Orientation = UIStackPanel.Orientations.Vertical,
                     Width = new UIComponent.Dimension() { Relative = 1f },
                     Colour = "0 0 0 0.75"
                 };
-
-                var panel = new UIPanel(playerHelper.Player, "Panel")
+                var stackPanel3 = new UIStackPanel(playerHelper.Player, "stackpanel3")
+                {
+                    AutoSize = true,
+                    Orientation = UIStackPanel.Orientations.Horizontal,
+                    Height = new UIComponent.Dimension() {Relative = 1f},
+                    Colour = "0 1 0 0.75"
+                };
+                var panel1 = new UIPanel(playerHelper.Player, "panel1")
                 {
                     Colour = "1 0 0 0.75"
                 };
+                //var panel2 = new UIPanel(playerHelper.Player, "panel2")
+                //{
+                //    Colour = "0 1 0 0.75"
+                //};
+
+                //var panel3 = new UIPanel(playerHelper.Player, "panel3")
+                //{
+                //    Colour = "0 0 1 0.75"
+                //};
+
 
                 var image = new UIImage(playerHelper.Player, "Image")
                 {
@@ -2804,14 +2850,20 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                 stackPanel1.Add(nud);
                 stackPanel1.Add(nud1);
+                stackPanel1.Add(nud2);
                 stackPanel1.Add(button);
                 stackPanel2.Add(toggle);
                 stackPanel2.Add(toggle1);
+                stackPanel2.Add(toggle2);
                 stackPanel2.Add(button1);
-                grid.Add(stackPanel1, 0, 0);
-                grid.Add(stackPanel2, 0, 1);
+                stackPanel3.Add(button2);
+                stackPanel3.Add(button3);
+                grid.Add(stackPanel1, 1, 0);
+                grid.Add(stackPanel2, 1, 1);
+                grid.Add(panel1, 0, 0, 1, 3);
+                grid.Add(stackPanel3, 2, 0, 1, 3);
                 //grid.Add(panel, 0, 2);
-                grid.Add(image, 0, 2);
+                grid.Add(image, 1, 2);
                 _component = grid;
 
                 //stackPanel.Add(new UIPanel(playerHelper.Player, "panel1") { Height = new UIComponent.Dimension { Absolute = 50f }, Colour = "1 0 0 1" });
@@ -6180,7 +6232,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                 private void UpdateRectTransform()
                 {
-                    Update(_component.Bottom, _grid._rows.Take(Row));
+                    Update(_component.Bottom, _grid._rows.Take(Row), true);
                     Update(_component.Left, _grid._columns.Take(Column));
                     Update(_component.Height, _grid._rows.Skip(Row).Take(RowSpan));
                     Update(_component.Width, _grid._columns.Skip(Column).Take(ColumnSpan));
@@ -6194,7 +6246,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     _component.Show(elements);
                 }
 
-                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IDimension> dimensions)
+                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IDimension> dimensions, bool isRow = false)
                 {
                     float absolute = 0, relative = 0;
                     foreach (var dimension in dimensions)
@@ -6202,6 +6254,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         absolute += dimension.Dimension.Absolute;
                         relative += dimension.Dimension.Relative;
                     }
+
+                    if (isRow)
+                    {
+                        absolute *= -1f;
+                        relative *= -1f;
+                    }
+
                     oldDimension.Update(relative, absolute);
                 }
 
@@ -6294,6 +6353,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 var sumRelative = 0f;
                 foreach (var dimension in dimensions)
                 {
+                    Instance.Puts("Dimension {0}", dimension.Size);
                     if (dimension.Relative)
                     {
                         sumRelative += dimension.Size;
@@ -6303,7 +6363,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         sumAbsolute += dimension.Size;
                 }
 
-                var absoluteCorrection = sumAbsolute / countRelative * -1;
+                var absoluteCorrection = sumAbsolute / countRelative * (updateRows  ? 1 : -1);
                 for (int i = 0; i < dimensions.Count; i++)
                 {
                     var dimension = dimensions[i];
@@ -6320,6 +6380,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         dimension.Dimension.Relative = dimension.Relative ? dimension.Size / sumRelative : 0f;
                     }
                 }
+                Instance.Puts("Size: {0}", absoluteCorrection);
             }
 
             //protected void UpdateDimensions(List<IDimension> dimensions, bool force = false)
@@ -6973,13 +7034,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected void UpdateDimensions(bool force = false)
             {
                 if (!Rendered && !force) return;
+                var rowOffset = 0f;
+                if (Orientation == Orientations.Vertical)
+                {
+                    for (int i = 0; i < _components.Count; i++)
+                    {
+                        rowOffset += _components[i].Height.Absolute;
+                    }
+                }
                 if (AutoFit)
-                    UpdateAutoFitDimensions();
+                    UpdateAutoFitDimensions(rowOffset);
                 else
-                    UpdateAbsoluteDimensions();
+                    UpdateAbsoluteDimensions(rowOffset);
             }
 
-            protected void UpdateAbsoluteDimensions()
+            protected void UpdateAbsoluteDimensions(float rowOffset)
             {
                 var position = 0f;
                 foreach (var component in ReverseComponents)
@@ -6991,7 +7060,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             position += component.Width.Absolute;
                             break;
                         case Orientations.Vertical:
-                            UpdateDimension(component.Bottom, position, false);
+                            Instance.Puts("Height: {0}", rowOffset);
+                            UpdateDimension(component.Bottom, position, false, rowOffset);
                             position += component.Height.Absolute;
                             break;
                     }
@@ -7000,7 +7070,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected void UpdateAutoFitDimensions()
+            protected void UpdateAutoFitDimensions(float rowOffset)
             {
                 var relative = 1f / _components.Count;
                 var position = 0f;
@@ -7013,7 +7083,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             UpdateDimension(component.Width, relative, true);
                             break;
                         case Orientations.Vertical:
-                            UpdateDimension(component.Bottom, position, true);
+                            UpdateDimension(component.Bottom, position, true, rowOffset);
                             UpdateDimension(component.Height, relative, true);
                             break;
                     }
@@ -7021,10 +7091,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected void UpdateDimension(Dimension dimension, float value, bool relative)
+            protected void UpdateDimension(Dimension dimension, float value, bool relative, float? rowOffset = null)
             {
-                dimension.Absolute = relative ? 0f : value;
-                dimension.Relative = relative ? value : 0f;
+                dimension.Absolute = relative ? rowOffset.GetValueOrDefault() : value - rowOffset.GetValueOrDefault();
+                dimension.Relative = relative ? value : rowOffset.HasValue ? 1f : 0f;
             }
 
             public bool AutoFit
@@ -7076,8 +7146,16 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 get
                 {
-                    for (int i = _components.Count - 1; i >= 0; i--)
-                        yield return _components[i];
+                    if (Orientation == Orientations.Horizontal)
+                    {
+                        for (int i = 0; i < _components.Count; i++)
+                            yield return _components[i];
+                    }
+                    else
+                    {
+                        for (int i = _components.Count - 1; i >= 0; i--)
+                            yield return _components[i];
+                    }
                 }
             }
 

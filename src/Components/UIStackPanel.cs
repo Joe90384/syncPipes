@@ -51,13 +51,21 @@ namespace Oxide.Plugins
             protected void UpdateDimensions(bool force = false)
             {
                 if (!Rendered && !force) return;
+                var rowOffset = 0f;
+                if (Orientation == Orientations.Vertical)
+                {
+                    for (int i = 0; i < _components.Count; i++)
+                    {
+                        rowOffset += _components[i].Height.Absolute;
+                    }
+                }
                 if (AutoFit)
-                    UpdateAutoFitDimensions();
+                    UpdateAutoFitDimensions(rowOffset);
                 else
-                    UpdateAbsoluteDimensions();
+                    UpdateAbsoluteDimensions(rowOffset);
             }
 
-            protected void UpdateAbsoluteDimensions()
+            protected void UpdateAbsoluteDimensions(float rowOffset)
             {
                 var position = 0f;
                 foreach (var component in ReverseComponents)
@@ -69,7 +77,8 @@ namespace Oxide.Plugins
                             position += component.Width.Absolute;
                             break;
                         case Orientations.Vertical:
-                            UpdateDimension(component.Bottom, position, false);
+                            Instance.Puts("Height: {0}", rowOffset);
+                            UpdateDimension(component.Bottom, position, false, rowOffset);
                             position += component.Height.Absolute;
                             break;
                     }
@@ -78,7 +87,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            protected void UpdateAutoFitDimensions()
+            protected void UpdateAutoFitDimensions(float rowOffset)
             {
                 var relative = 1f / _components.Count;
                 var position = 0f;
@@ -91,7 +100,7 @@ namespace Oxide.Plugins
                             UpdateDimension(component.Width, relative, true);
                             break;
                         case Orientations.Vertical:
-                            UpdateDimension(component.Bottom, position, true);
+                            UpdateDimension(component.Bottom, position, true, rowOffset);
                             UpdateDimension(component.Height, relative, true);
                             break;
                     }
@@ -99,10 +108,10 @@ namespace Oxide.Plugins
                 }
             }
 
-            protected void UpdateDimension(Dimension dimension, float value, bool relative)
+            protected void UpdateDimension(Dimension dimension, float value, bool relative, float? rowOffset = null)
             {
-                dimension.Absolute = relative ? 0f : value;
-                dimension.Relative = relative ? value : 0f;
+                dimension.Absolute = relative ? rowOffset.GetValueOrDefault() : value - rowOffset.GetValueOrDefault();
+                dimension.Relative = relative ? value : rowOffset.HasValue ? 1f : 0f;
             }
 
             public bool AutoFit
@@ -154,8 +163,16 @@ namespace Oxide.Plugins
             {
                 get
                 {
-                    for (int i = _components.Count - 1; i >= 0; i--)
-                        yield return _components[i];
+                    if (Orientation == Orientations.Horizontal)
+                    {
+                        for (int i = 0; i < _components.Count; i++)
+                            yield return _components[i];
+                    }
+                    else
+                    {
+                        for (int i = _components.Count - 1; i >= 0; i--)
+                            yield return _components[i];
+                    }
                 }
             }
 

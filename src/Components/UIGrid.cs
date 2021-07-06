@@ -130,7 +130,7 @@ namespace Oxide.Plugins
 
                 private void UpdateRectTransform()
                 {
-                    Update(_component.Bottom, _grid._rows.Take(Row));
+                    Update(_component.Bottom, _grid._rows.Take(Row), true);
                     Update(_component.Left, _grid._columns.Take(Column));
                     Update(_component.Height, _grid._rows.Skip(Row).Take(RowSpan));
                     Update(_component.Width, _grid._columns.Skip(Column).Take(ColumnSpan));
@@ -144,7 +144,7 @@ namespace Oxide.Plugins
                     _component.Show(elements);
                 }
 
-                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IDimension> dimensions)
+                private void Update(UIComponent.Dimension oldDimension, IEnumerable<IDimension> dimensions, bool isRow = false)
                 {
                     float absolute = 0, relative = 0;
                     foreach (var dimension in dimensions)
@@ -152,6 +152,13 @@ namespace Oxide.Plugins
                         absolute += dimension.Dimension.Absolute;
                         relative += dimension.Dimension.Relative;
                     }
+
+                    if (isRow)
+                    {
+                        absolute *= -1f;
+                        relative *= -1f;
+                    }
+
                     oldDimension.Update(relative, absolute);
                 }
 
@@ -244,6 +251,7 @@ namespace Oxide.Plugins
                 var sumRelative = 0f;
                 foreach (var dimension in dimensions)
                 {
+                    Instance.Puts("Dimension {0}", dimension.Size);
                     if (dimension.Relative)
                     {
                         sumRelative += dimension.Size;
@@ -253,7 +261,7 @@ namespace Oxide.Plugins
                         sumAbsolute += dimension.Size;
                 }
 
-                var absoluteCorrection = sumAbsolute / countRelative * -1;
+                var absoluteCorrection = sumAbsolute / countRelative * (updateRows  ? 1 : -1);
                 for (int i = 0; i < dimensions.Count; i++)
                 {
                     var dimension = dimensions[i];
@@ -270,6 +278,7 @@ namespace Oxide.Plugins
                         dimension.Dimension.Relative = dimension.Relative ? dimension.Size / sumRelative : 0f;
                     }
                 }
+                Instance.Puts("Size: {0}", absoluteCorrection);
             }
 
             //protected void UpdateDimensions(List<IDimension> dimensions, bool force = false)
