@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.17")]
+    [Info("Sync Pipes", "Joe 90", "0.9.19")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -3538,6 +3538,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Segments.Add(pipeSegment);
                 //pillars.Add(ent);
                 pipeSegment.enableSaving = false;
+                if (InstanceConfig.NoDecay)
+                {
+                    ((DecayEntity) pipeSegment).upkeep = null;
+                    ((DecayEntity)pipeSegment).decay = null;
+                }
             }
 
             /// <summary>
@@ -3946,10 +3951,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             ((BaseOven) Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
-                        (Container as Recycler)?.StartRecycling();
+                        if(!(Container as Recycler)?.IsOn() ?? false)
+                            (Container as Recycler)?.StartRecycling();
                         break;
                     case ContainerType.FuelStorage:
-                        Container.GetComponentInParent<MiningQuarry>().EngineSwitch(true);
+                        if(!Container.GetComponentInParent<MiningQuarry>().IsEngineOn())
+                            Container.GetComponentInParent<MiningQuarry>().EngineSwitch(true);
                         break;
                 }
             }

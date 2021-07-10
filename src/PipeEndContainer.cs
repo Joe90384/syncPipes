@@ -94,10 +94,12 @@ namespace Oxide.Plugins
                             ((BaseOven) Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
-                        (Container as Recycler)?.StartRecycling();
+                        if(!(Container as Recycler)?.IsOn() ?? false)
+                            (Container as Recycler)?.StartRecycling();
                         break;
                     case ContainerType.FuelStorage:
-                        Container.GetComponentInParent<MiningQuarry>().EngineSwitch(true);
+                        if(!Container.GetComponentInParent<MiningQuarry>().IsEngineOn())
+                            Container.GetComponentInParent<MiningQuarry>().EngineSwitch(true);
                         break;
                 }
             }

@@ -750,6 +750,11 @@ namespace Oxide.Plugins
                 Segments.Add(pipeSegment);
                 //pillars.Add(ent);
                 pipeSegment.enableSaving = false;
+                if (InstanceConfig.NoDecay)
+                {
+                    ((DecayEntity) pipeSegment).upkeep = null;
+                    ((DecayEntity)pipeSegment).decay = null;
+                }
             }
 
             /// <summary>
