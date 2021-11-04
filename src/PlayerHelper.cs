@@ -267,7 +267,10 @@ namespace Oxide.Plugins
             /// <param name="container">Container to check the permission of</param>
             /// <returns>True if the player can open the container</returns>
             public bool HasContainerPrivilege(BaseEntity container) =>
-                container.GetComponent<StorageContainer>().CanOpenLootPanel(Player) && CanBuild;
+                HasContainerPrivilege(container.GetComponent<StorageContainer>());
+
+            public bool HasContainerPrivilege(StorageContainer container) =>
+                container.CanOpenLootPanel(Player, container.panelName) && CanBuild;
 
             /// <summary>
             /// Checks if the player has reached their pipe limit

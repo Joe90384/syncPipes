@@ -157,7 +157,7 @@ namespace Oxide.Plugins
                 player.inventory.loot.AddContainer(_filterContainer);
                 player.inventory.loot.SendImmediate();
                 player.inventory.loot.useGUILayout = false;
-                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "genericlarge");
+                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "generic_resizable");
             }
 
             private ItemContainer _filterContainer;

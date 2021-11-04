@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.19")]
+    [Info("Sync Pipes", "Joe 90", "0.9.20")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -1698,7 +1698,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 player.inventory.loot.AddContainer(_filterContainer);
                 player.inventory.loot.SendImmediate();
                 player.inventory.loot.useGUILayout = false;
-                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "genericlarge");
+                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "generic_resizable");
             }
 
             private ItemContainer _filterContainer;
@@ -4325,7 +4325,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="container">Container to check the permission of</param>
             /// <returns>True if the player can open the container</returns>
             public bool HasContainerPrivilege(BaseEntity container) =>
-                container.GetComponent<StorageContainer>().CanOpenLootPanel(Player) && CanBuild;
+                HasContainerPrivilege(container.GetComponent<StorageContainer>());
+
+            public bool HasContainerPrivilege(StorageContainer container) =>
+                container.CanOpenLootPanel(Player, container.panelName) && CanBuild;
 
             /// <summary>
             /// Checks if the player has reached their pipe limit
