@@ -321,13 +321,61 @@ If you want to remove permissions you just use:
 
 `oxide.revoke <user or group> <name or steam id> <permission>`
 
+## Sample Config File
+```json
+{
+  "filterSizes": [
+    0,
+    6,
+    18,
+    30,
+    42
+  ],
+  "flowRates": [
+    1,
+    5,
+    10,
+    30,
+    50
+  ],
+  "maxPipeDist": 64.0,
+  "minPipeDist": 2.0,
+  "noDecay": true,
+  "commandPrefix": "p",
+  "hotKey": "p",
+  "updateRate": 2,
+  "xmasLights": false,
+  "salvageDestroy": true,
+  "permLevels": {
+    "sticks": {
+      "upgradeLimit": 0,
+      "pipeLimit": 15
+    },
+    "wood": {
+      "upgradeLimit": 1,
+      "pipeLimit": 25
+    },
+    "stone": {
+      "upgradeLimit": 2,
+      "pipeLimit": 35
+    },
+    "metal": {
+      "upgradeLimit": 3,
+      "pipeLimit": 45
+    },
+    "hqm": {
+      "upgradeLimit": -1,
+      "pipeLimit": -1
+    }
+  }
+}
+```
+
 
 
 # Known issues
 
-The is a slight fault with the naming system that means pump jacks and quarries will lose their names after a server restart as the container ids change when the entity respawns. Currently working on a fix.
-
-
+None
 
 # Future development
 

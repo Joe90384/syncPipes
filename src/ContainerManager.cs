@@ -23,6 +23,7 @@ namespace Oxide.Plugins
                 public uint ContainerId;
                 public bool CombineStacks;
                 public string DisplayName;
+                public ContainerType ContainerType;
 
                 /// <summary>
                 /// This is required to deserialize from json
@@ -38,6 +39,7 @@ namespace Oxide.Plugins
                     ContainerId = containerManager.ContainerId;
                     CombineStacks = containerManager.CombineStacks;
                     DisplayName = containerManager.DisplayName;
+                    ContainerType = ContainerHelper.GetEntityType(containerManager._container);
                 }
             }
 
@@ -69,6 +71,21 @@ namespace Oxide.Plugins
                 for(int i = 0; i < dataToLoad.Count; i++)
                 {
                     ContainerManager manager;
+                    if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                    {
+                        var container = (BaseEntity)BaseNetworkable.serverEntities.Find(dataToLoad[i].ContainerId);
+                        if (container != null)
+                        {
+                            var shortPrefabName = ContainerHelper.GetShortPrefabName(dataToLoad[i].ContainerType);
+                            for (int j = 0; j < container.children.Count; j++)
+                            {
+                                var child = container.children[j] as ResourceExtractorFuelStorage;
+                                if (child?.ShortPrefabName != shortPrefabName) continue;
+                                dataToLoad[i].ContainerId = child.net.ID;
+                                break;
+                            }
+                        }
+                    }
                     if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
                         containerCount++;
@@ -480,11 +497,16 @@ namespace Oxide.Plugins
                     if (container == null) return;
                     writer.WriteStartObject();
                     writer.WritePropertyName("ci");
-                    writer.WriteValue(container.ContainerId);
+                    if(container._container is ResourceExtractorFuelStorage)
+                        writer.WriteValue(container._container.parentEntity.uid);
+                    else
+                        writer.WriteValue(container.ContainerId);
                     writer.WritePropertyName("cs");
                     writer.WriteValue(container.CombineStacks);
                     writer.WritePropertyName("dn");
                     writer.WriteValue(container.DisplayName);
+                    writer.WritePropertyName("ct");
+                    writer.WriteValue(ContainerHelper.GetEntityType(container._container));
                     writer.WriteEndObject();
                 }
 

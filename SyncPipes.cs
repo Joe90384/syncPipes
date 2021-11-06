@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.20")]
+    [Info("Sync Pipes", "Joe 90", "0.9.21")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -28,6 +28,7 @@ namespace Oxide.Plugins
         [PluginReference]
         Plugin FurnaceSplitter;
 
+        // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
         [PluginReference] 
         Plugin QuickSmelt;
 
@@ -680,6 +681,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region ContainerHelper
 
+
+        public const string FUEL_STORAGE_PREFAB = "fuelstorage";
+        public const string QUARRY_OUTPUT_PREFAB = "hopperoutput";
+        public const string PUMPJACK_OUTPUT_PREFAB = "crudeoutput";
+
         /// <summary>
         /// This helps find containers and the required information needed to attach pipes
         /// </summary>
@@ -691,7 +697,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="container">The container to check</param>
             /// <returns>True if the container type is blacklisted</returns>
             public static bool IsBlacklisted(BaseEntity container) =>
-                container is BaseFuelLightSource || container is Locker || container is ShopFront || container is RepairBench;
+                container is BaseFuelLightSource || container is Locker || container is ShopFront ||
+                container is RepairBench;
 
             /// <summary>
             /// Get a storage container from its Id
@@ -706,42 +713,85 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="container">The container to get the data for</param>
             public static ContainerType GetEntityType(BaseEntity container)
             {
+
                 if (container is BaseOven)
                     return ContainerType.Oven;
-                else if(container is Recycler)
+                if (container is Recycler)
                     return ContainerType.Recycler;
-                else if (container is ResourceExtractorFuelStorage && container.parentEntity.Get(false) is MiningQuarry)
+                if (container is ResourceExtractorFuelStorage)
                 {
-                    switch (((ResourceExtractorFuelStorage) container).panelName)
+                    switch (container.ShortPrefabName)
                     {
-                        case "fuelstorage":
+                        case FUEL_STORAGE_PREFAB:
                             return ContainerType.FuelStorage;
-                        case "generic":
-                            return ContainerType.ResourceExtractor;
+                        case QUARRY_OUTPUT_PREFAB:
+                            return ContainerType.QuarryOutput;
+                        case PUMPJACK_OUTPUT_PREFAB:
+                            return ContainerType.PumpJackOutput;
                     }
                 }
-
                 return ContainerType.General;
             }
 
             public static BaseEntity Find(uint parentId, ContainerType containerType)
             {
-                var entity = (BaseEntity)BaseNetworkable.serverEntities.Find(parentId);
-                if (containerType != ContainerType.ResourceExtractor && containerType != ContainerType.FuelStorage)
+                var entity = (BaseEntity) BaseNetworkable.serverEntities.Find(parentId);
+                if (!IsComplexStorage(containerType))
                     return entity;
                 var children = entity?.GetComponent<BaseResourceExtractor>()?.children;
                 if (children == null)
                     return null;
+                var prefabName = GetShortPrefabName(containerType);
                 for (var i = 0; i < children.Count; i++)
                 {
-                    var fuelStorage = children[i] as ResourceExtractorFuelStorage;
-                    if (fuelStorage?.panelName == (containerType == ContainerType.FuelStorage ? "fuelstorage" : "generic"))
-                        return children[i];
+                    if (children[i].ShortPrefabName == prefabName)
+                        return children[i] as ResourceExtractorFuelStorage;
                 }
                 return null;
             }
 
             public static StorageContainer Find(BaseEntity parent) => parent?.GetComponent<StorageContainer>();
+
+            public static string GetShortPrefabName(ContainerType containerType)
+            {
+                switch (containerType)
+                {
+                    case ContainerType.FuelStorage:
+                        return FUEL_STORAGE_PREFAB;
+                    case ContainerType.QuarryOutput:
+                        return QUARRY_OUTPUT_PREFAB;
+                    case ContainerType.PumpJackOutput:
+                        return PUMPJACK_OUTPUT_PREFAB;
+                }
+                return "";
+            }
+
+            public static bool IsComplexStorage(ContainerType containerType)
+            {
+                switch (containerType)
+                {
+                    case ContainerType.FuelStorage:
+                    case ContainerType.PumpJackOutput:
+                    case ContainerType.QuarryOutput:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
+            public static bool CanAutoStart(ContainerType containerType)
+            {
+                switch (containerType)
+                {
+                    case ContainerType.FuelStorage:
+                    case ContainerType.Oven:
+                    case ContainerType.Recycler:
+                        return true;
+                    default:
+                        return false;
+                }
+
+            }
         }
 
         /// <summary>
@@ -753,7 +803,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             Oven,
             Recycler,
             FuelStorage,
-            ResourceExtractor
+            QuarryOutput,
+            PumpJackOutput
         }
         #endregion
         #region ContainerManager
@@ -774,6 +825,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 public uint ContainerId;
                 public bool CombineStacks;
                 public string DisplayName;
+                public ContainerType ContainerType;
 
                 /// <summary>
                 /// This is required to deserialize from json
@@ -789,6 +841,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     ContainerId = containerManager.ContainerId;
                     CombineStacks = containerManager.CombineStacks;
                     DisplayName = containerManager.DisplayName;
+                    ContainerType = ContainerHelper.GetEntityType(containerManager._container);
                 }
             }
 
@@ -820,6 +873,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 for(int i = 0; i < dataToLoad.Count; i++)
                 {
                     ContainerManager manager;
+                    if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                    {
+                        var container = (BaseEntity)BaseNetworkable.serverEntities.Find(dataToLoad[i].ContainerId);
+                        if (container != null)
+                        {
+                            var shortPrefabName = ContainerHelper.GetShortPrefabName(dataToLoad[i].ContainerType);
+                            for (int j = 0; j < container.children.Count; j++)
+                            {
+                                var child = container.children[j] as ResourceExtractorFuelStorage;
+                                if (child?.ShortPrefabName != shortPrefabName) continue;
+                                dataToLoad[i].ContainerId = child.net.ID;
+                                break;
+                            }
+                        }
+                    }
                     if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
                         containerCount++;
@@ -1231,11 +1299,16 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     if (container == null) return;
                     writer.WriteStartObject();
                     writer.WritePropertyName("ci");
-                    writer.WriteValue(container.ContainerId);
+                    if(container._container is ResourceExtractorFuelStorage)
+                        writer.WriteValue(container._container.parentEntity.uid);
+                    else
+                        writer.WriteValue(container.ContainerId);
                     writer.WritePropertyName("cs");
                     writer.WriteValue(container.CombineStacks);
                     writer.WritePropertyName("dn");
                     writer.WriteValue(container.DisplayName);
+                    writer.WritePropertyName("ct");
+                    writer.WriteValue(ContainerHelper.GetEntityType(container._container));
                     writer.WriteEndObject();
                 }
 
@@ -1400,6 +1473,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                                         break;
                                                     case "dn":
                                                         data.DisplayName = reader.ReadAsString();
+                                                        break;
+                                                    case "ct":
+                                                        data.ContainerType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault();
                                                         break;
                                                 }
                                             }
@@ -1780,7 +1856,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 
@@ -2877,8 +2952,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 IsEnabled = pipe.IsEnabled;
                 Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
-                DestinationId = pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
+                SourceId = ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
+                DestinationId = ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
                 SourceContainerType = pipe.Source.ContainerType;
                 DestinationContainerType = pipe.Destination.ContainerType;
                 Health = pipe.Health;
@@ -3814,9 +3889,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     writer.WritePropertyName("grd");
                     writer.WriteValue(pipe.Grade);
                     writer.WritePropertyName("sid");
-                    writer.WriteValue(pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
                     writer.WritePropertyName("did");
-                    writer.WriteValue(pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
                     writer.WritePropertyName("sct");
                     writer.WriteValue(pipe.Source.ContainerType);
                     writer.WritePropertyName("dct");
@@ -3884,7 +3959,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Storage = ContainerHelper.Find(container);
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
-                CanAutoStart = ContainerType != ContainerType.General && ContainerType != ContainerType.ResourceExtractor;
+                CanAutoStart = ContainerHelper.CanAutoStart(ContainerType);
             }
 
             /// <summary>

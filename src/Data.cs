@@ -157,6 +157,9 @@ namespace Oxide.Plugins
                                                     case "dn":
                                                         data.DisplayName = reader.ReadAsString();
                                                         break;
+                                                    case "ct":
+                                                        data.ContainerType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault();
+                                                        break;
                                                 }
                                             }
                                         }

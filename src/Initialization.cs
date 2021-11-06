@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.20")]
+    [Info("Sync Pipes", "Joe 90", "0.9.21")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     public partial class SyncPipesDevelopment : RustPlugin
     {
@@ -15,6 +15,7 @@ namespace Oxide.Plugins
         [PluginReference]
         Plugin FurnaceSplitter;
 
+        // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
         [PluginReference] 
         Plugin QuickSmelt;
 

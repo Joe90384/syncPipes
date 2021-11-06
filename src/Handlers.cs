@@ -48,7 +48,6 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-
                 if (playerHelper.State != PlayerHelper.UserState.Placing || 
                     playerHelper.Destination != null ||
                     ContainerHelper.IsBlacklisted(entity) || 

@@ -71,8 +71,8 @@ namespace Oxide.Plugins
             {
                 IsEnabled = pipe.IsEnabled;
                 Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
-                DestinationId = pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
+                SourceId = ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
+                DestinationId = ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
                 SourceContainerType = pipe.Source.ContainerType;
                 DestinationContainerType = pipe.Destination.ContainerType;
                 Health = pipe.Health;
@@ -1026,9 +1026,9 @@ namespace Oxide.Plugins
                     writer.WritePropertyName("grd");
                     writer.WriteValue(pipe.Grade);
                     writer.WritePropertyName("sid");
-                    writer.WriteValue(pipe.Source.ContainerType == ContainerType.FuelStorage || pipe.Source.ContainerType == ContainerType.ResourceExtractor ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
                     writer.WritePropertyName("did");
-                    writer.WriteValue(pipe.Destination.ContainerType == ContainerType.FuelStorage || pipe.Destination.ContainerType == ContainerType.ResourceExtractor ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
                     writer.WritePropertyName("sct");
                     writer.WriteValue(pipe.Source.ContainerType);
                     writer.WritePropertyName("dct");
