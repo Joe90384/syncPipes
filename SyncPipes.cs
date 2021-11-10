@@ -1063,6 +1063,27 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
+
+            private List<Item> ItemList
+            {
+                get
+                {
+                    if (_container is Recycler)
+                    {
+                        var itemList = new List<Item>();
+                        for (int i = 6; i < 12; i++)
+                        {
+                            var item = _container.inventory.GetSlot(i);
+                            if (item == null) continue;
+                            itemList.Add(item);
+                        }
+                        return itemList;
+                    }
+
+                    return _container.inventory.itemList;
+                }
+            }
+
             /// <summary>
             ///     Attempt to move all items from all stacks of the same type down the pipes in this priroity group
             ///     Items will be split as evenly as possible down all the pipes (limited by flow rate)
@@ -1072,7 +1093,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var distinctItemIds = new List<int>();
                 var distinctItems = new Dictionary<int, List<Item>>();
-                var itemList = _container.inventory.itemList;
+                var itemList = ItemList;
                 for (var i = 0; i < itemList.Count; i++)
                 {
                     var itemId = itemList[i].info.itemid;
@@ -1141,7 +1162,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     for(var i = 0; i < validPipes.Count; i++)
                     {
                         var validPipe = validPipes[i];
-                        unusedPipes.Remove(validPipe);
                         var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
                             item[0]?.MaxStackable() ?? 0);
                         if (amountToMove <= 0)
@@ -1154,6 +1174,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
+                            var recycler = validPipe.Destination.Storage as Recycler;
+                            if(recycler != null && !recycler.RecyclerItemFilter(toMove, -1))
+                                continue;
+                            unusedPipes.Remove(validPipe);
                             if (Instance.FurnaceSplitter != null &&
                                 validPipe.Destination.ContainerType == ContainerType.Oven &&
                                 validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
@@ -1375,7 +1399,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
             private static string _filename;
-            private static string Filename => _filename ?? (_filename = $"{Instance.Name} v1-0");
+            private static string Filename => _filename ?? (_filename = $"{Instance.Name}_v1-0");
+            private static string OldFilename => $"{Instance.Name} v1-0";
 
             public static bool Save(bool backgroundSave = true)
             {
@@ -1389,10 +1414,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     return false;
                 _running = true;
                 if (backgroundSave)
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave());
+                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
                 else
                 {
-                    var enumerator = DataStore.BufferedSave();
+                    var enumerator = DataStore.BufferedSave(Filename);
                     while (enumerator.MoveNext()) { }
                 }
                 return true;
@@ -1400,10 +1425,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public static bool Load()
             {
-                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename) || _running) 
-                    return false;
+                var filename = Filename;
+                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                {
+                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                        return false;
+                    filename = OldFilename;
+                }
                 _running = true;
-                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad());
+                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                 return true;
             }
 
@@ -1510,7 +1540,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 public List<ContainerManager.Data> Containers { get; } = new List<ContainerManager.Data>();
             }
             
-            IEnumerator BufferedSave()
+            IEnumerator BufferedSave(string filename)
             {
                 var sw = Stopwatch.StartNew();
                 yield return null;
@@ -1531,7 +1561,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     yield return null;
                 }
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);
-                Interface.Oxide.DataFileSystem.WriteObject(Filename, buffer);
+                Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                 Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
@@ -1539,11 +1569,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 yield return null;
             }
 
-            IEnumerator BufferedLoad()
+            IEnumerator BufferedLoad(string filename)
             {
                 yield return null;
                 Instance.Puts("Load v1.0 starting");
-                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(Filename);
+                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
                 for (int i = 0; i < loader.Pipes.Count; i++)
                 {
                     loader.Pipes[i].Create();
@@ -1947,13 +1977,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
 
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
                     return false;
                 }
-                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 pipe.OpenMenu(playerHelper);
                 return true;
             }

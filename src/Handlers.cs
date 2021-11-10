@@ -139,13 +139,13 @@
             {
 
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
                     return false;
                 }
-                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 pipe.OpenMenu(playerHelper);
                 return true;
             }

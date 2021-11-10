@@ -261,6 +261,27 @@ namespace Oxide.Plugins
                 }
             }
 
+
+            private List<Item> ItemList
+            {
+                get
+                {
+                    if (_container is Recycler)
+                    {
+                        var itemList = new List<Item>();
+                        for (int i = 6; i < 12; i++)
+                        {
+                            var item = _container.inventory.GetSlot(i);
+                            if (item == null) continue;
+                            itemList.Add(item);
+                        }
+                        return itemList;
+                    }
+
+                    return _container.inventory.itemList;
+                }
+            }
+
             /// <summary>
             ///     Attempt to move all items from all stacks of the same type down the pipes in this priroity group
             ///     Items will be split as evenly as possible down all the pipes (limited by flow rate)
@@ -270,7 +291,7 @@ namespace Oxide.Plugins
             {
                 var distinctItemIds = new List<int>();
                 var distinctItems = new Dictionary<int, List<Item>>();
-                var itemList = _container.inventory.itemList;
+                var itemList = ItemList;
                 for (var i = 0; i < itemList.Count; i++)
                 {
                     var itemId = itemList[i].info.itemid;
@@ -339,7 +360,6 @@ namespace Oxide.Plugins
                     for(var i = 0; i < validPipes.Count; i++)
                     {
                         var validPipe = validPipes[i];
-                        unusedPipes.Remove(validPipe);
                         var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
                             item[0]?.MaxStackable() ?? 0);
                         if (amountToMove <= 0)
@@ -352,6 +372,10 @@ namespace Oxide.Plugins
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
+                            var recycler = validPipe.Destination.Storage as Recycler;
+                            if(recycler != null && !recycler.RecyclerItemFilter(toMove, -1))
+                                continue;
+                            unusedPipes.Remove(validPipe);
                             if (Instance.FurnaceSplitter != null &&
                                 validPipe.Destination.ContainerType == ContainerType.Oven &&
                                 validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)

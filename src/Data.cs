@@ -58,7 +58,8 @@ namespace Oxide.Plugins
                 }
             }
             private static string _filename;
-            private static string Filename => _filename ?? (_filename = $"{Instance.Name} v1-0");
+            private static string Filename => _filename ?? (_filename = $"{Instance.Name}_v1-0");
+            private static string OldFilename => $"{Instance.Name} v1-0";
 
             public static bool Save(bool backgroundSave = true)
             {
@@ -72,10 +73,10 @@ namespace Oxide.Plugins
                     return false;
                 _running = true;
                 if (backgroundSave)
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave());
+                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
                 else
                 {
-                    var enumerator = DataStore.BufferedSave();
+                    var enumerator = DataStore.BufferedSave(Filename);
                     while (enumerator.MoveNext()) { }
                 }
                 return true;
@@ -83,10 +84,15 @@ namespace Oxide.Plugins
 
             public static bool Load()
             {
-                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename) || _running) 
-                    return false;
+                var filename = Filename;
+                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                {
+                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                        return false;
+                    filename = OldFilename;
+                }
                 _running = true;
-                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad());
+                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                 return true;
             }
 
@@ -193,7 +199,7 @@ namespace Oxide.Plugins
                 public List<ContainerManager.Data> Containers { get; } = new List<ContainerManager.Data>();
             }
             
-            IEnumerator BufferedSave()
+            IEnumerator BufferedSave(string filename)
             {
                 var sw = Stopwatch.StartNew();
                 yield return null;
@@ -214,7 +220,7 @@ namespace Oxide.Plugins
                     yield return null;
                 }
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);
-                Interface.Oxide.DataFileSystem.WriteObject(Filename, buffer);
+                Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                 Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
@@ -222,11 +228,11 @@ namespace Oxide.Plugins
                 yield return null;
             }
 
-            IEnumerator BufferedLoad()
+            IEnumerator BufferedLoad(string filename)
             {
                 yield return null;
                 Instance.Puts("Load v1.0 starting");
-                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(Filename);
+                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
                 for (int i = 0; i < loader.Pipes.Count; i++)
                 {
                     loader.Pipes[i].Create();
