@@ -1899,8 +1899,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="item">Item being removed</param>
         private void OnItemRemovedFromContainer(ItemContainer container, Item item)
         {
-            if (container.entityOwner?.GetComponent<PipeSegment>() != null)
-                item.Remove();
+            if (container?.entityOwner?.GetComponent<PipeSegment>() != null)
+                item?.Remove();
         }
 
         /// <summary>

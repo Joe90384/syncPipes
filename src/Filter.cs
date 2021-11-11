@@ -179,8 +179,8 @@ namespace Oxide.Plugins
         /// <param name="item">Item being removed</param>
         private void OnItemRemovedFromContainer(ItemContainer container, Item item)
         {
-            if (container.entityOwner?.GetComponent<PipeSegment>() != null)
-                item.Remove();
+            if (container?.entityOwner?.GetComponent<PipeSegment>() != null)
+                item?.Remove();
         }
 
         /// <summary>
