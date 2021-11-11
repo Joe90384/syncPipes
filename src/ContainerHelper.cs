@@ -1,4 +1,6 @@
-﻿namespace Oxide.Plugins
+﻿using System.Collections.Generic;
+
+namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
@@ -54,20 +56,37 @@
                 return ContainerType.General;
             }
 
+            private const string _loadErrorFilename = "FindErrors";
+
+            private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
+            {
+                Instance.LogToFile(_loadErrorFilename, string.Format("------------------- {0} -------------------", parentId), Instance);
+                Instance.LogToFile(_loadErrorFilename, entity == null ? "Entity not found" : string.Format("Entity: {0} ({1})", entity.ShortPrefabName, entity), Instance);
+                Instance.LogToFile(_loadErrorFilename, string.Format("Type: {0}", containerType), Instance);
+                for (int i = 0; i < children?.Count; i++)
+                    Instance.LogToFile(_loadErrorFilename, string.Format("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]), Instance);
+                Instance.LogToFile(_loadErrorFilename, "", Instance);
+            }
+
             public static BaseEntity Find(uint parentId, ContainerType containerType)
             {
                 var entity = (BaseEntity) BaseNetworkable.serverEntities.Find(parentId);
+                if (entity == null)
+                {
+                    LogFindError(parentId, null, containerType);
+                    return null;
+                }
+
                 if (!IsComplexStorage(containerType))
                     return entity;
                 var children = entity?.GetComponent<BaseResourceExtractor>()?.children;
-                if (children == null)
-                    return null;
                 var prefabName = GetShortPrefabName(containerType);
-                for (var i = 0; i < children.Count; i++)
+                for (var i = 0; i < children?.Count; i++)
                 {
                     if (children[i].ShortPrefabName == prefabName)
                         return children[i] as ResourceExtractorFuelStorage;
                 }
+                LogFindError(parentId, entity, containerType, children);
                 return null;
             }
 

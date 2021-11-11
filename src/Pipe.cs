@@ -119,6 +119,28 @@ namespace Oxide.Plugins
                 }
             }
 
+            private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
+            {
+                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", pipeData.SourceId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", pipeData.DestinationId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", pipeData.SourceContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", pipeData.DestinationContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", pipeData.Grade), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", pipeData.IsEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", pipeData.IsAutoStart), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", pipeData.Health), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", pipeData.Priority), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", pipeData.FurnaceSplitterStacks), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", pipeData.ItemFilter.Count), Instance);
+                for (int i = 0; i < pipeData.ItemFilter.Count; i++)
+                    Instance.LogToFile("PipeLoadErrors", string.Format("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]), Instance);
+                Instance.LogToFile("PipeLoadErrors", "", Instance);
+
+            }
+
             /// <summary>
             /// Load all data and re-create the saved pipes.
             /// </summary>
@@ -130,8 +152,11 @@ namespace Oxide.Plugins
                 for (var i = 0; i < dataToLoad.Length; i++)
                 {
                     var newPipe = new Pipe(dataToLoad[i]);
-                    if(newPipe.Validity != Status.Success)
+                    if (newPipe.Validity != Status.Success)
+                    {
                         Instance.PrintWarning("Failed to load pipe [{0}]: {1}", newPipe.Id, newPipe.Validity);
+                        LogLoadError(newPipe.Id, newPipe.Validity, dataToLoad[i]);
+                    }
                     else
                         validCount++;
                 }
@@ -230,6 +255,27 @@ namespace Oxide.Plugins
                 Create();
             }
 
+            private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
+            {
+                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", sourceId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", destinationId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", Source?.ContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", Destination?.ContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", Grade), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", IsEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", IsAutoStart), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", _initialHealth), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", Priority), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", IsFurnaceSplitterEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", FurnaceSplitterStacks), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", PipeFilter?.Items.Count), Instance);
+                for (int i = 0; i < PipeFilter?.Items.Count; i++)
+                    Instance.LogToFile("PipeLoadErrors", string.Format("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english), Instance);
+                Instance.LogToFile("PipeLoadErrors", "", Instance);
+            }
+
             private Pipe(JsonReader reader, JsonSerializer serializer)
             {
                 Id = GenerateId();
@@ -320,6 +366,8 @@ namespace Oxide.Plugins
                 Source = new PipeEndContainer(source, sourceType, this);
                 Destination = new PipeEndContainer(destination, destinationType, this);
                 Validate();
+                if (Validity != Status.Success)
+                    LogLoadError(Id, Validity, sourceId, destinationId);
             }
 
             public void Create()

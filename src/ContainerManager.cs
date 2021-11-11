@@ -59,6 +59,14 @@ namespace Oxide.Plugins
                 }
             }
 
+            private static void LogLoadError(Data data)
+            {
+                Instance.LogToFile("ContainerLoadErrors", string.Format("------------------- {0} -------------------", data.ContainerId), Instance);
+                Instance.LogToFile("ContainerLoadErrors", string.Format("Container Type: {0}", data.ContainerType), Instance);
+                Instance.LogToFile("ContainerLoadErrors", string.Format("Display Name: {0}", data.DisplayName), Instance);
+                Instance.LogToFile("ContainerLoadErrors", "", Instance);
+            }
+
             /// <summary>
             /// Load all data into the container managers.
             /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
@@ -73,18 +81,8 @@ namespace Oxide.Plugins
                     ContainerManager manager;
                     if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
                     {
-                        var container = (BaseEntity)BaseNetworkable.serverEntities.Find(dataToLoad[i].ContainerId);
-                        if (container != null)
-                        {
-                            var shortPrefabName = ContainerHelper.GetShortPrefabName(dataToLoad[i].ContainerType);
-                            for (int j = 0; j < container.children.Count; j++)
-                            {
-                                var child = container.children[j] as ResourceExtractorFuelStorage;
-                                if (child?.ShortPrefabName != shortPrefabName) continue;
-                                dataToLoad[i].ContainerId = child.net.ID;
-                                break;
-                            }
-                        }
+                        var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
+                        dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
                     }
                     if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
@@ -94,7 +92,8 @@ namespace Oxide.Plugins
                     }
                     else
                     {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].DisplayName);
+                        Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
+                        LogLoadError(dataToLoad[i]);
                     }
                 }
                 Instance.Puts("Successfully loaded {0} managers", containerCount);

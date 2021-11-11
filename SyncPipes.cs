@@ -733,20 +733,37 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 return ContainerType.General;
             }
 
+            private const string _loadErrorFilename = "FindErrors";
+
+            private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
+            {
+                Instance.LogToFile(_loadErrorFilename, string.Format("------------------- {0} -------------------", parentId), Instance);
+                Instance.LogToFile(_loadErrorFilename, entity == null ? "Entity not found" : string.Format("Entity: {0} ({1})", entity.ShortPrefabName, entity), Instance);
+                Instance.LogToFile(_loadErrorFilename, string.Format("Type: {0}", containerType), Instance);
+                for (int i = 0; i < children?.Count; i++)
+                    Instance.LogToFile(_loadErrorFilename, string.Format("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]), Instance);
+                Instance.LogToFile(_loadErrorFilename, "", Instance);
+            }
+
             public static BaseEntity Find(uint parentId, ContainerType containerType)
             {
                 var entity = (BaseEntity) BaseNetworkable.serverEntities.Find(parentId);
+                if (entity == null)
+                {
+                    LogFindError(parentId, null, containerType);
+                    return null;
+                }
+
                 if (!IsComplexStorage(containerType))
                     return entity;
                 var children = entity?.GetComponent<BaseResourceExtractor>()?.children;
-                if (children == null)
-                    return null;
                 var prefabName = GetShortPrefabName(containerType);
-                for (var i = 0; i < children.Count; i++)
+                for (var i = 0; i < children?.Count; i++)
                 {
                     if (children[i].ShortPrefabName == prefabName)
                         return children[i] as ResourceExtractorFuelStorage;
                 }
+                LogFindError(parentId, entity, containerType, children);
                 return null;
             }
 
@@ -861,6 +878,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
+            private static void LogLoadError(Data data)
+            {
+                Instance.LogToFile("ContainerLoadErrors", string.Format("------------------- {0} -------------------", data.ContainerId), Instance);
+                Instance.LogToFile("ContainerLoadErrors", string.Format("Container Type: {0}", data.ContainerType), Instance);
+                Instance.LogToFile("ContainerLoadErrors", string.Format("Display Name: {0}", data.DisplayName), Instance);
+                Instance.LogToFile("ContainerLoadErrors", "", Instance);
+            }
+
             /// <summary>
             /// Load all data into the container managers.
             /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
@@ -875,18 +900,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     ContainerManager manager;
                     if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
                     {
-                        var container = (BaseEntity)BaseNetworkable.serverEntities.Find(dataToLoad[i].ContainerId);
-                        if (container != null)
-                        {
-                            var shortPrefabName = ContainerHelper.GetShortPrefabName(dataToLoad[i].ContainerType);
-                            for (int j = 0; j < container.children.Count; j++)
-                            {
-                                var child = container.children[j] as ResourceExtractorFuelStorage;
-                                if (child?.ShortPrefabName != shortPrefabName) continue;
-                                dataToLoad[i].ContainerId = child.net.ID;
-                                break;
-                            }
-                        }
+                        var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
+                        dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
                     }
                     if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                     {
@@ -896,7 +911,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                     else
                     {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].DisplayName);
+                        Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
+                        LogLoadError(dataToLoad[i]);
                     }
                 }
                 Instance.Puts("Successfully loaded {0} managers", containerCount);
@@ -3087,6 +3103,28 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
+            private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
+            {
+                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", pipeData.SourceId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", pipeData.DestinationId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", pipeData.SourceContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", pipeData.DestinationContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", pipeData.Grade), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", pipeData.IsEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", pipeData.IsAutoStart), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", pipeData.Health), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", pipeData.Priority), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", pipeData.FurnaceSplitterStacks), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", pipeData.ItemFilter.Count), Instance);
+                for (int i = 0; i < pipeData.ItemFilter.Count; i++)
+                    Instance.LogToFile("PipeLoadErrors", string.Format("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]), Instance);
+                Instance.LogToFile("PipeLoadErrors", "", Instance);
+
+            }
+
             /// <summary>
             /// Load all data and re-create the saved pipes.
             /// </summary>
@@ -3098,8 +3136,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 for (var i = 0; i < dataToLoad.Length; i++)
                 {
                     var newPipe = new Pipe(dataToLoad[i]);
-                    if(newPipe.Validity != Status.Success)
+                    if (newPipe.Validity != Status.Success)
+                    {
                         Instance.PrintWarning("Failed to load pipe [{0}]: {1}", newPipe.Id, newPipe.Validity);
+                        LogLoadError(newPipe.Id, newPipe.Validity, dataToLoad[i]);
+                    }
                     else
                         validCount++;
                 }
@@ -3178,6 +3219,27 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 _initialFilterItems = data.ItemFilter;
                 Validate();
                 Create();
+            }
+
+            private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
+            {
+                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", sourceId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", destinationId), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", Source?.ContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", Destination?.ContainerType), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", Grade), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", IsEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", IsAutoStart), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", _initialHealth), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", Priority), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", IsFurnaceSplitterEnabled), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", FurnaceSplitterStacks), Instance);
+                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", PipeFilter?.Items.Count), Instance);
+                for (int i = 0; i < PipeFilter?.Items.Count; i++)
+                    Instance.LogToFile("PipeLoadErrors", string.Format("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english), Instance);
+                Instance.LogToFile("PipeLoadErrors", "", Instance);
             }
 
             private Pipe(JsonReader reader, JsonSerializer serializer)
@@ -3270,6 +3332,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Source = new PipeEndContainer(source, sourceType, this);
                 Destination = new PipeEndContainer(destination, destinationType, this);
                 Validate();
+                if (Validity != Status.Success)
+                    LogLoadError(Id, Validity, sourceId, destinationId);
             }
 
             public void Create()
