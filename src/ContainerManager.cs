@@ -282,6 +282,57 @@ namespace Oxide.Plugins
                 }
             }
 
+            private MovableType CanPuItem(Item item)
+            {
+                var oven = _container as BaseOven;
+                if (oven == null) return MovableType.Allowed;
+                if (
+                    item.info.category != ItemCategory.Resources && 
+                    item.info.category != ItemCategory.Food ||
+                    item.info.shortname.EndsWith("cooked") ||
+                    item.info.shortname.EndsWith("burned")
+                    ) return MovableType.Rejected;
+                var fuel = item.info.GetComponent<ItemModBurnable>();
+                if (fuel != null)
+                    return oven.fuelType.Equals(item.info) ? MovableType.Fuel : MovableType.Rejected;
+                var cookable = item.info.GetComponent<ItemModCookable>();
+                if (cookable != null &&
+                    cookable.lowTemp <= oven.cookingTemperature &&
+                    cookable.highTemp >= oven.cookingTemperature)
+                    return MovableType.Cookable;
+                return MovableType.Rejected;
+            }
+
+            private bool CanTakeItem(Item item)
+            {
+                var oven = _container as BaseOven;
+                if (oven == null) return true;
+                if (
+                    item.info.category != ItemCategory.Resources && 
+                    item.info.category != ItemCategory.Food ||
+                    item.info.shortname.ToLower().EndsWith("cooked") ||
+                    item.info.shortname.EndsWith("burned")
+                    ) return true;
+                var fuel = item.info.GetComponent<ItemModBurnable>();
+                if (fuel != null)
+                    return !oven.fuelType.Equals(item.info);
+                var cookable = item.info.GetComponent<ItemModCookable>();
+                if (cookable != null &&
+                    cookable.lowTemp <= oven.cookingTemperature &&
+                    cookable.highTemp >= oven.cookingTemperature)
+                    return false;
+                return true;
+            }
+
+            private enum MovableType
+            {
+                Allowed,
+                Cookable,
+                Fuel,
+                Rejected
+            }
+
+
             /// <summary>
             ///     Attempt to move all items from all stacks of the same type down the pipes in this priroity group
             ///     Items will be split as evenly as possible down all the pipes (limited by flow rate)
@@ -360,8 +411,15 @@ namespace Oxide.Plugins
                     for(var i = 0; i < validPipes.Count; i++)
                     {
                         var validPipe = validPipes[i];
+                        var recycler = validPipe.Destination.Storage as Recycler;
+                        if (recycler != null && !recycler.RecyclerItemFilter(item[0], -1))
+                            continue;
+                        var canPut = validPipe.Destination.ContainerManager.CanPuItem(item[0]);
+                        var canTake = CanTakeItem(item[0]);
+                        if (canPut == MovableType.Rejected || !canTake)
+                            continue;
                         var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
-                            item[0]?.MaxStackable() ?? 0);
+                            item[0]?.MaxStackable() ?? 0, validPipe.IsMultiStack && canPut != MovableType.Fuel);
                         if (amountToMove <= 0)
                             break;
                         quantity -= amountToMove;
@@ -372,11 +430,10 @@ namespace Oxide.Plugins
                             if (amountToMove <= 0) break;
                             if (amountToMove < itemStack.amount)
                                 toMove = itemStack.SplitItem(amountToMove);
-                            var recycler = validPipe.Destination.Storage as Recycler;
-                            if(recycler != null && !recycler.RecyclerItemFilter(toMove, -1))
-                                continue;
+
                             unusedPipes.Remove(validPipe);
                             if (Instance.FurnaceSplitter != null &&
+                                canPut != MovableType.Fuel &&
                                 validPipe.Destination.ContainerType == ContainerType.Oven &&
                                 validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
                             {
@@ -442,7 +499,7 @@ namespace Oxide.Plugins
             /// <param name="pipe">The pipe to move items along</param>
             /// <param name="maxStackable">The maximum stack size of this item. Used to check available space</param>
             /// <returns></returns>
-            private int GetAmountToMove(int itemId, int itemQuantity, int pipesLeft, Pipe pipe, int maxStackable)
+            private int GetAmountToMove(int itemId, int itemQuantity, int pipesLeft, Pipe pipe, int maxStackable, bool multiStack)
             {
                 var destinationContainer = pipe?.Destination.Storage;
                 if (destinationContainer == null || maxStackable == 0) return 0;
@@ -455,7 +512,7 @@ namespace Oxide.Plugins
                 int minStackSize = GetMinStackSize(itemStacks);
                 if (minStackSize <= 0 && emptySlots == 0)
                     return 0;
-                if (!pipe.IsMultiStack)
+                if (!multiStack)
                 {
                     var stackCapacity = maxStackable - minStackSize;
                     if (minStackSize > 0)
