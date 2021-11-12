@@ -1682,14 +1682,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// Hook: Used to ensure pipes are removed when a segment of the pipe is killed
         /// </summary>
         /// <param name="entity">Entity to check to see if it's a pipe segment</param>
-        void OnEntityKill(BaseNetworkable entity) => entity.GetComponent<PipeSegment>()?.Pipe?.Remove();
+        void OnEntityKill(BaseNetworkable entity) => entity?.GetComponent<PipeSegment>()?.Pipe?.Remove();
 
         /// <summary>
         /// Hook: Used to ensure pies are removed when a segment of the pipe dies
         /// </summary>
         /// <param name="entity">Entity to check to see if it's a pipe segment</param>
         /// <param name="info"></param>
-        void OnEntityDeath(BaseCombatEntity entity, HitInfo info) => entity.GetComponent<PipeSegment>()?.Pipe?.Remove();
+        void OnEntityDeath(BaseCombatEntity entity, HitInfo info) => entity?.GetComponent<PipeSegment>()?.Pipe?.Remove();
 
         /// <summary>
         /// Hook: Used to handle hits to the pipes or connected containers
@@ -1698,6 +1698,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="hit">Information about the hit</param>
         void OnHammerHit(BasePlayer player, HitInfo hit)
         {
+            if (player == null || hit?.HitEntity == null)
+                return;
             var playerHelper = PlayerHelper.Get(player);
             var handled =
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
@@ -1714,14 +1716,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="entity">Entity to check to see if it a pipe</param>
         /// <param name="checkRunning">Only return true if the pipe is also running</param>
         /// <returns>True if the entity is a pipe segment (and if it is running)</returns>
-        private bool IsPipe(BaseEntity entity, bool checkRunning = false) => checkRunning ? entity.GetComponent<PipeSegment>()?.enabled ?? false : entity.GetComponent<PipeSegment>()?.Pipe != null;
+        private bool IsPipe(BaseEntity entity, bool checkRunning = false) => checkRunning ? entity?.GetComponent<PipeSegment>()?.enabled ?? false : entity?.GetComponent<PipeSegment>()?.Pipe != null;
 
         /// <summary>
         /// New Hook: This allows other plugins to determine if the entity is a managed container.
         /// </summary>
         /// <param name="entity">Entity to check to see if it is a managed container</param>
         /// <returns>True if the entity is a managed container</returns>
-        private bool IsManagedContainer(BaseEntity entity) => entity.GetComponent<ContainerManager>()?.HasAnyPipes ?? false;
+        private bool IsManagedContainer(BaseEntity entity) => entity?.GetComponent<ContainerManager>()?.HasAnyPipes ?? false;
         #endregion
         #region Filter
 
@@ -1781,9 +1783,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="player">Player to close the filter for</param>
             private void ForceClosePlayer(BasePlayer player)
             {
-                player.inventory.loot.Clear();
-                player.inventory.loot.MarkDirty();
-                player.inventory.loot.SendImmediate();
+                player?.inventory.loot.Clear();
+                player?.inventory.loot.MarkDirty();
+                player?.inventory.loot.SendImmediate();
                 Closing(player);
             }
 
@@ -1791,7 +1793,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Remove the player from the list of players in the filter
             /// </summary>
             /// <param name="player">Player closing the menu</param>
-            public void Closing(BasePlayer player) => _playersInFilter.Remove(player);
+            public void Closing(BasePlayer player)
+            {
+                if(player != null)
+                    _playersInFilter.Remove(player);
+            }
 
             /// <summary>
             /// Creates a virtual storage container with all the items from the pipe and limits it to the pipes filter capacity
@@ -1865,6 +1871,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public void Open(PlayerHelper playerHelper)
             {
                 var player = playerHelper.Player;
+                if (player == null)
+                    return;
                 playerHelper.PipeFilter = this;
                 if (_playersInFilter.Contains(player) || !Active)
                     return;
@@ -4004,7 +4012,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public void OpenFilter(PlayerHelper playerHelper)
             {
                 CloseMenu(playerHelper);
-                playerHelper.Player.EndLooting();
+                playerHelper.Player?.EndLooting();
                 Instance.timer.Once(0.1f, () =>PipeFilter.Open(playerHelper));
             }
 
@@ -4433,19 +4441,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// Does this player have syncPipes admin privilege
             /// </summary>
-            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.admin");
+            public bool IsAdmin => Instance.permission.UserHasPermission(Player?.UserIDString, $"{Instance.Name}.admin");
 
-            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.user");
+            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player?.UserIDString, $"{Instance.Name}.user");
 
             /// <summary>
             /// Can the player build in the current area (not blocked by TC) or has syncPipes admin privilege
             /// </summary>
-            public bool CanBuild => IsAdmin || Player.CanBuild();
+            public bool CanBuild => IsAdmin || (Player?.CanBuild() ?? false);
 
             /// <summary>
             /// Check if the player has and authorised TC in range of has syncPipes admin privilege
             /// </summary>
-            public bool HasBuildPrivilege => IsAdmin || Player.GetBuildingPrivilege().IsAuthed(Player);
+            public bool HasBuildPrivilege => IsAdmin || (Player?.GetBuildingPrivilege()?.IsAuthed(Player) ?? false);
 
             /// <summary>
             /// Gets the syncPipes privileges currently held by this player
@@ -4454,7 +4462,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 get
                 {
-                    var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
+                    var permissions = Instance.permission.GetUserPermissions(Player?.UserIDString);
                     for (var i = 0; i < permissions.Length; i++)
                     {
                         var permission = GetPermission(permissions[i]);
@@ -4539,6 +4547,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 get
                 {
+                    if(Player == null)
+                        return new Dictionary<ulong, Pipe>();
                     if(!AllPipes.ContainsKey(Player.userID))
                         AllPipes.Add(Player.userID, new Dictionary<ulong, Pipe>());
                     return AllPipes[Player.userID];
@@ -4787,7 +4797,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             /// <param name="commandName">Command to call (without the 'syncpipes.' prefix)</param>
             /// <param name="args">Any arguments to send with the command</param>
-            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
+            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player?.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
 
             /// <summary>
             /// Close the pipe filter the player is currently viewing
@@ -5196,6 +5206,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// false for everything else to prevent the can't repair error</returns>
         private static bool? OnPipeRepair(BaseCombatEntity entity, BasePlayer player, Pipe pipe)
         {
+            if (entity == null) return false;
             if ((int)entity.Health() == (int)entity.MaxHealth())
                 return false;
             if (pipe.Repairing)
@@ -5213,7 +5224,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
         /// <returns>False if it is a pipe, null if it isn't</returns>
-        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player) => entity.GetComponent<PipeSegment>() ? (bool?)false : null;
+        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player) => entity?.GetComponent<PipeSegment>() ? (bool?)false : null;
 
         /// <summary>
         /// Hook: Ensures the all pipe sections are upgraded together

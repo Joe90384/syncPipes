@@ -1038,7 +1038,7 @@ namespace Oxide.Plugins
             public void OpenFilter(PlayerHelper playerHelper)
             {
                 CloseMenu(playerHelper);
-                playerHelper.Player.EndLooting();
+                playerHelper.Player?.EndLooting();
                 Instance.timer.Once(0.1f, () =>PipeFilter.Open(playerHelper));
             }
 
