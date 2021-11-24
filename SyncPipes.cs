@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.22")]
+    [Info("Sync Pipes", "Joe 90", "0.9.23")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -528,7 +528,16 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     CommandPrefix = "p",
                     HotKey = "p",
                     UpdateRate = 2,
-                    AttachXmasLights = false
+                    AttachXmasLights = false,
+                    DestroyWithSalvage = false,
+                    PermissionLevels = new Dictionary<string, PermissionLevel>
+                    {
+                        {"sticks", new PermissionLevel{MaximumGrade = 0, MaximumPipes = 15}},
+                        {"wood", new PermissionLevel{MaximumGrade = 1, MaximumPipes = 25}},
+                        {"stone", new PermissionLevel{MaximumGrade = 2, MaximumPipes = 35}},
+                        {"metal", new PermissionLevel{MaximumGrade = 3, MaximumPipes = 45}},
+                        {"hqm", new PermissionLevel{MaximumGrade = -1, MaximumPipes = -1}}
+                    }
                 };
             }
 

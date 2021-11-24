@@ -21,7 +21,16 @@ namespace Oxide.Plugins
                     CommandPrefix = "p",
                     HotKey = "p",
                     UpdateRate = 2,
-                    AttachXmasLights = false
+                    AttachXmasLights = false,
+                    DestroyWithSalvage = false,
+                    PermissionLevels = new Dictionary<string, PermissionLevel>
+                    {
+                        {"sticks", new PermissionLevel{MaximumGrade = 0, MaximumPipes = 15}},
+                        {"wood", new PermissionLevel{MaximumGrade = 1, MaximumPipes = 25}},
+                        {"stone", new PermissionLevel{MaximumGrade = 2, MaximumPipes = 35}},
+                        {"metal", new PermissionLevel{MaximumGrade = 3, MaximumPipes = 45}},
+                        {"hqm", new PermissionLevel{MaximumGrade = -1, MaximumPipes = -1}}
+                    }
                 };
             }
 
