@@ -61,10 +61,10 @@ namespace Oxide.Plugins
 
             private static void LogLoadError(Data data)
             {
-                Instance.LogToFile("ContainerLoadErrors", string.Format("------------------- {0} -------------------", data.ContainerId), Instance);
-                Instance.LogToFile("ContainerLoadErrors", string.Format("Container Type: {0}", data.ContainerType), Instance);
-                Instance.LogToFile("ContainerLoadErrors", string.Format("Display Name: {0}", data.DisplayName), Instance);
-                Instance.LogToFile("ContainerLoadErrors", "", Instance);
+                Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
+                Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
+                Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
+                Logger.ContainerLoader.Log("");
             }
 
             /// <summary>
@@ -217,7 +217,7 @@ namespace Oxide.Plugins
                 }
                 catch (Exception e)
                 {
-                    Instance.PrintError("{0}", e.StackTrace);
+                    Logger.Runtime.LogException(e, nameof(Detach));
                 }
             }
 
@@ -226,37 +226,45 @@ namespace Oxide.Plugins
             /// </summary>
             private void Update()
             {
-                if (_container == null)
-                    Kill();
-                if (_destroyed || !HasAnyPipes) return;
-                _cumulativeDeltaTime += Time.deltaTime;
-                if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
-                _cumulativeDeltaTime = 0f;
-                if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
-                    return;
-                var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
-                for (var i = 0; i < _attachedPipes.Count; i++)
+                try
                 {
-                    var pipe = _attachedPipes[i];
-                    if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
-                        continue;
-                    var priority = (int) pipe.Priority;
-                    var grade = (int) pipe.Grade;
-                    if(!pipeGroups.ContainsKey(priority))
-                        pipeGroups.Add(priority, new Dictionary<int, List<Pipe>>());
-                    if(!pipeGroups[priority].ContainsKey(grade))
-                        pipeGroups[priority].Add(grade, new List<Pipe>());
-                    pipeGroups[priority][grade].Add(pipe);
+                    if (_container == null)
+                        Kill();
+                    if (_destroyed || !HasAnyPipes) return;
+                    _cumulativeDeltaTime += Time.deltaTime;
+                    if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
+                    _cumulativeDeltaTime = 0f;
+                    if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
+                        return;
+                    var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
+                    for (var i = 0; i < _attachedPipes.Count; i++)
+                    {
+                        var pipe = _attachedPipes[i];
+                        if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
+                            continue;
+                        var priority = (int) pipe.Priority;
+                        var grade = (int) pipe.Grade;
+                        if (!pipeGroups.ContainsKey(priority))
+                            pipeGroups.Add(priority, new Dictionary<int, List<Pipe>>());
+                        if (!pipeGroups[priority].ContainsKey(grade))
+                            pipeGroups[priority].Add(grade, new List<Pipe>());
+                        pipeGroups[priority][grade].Add(pipe);
+                    }
+
+                    //var pipeGroups = _attachedPipeLookup.Values.Where(a => a.Source.ContainerManager == this)
+                    //    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
+                    for (int i = (int) Pipe.PipePriority.Highest; i > (int) Pipe.PipePriority.Demand; i--)
+                    {
+                        if (!pipeGroups.ContainsKey(i)) continue;
+                        if (CombineStacks)
+                            MoveCombineStacks(pipeGroups[i]);
+                        else
+                            MoveIndividualStacks(pipeGroups[i]);
+                    }
                 }
-                //var pipeGroups = _attachedPipeLookup.Values.Where(a => a.Source.ContainerManager == this)
-                //    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
-                for (int i = (int)Pipe.PipePriority.Highest; i > (int)Pipe.PipePriority.Demand; i--)
+                catch (Exception e)
                 {
-                    if (!pipeGroups.ContainsKey(i)) continue;
-                    if(CombineStacks)
-                        MoveCombineStacks(pipeGroups[i]);
-                    else
-                        MoveIndividualStacks(pipeGroups[i]);
+                    Logger.Runtime.LogException(e, nameof(Update));
                 }
             }
 
@@ -283,44 +291,60 @@ namespace Oxide.Plugins
 
             private MovableType CanPuItem(Item item)
             {
-                var oven = _container as BaseOven;
-                if (oven == null) return MovableType.Allowed;
-                if (
-                    item.info.category != ItemCategory.Resources && 
-                    item.info.category != ItemCategory.Food ||
-                    item.info.shortname.EndsWith("cooked") ||
-                    item.info.shortname.EndsWith("burned")
+                try
+                {
+                    var oven = _container as BaseOven;
+                    if (oven == null) return MovableType.Allowed;
+                    if (
+                        item.info.category != ItemCategory.Resources &&
+                        item.info.category != ItemCategory.Food ||
+                        item.info.shortname.EndsWith("cooked") ||
+                        item.info.shortname.EndsWith("burned")
                     ) return MovableType.Rejected;
-                var fuel = item.info.GetComponent<ItemModBurnable>();
-                if (fuel != null)
-                    return oven.fuelType.Equals(item.info) ? MovableType.Fuel : MovableType.Rejected;
-                var cookable = item.info.GetComponent<ItemModCookable>();
-                if (cookable != null &&
-                    cookable.lowTemp <= oven.cookingTemperature &&
-                    cookable.highTemp >= oven.cookingTemperature)
-                    return MovableType.Cookable;
-                return MovableType.Rejected;
+                    var fuel = item.info.GetComponent<ItemModBurnable>();
+                    if (fuel != null)
+                        return oven.fuelType?.Equals(item.info) ?? false ? MovableType.Fuel : MovableType.Rejected;
+                    var cookable = item.info.GetComponent<ItemModCookable>();
+                    if (cookable != null &&
+                        cookable.lowTemp <= oven.cookingTemperature &&
+                        cookable.highTemp >= oven.cookingTemperature)
+                        return MovableType.Cookable;
+                    return MovableType.Rejected;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(CanPuItem));
+                    return MovableType.Rejected;
+                }
             }
 
             private bool CanTakeItem(Item item)
             {
-                var oven = _container as BaseOven;
-                if (oven == null) return true;
-                if (
-                    item.info.category != ItemCategory.Resources && 
-                    item.info.category != ItemCategory.Food ||
-                    item.info.shortname.ToLower().EndsWith("cooked") ||
-                    item.info.shortname.EndsWith("burned")
+                try
+                {
+                    var oven = _container as BaseOven;
+                    if (oven == null) return true;
+                    if (
+                        item.info.category != ItemCategory.Resources &&
+                        item.info.category != ItemCategory.Food ||
+                        item.info.shortname.ToLower().EndsWith("cooked") ||
+                        item.info.shortname.EndsWith("burned")
                     ) return true;
-                var fuel = item.info.GetComponent<ItemModBurnable>();
-                if (fuel != null)
-                    return !oven.fuelType.Equals(item.info);
-                var cookable = item.info.GetComponent<ItemModCookable>();
-                if (cookable != null &&
-                    cookable.lowTemp <= oven.cookingTemperature &&
-                    cookable.highTemp >= oven.cookingTemperature)
+                    var fuel = item.info.GetComponent<ItemModBurnable>();
+                    if (fuel != null)
+                        return !oven.fuelType.Equals(item.info);
+                    var cookable = item.info.GetComponent<ItemModCookable>();
+                    if (cookable != null &&
+                        cookable.lowTemp <= oven.cookingTemperature &&
+                        cookable.highTemp >= oven.cookingTemperature)
+                        return false;
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(CanTakeItem));
                     return false;
-                return true;
+                }
             }
 
             private enum MovableType
@@ -339,131 +363,142 @@ namespace Oxide.Plugins
             /// <param name="pipeGroup">Pipes grouped by their priority</param>
             private void MoveCombineStacks(Dictionary<int, List<Pipe>> pipeGroup)
             {
-                var distinctItemIds = new List<int>();
-                var distinctItems = new Dictionary<int, List<Item>>();
-                var itemList = ItemList;
-                for (var i = 0; i < itemList.Count; i++)
+                try
                 {
-                    var itemId = itemList[i].info.itemid;
-                    if (!distinctItems.ContainsKey(itemList[i].info.itemid))
+                    var distinctItemIds = new List<int>();
+                    var distinctItems = new Dictionary<int, List<Item>>();
+                    var itemList = ItemList;
+                    for (var i = 0; i < itemList.Count; i++)
                     {
-                        distinctItems.Add(itemId, new List<Item>());
-                        distinctItemIds.Add(itemId);
-                    }
-
-                    distinctItems[itemId].Add(itemList[i]);
-                }
-                var unusedPipes = new List<Pipe>();
-                for (var i = (int) BuildingGrade.Enum.Twigs; i <= (int) BuildingGrade.Enum.TopTier; i++)
-                {
-                    if (!pipeGroup.ContainsKey(i))
-                        continue;
-                    for (var j = 0; j < pipeGroup[i].Count; j++)
-                    {
-                        var pipe = pipeGroup[i][j];
-                        if (pipe.Source.Id != ContainerId)
-                            continue;
-                        if (pipe.PipeFilter.Items.Count > 0)
+                        var itemId = itemList[i].info.itemid;
+                        if (!distinctItems.ContainsKey(itemList[i].info.itemid))
                         {
-                            var found = false;
-                            for (var k = 0; k < pipe.PipeFilter.Items.Count; k++)
-                            {
-                                if (distinctItems.ContainsKey(pipe.PipeFilter.Items[k].info.itemid))
-                                    found = true;
-                            }
-                            if (!found) 
-                                continue;
-                        }
-                        unusedPipes.Add(pipe);
-                    }
-                }
-
-                while (unusedPipes.Count > 0 && distinctItems.Count > 0)
-                {
-                    var itemId = distinctItemIds[0];
-                    var item = distinctItems[itemId];
-                    distinctItems.Remove(distinctItemIds[0]);
-                    distinctItemIds.RemoveAt(0);
-                    var quantity = 0;
-                    for (var i = 0; i < item.Count; i++)
-                        quantity += item[0].amount;
-                    var validPipes = new List<Pipe>();
-                    for (var i = 0; i < unusedPipes.Count; i++)
-                    {
-                        var pipe = unusedPipes[i];
-                        if (pipe.PipeFilter.Items.Count > 0)
-                        {
-                            bool found = false;
-                            for (var j = 0; j < pipe.PipeFilter.Items.Count; j++)
-                            {
-                                if (pipe.PipeFilter.Items[j].info.itemid == itemId)
-                                    found = true;
-                            }
-
-                            if (!found) 
-                                continue;
+                            distinctItems.Add(itemId, new List<Item>());
+                            distinctItemIds.Add(itemId);
                         }
 
-                        validPipes.Add(pipe);
+                        distinctItems[itemId].Add(itemList[i]);
                     }
-                    var pipesLeft = validPipes.Count;
-                    for(var i = 0; i < validPipes.Count; i++)
-                    {
-                        var validPipe = validPipes[i];
-                        var recycler = validPipe.Destination.Storage as Recycler;
-                        if (recycler != null && !recycler.RecyclerItemFilter(item[0], -1))
-                            continue;
-                        var canPut = validPipe.Destination.ContainerManager.CanPuItem(item[0]);
-                        var canTake = CanTakeItem(item[0]);
-                        if (canPut == MovableType.Rejected || !canTake)
-                            continue;
-                        var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
-                            item[0]?.MaxStackable() ?? 0, validPipe.IsMultiStack && canPut != MovableType.Fuel);
-                        if (amountToMove <= 0)
-                            break;
-                        quantity -= amountToMove;
-                        for(var j = 0; j < item.Count; j++)
-                        {
-                            var itemStack = item[j];
-                            var toMove = itemStack;
-                            if (amountToMove <= 0) break;
-                            if (amountToMove < itemStack.amount)
-                                toMove = itemStack.SplitItem(amountToMove);
 
-                            unusedPipes.Remove(validPipe);
-                            if (Instance.FurnaceSplitter != null &&
-                                canPut != MovableType.Fuel &&
-                                validPipe.Destination.ContainerType == ContainerType.Oven &&
-                                validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
+                    var unusedPipes = new List<Pipe>();
+                    for (var i = (int) BuildingGrade.Enum.Twigs; i <= (int) BuildingGrade.Enum.TopTier; i++)
+                    {
+                        if (!pipeGroup.ContainsKey(i))
+                            continue;
+                        for (var j = 0; j < pipeGroup[i].Count; j++)
+                        {
+                            var pipe = pipeGroup[i][j];
+                            if (pipe.Source.Id != ContainerId)
+                                continue;
+                            if (pipe.PipeFilter.Items.Count > 0)
                             {
-                                var result = Instance.FurnaceSplitter.Call("MoveSplitItem", toMove,
-                                    validPipe.Destination.Storage,
-                                    validPipe.FurnaceSplitterStacks);
-                                if(!result.ToString().Equals("ok", StringComparison.InvariantCultureIgnoreCase))
-                                    toMove.MoveToContainer(validPipe.Source.Storage.inventory);
-                            }
-                            else
-                            {
-                                var toContainer = validPipe.Destination.Storage.inventory;
-                                if (!toMove.MoveToContainer(toContainer))
+                                var found = false;
+                                for (var k = 0; k < pipe.PipeFilter.Items.Count; k++)
                                 {
-                                    // Fix for issue with Vending machines not being able to move the end of a stack stack from a container.
-                                    // Remove item from container and then move it. If it didn't actually move then add it back to the source.
-                                    toMove.RemoveFromContainer();
-                                    if (!toMove.MoveToContainer(toContainer))
+                                    if (distinctItems.ContainsKey(pipe.PipeFilter.Items[k].info.itemid))
+                                        found = true;
+                                }
+
+                                if (!found)
+                                    continue;
+                            }
+
+                            unusedPipes.Add(pipe);
+                        }
+                    }
+
+                    while (unusedPipes.Count > 0 && distinctItems.Count > 0)
+                    {
+                        var itemId = distinctItemIds[0];
+                        var item = distinctItems[itemId];
+                        distinctItems.Remove(distinctItemIds[0]);
+                        distinctItemIds.RemoveAt(0);
+                        var quantity = 0;
+                        for (var i = 0; i < item.Count; i++)
+                            quantity += item[0].amount;
+                        var validPipes = new List<Pipe>();
+                        for (var i = 0; i < unusedPipes.Count; i++)
+                        {
+                            var pipe = unusedPipes[i];
+                            if (pipe.PipeFilter.Items.Count > 0)
+                            {
+                                bool found = false;
+                                for (var j = 0; j < pipe.PipeFilter.Items.Count; j++)
+                                {
+                                    if (pipe.PipeFilter.Items[j].info.itemid == itemId)
+                                        found = true;
+                                }
+
+                                if (!found)
+                                    continue;
+                            }
+
+                            validPipes.Add(pipe);
+                        }
+
+                        var pipesLeft = validPipes.Count;
+                        for (var i = 0; i < validPipes.Count; i++)
+                        {
+                            var validPipe = validPipes[i];
+                            var recycler = validPipe.Destination.Storage as Recycler;
+                            if (recycler != null && !recycler.RecyclerItemFilter(item[0], -1))
+                                continue;
+                            var canPut = validPipe.Destination.ContainerManager.CanPuItem(item[0]);
+                            var canTake = CanTakeItem(item[0]);
+                            if (canPut == MovableType.Rejected || !canTake)
+                                continue;
+                            var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
+                                item[0]?.MaxStackable() ?? 0, validPipe.IsMultiStack && canPut != MovableType.Fuel);
+                            if (amountToMove <= 0)
+                                break;
+                            quantity -= amountToMove;
+                            for (var j = 0; j < item.Count; j++)
+                            {
+                                var itemStack = item[j];
+                                var toMove = itemStack;
+                                if (amountToMove <= 0) break;
+                                if (amountToMove < itemStack.amount)
+                                    toMove = itemStack.SplitItem(amountToMove);
+
+                                unusedPipes.Remove(validPipe);
+                                if (Instance.FurnaceSplitter != null &&
+                                    canPut != MovableType.Fuel &&
+                                    validPipe.Destination.ContainerType == ContainerType.Oven &&
+                                    validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
+                                {
+                                    var result = Instance.FurnaceSplitter.Call("MoveSplitItem", toMove,
+                                        validPipe.Destination.Storage,
+                                        validPipe.FurnaceSplitterStacks);
+                                    if (!result.ToString().Equals("ok", StringComparison.InvariantCultureIgnoreCase))
                                         toMove.MoveToContainer(validPipe.Source.Storage.inventory);
                                 }
+                                else
+                                {
+                                    var toContainer = validPipe.Destination.Storage.inventory;
+                                    if (!toMove.MoveToContainer(toContainer))
+                                    {
+                                        // Fix for issue with Vending machines not being able to move the end of a stack stack from a container.
+                                        // Remove item from container and then move it. If it didn't actually move then add it back to the source.
+                                        toMove.RemoveFromContainer();
+                                        if (!toMove.MoveToContainer(toContainer))
+                                            toMove.MoveToContainer(validPipe.Source.Storage.inventory);
+                                    }
+                                }
+
+                                if (validPipe.IsAutoStart && validPipe.Destination.HasFuel())
+                                    validPipe.Destination.Start();
+                                amountToMove -= toMove.amount;
                             }
 
-                            if (validPipe.IsAutoStart && validPipe.Destination.HasFuel())
-                                validPipe.Destination.Start();
-                            amountToMove -= toMove.amount;
+                            // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
+                            if (quantity <= 0)
+                                break;
                         }
-
-                        // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
-                        if (quantity <= 0)
-                            break;
                     }
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(MoveCombineStacks));
                 }
             }
 
@@ -500,32 +535,40 @@ namespace Oxide.Plugins
             /// <returns></returns>
             private int GetAmountToMove(int itemId, int itemQuantity, int pipesLeft, Pipe pipe, int maxStackable, bool multiStack)
             {
-                var destinationContainer = pipe?.Destination.Storage;
-                if (destinationContainer == null || maxStackable == 0) return 0;
-                var amountToMove = (int) Math.Ceiling((decimal) itemQuantity / pipesLeft);
-                if (amountToMove > pipe.FlowRate)
-                    amountToMove = pipe.FlowRate;
-                var emptySlots = destinationContainer.inventory.capacity -
-                                 destinationContainer.inventory.itemList.Count;
-                var itemStacks = destinationContainer.inventory.FindItemsByItemID(itemId);
-                int minStackSize = GetMinStackSize(itemStacks);
-                if (minStackSize <= 0 && emptySlots == 0)
-                    return 0;
-                if (!multiStack)
+                try
                 {
-                    var stackCapacity = maxStackable - minStackSize;
-                    if (minStackSize > 0)
-                        return amountToMove <= stackCapacity ? amountToMove : stackCapacity;
-                    return amountToMove;
-                }
+                    var destinationContainer = pipe?.Destination.Storage;
+                    if (destinationContainer == null || maxStackable == 0) return 0;
+                    var amountToMove = (int) Math.Ceiling((decimal) itemQuantity / pipesLeft);
+                    if (amountToMove > pipe.FlowRate)
+                        amountToMove = pipe.FlowRate;
+                    var emptySlots = destinationContainer.inventory.capacity -
+                                     destinationContainer.inventory.itemList.Count;
+                    var itemStacks = destinationContainer.inventory.FindItemsByItemID(itemId);
+                    int minStackSize = GetMinStackSize(itemStacks);
+                    if (minStackSize <= 0 && emptySlots == 0)
+                        return 0;
+                    if (!multiStack)
+                    {
+                        var stackCapacity = maxStackable - minStackSize;
+                        if (minStackSize > 0)
+                            return amountToMove <= stackCapacity ? amountToMove : stackCapacity;
+                        return amountToMove;
+                    }
 
-                var slotsRequired = (int) Math.Ceiling((decimal) amountToMove / maxStackable);
-                if (slotsRequired <= emptySlots)
-                    return amountToMove;
-                var neededSpace = amountToMove % maxStackable;
-                return maxStackable - minStackSize >= neededSpace
-                    ? amountToMove
-                    : maxStackable * (slotsRequired - 1) + maxStackable - minStackSize;
+                    var slotsRequired = (int) Math.Ceiling((decimal) amountToMove / maxStackable);
+                    if (slotsRequired <= emptySlots)
+                        return amountToMove;
+                    var neededSpace = amountToMove % maxStackable;
+                    return maxStackable - minStackSize >= neededSpace
+                        ? amountToMove
+                        : maxStackable * (slotsRequired - 1) + maxStackable - minStackSize;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(GetAmountToMove));
+                    return 0;
+                }
             }
 
             /// <summary>
@@ -537,26 +580,34 @@ namespace Oxide.Plugins
             /// <returns></returns>
             private Item GetItemToMove(Item item, Pipe pipe)
             {
-                var destinationContainer = pipe.Destination.Storage;
-                if (destinationContainer == null) return null;
-                var maxStackable = item.MaxStackable();
-                if (item.amount > pipe.FlowRate)
-                    item.SplitItem(pipe.FlowRate);
-                var noEmptyStacks = destinationContainer.inventory.itemList.Count ==
-                                    destinationContainer.inventory.capacity;
-                if (!pipe.IsMultiStack || noEmptyStacks)
+                try
                 {
-                    var itemStacks = destinationContainer.inventory.FindItemsByItemID(item.info.itemid);
-                    int minStackSize = GetMinStackSize(itemStacks);
-                    if (minStackSize == 0 && noEmptyStacks || minStackSize == maxStackable)
-                        return null;
-                    var space = maxStackable - minStackSize;
-                    if (space < item.amount)
-                        return item.SplitItem(space);
+                    var destinationContainer = pipe.Destination.Storage;
+                    if (destinationContainer == null) return null;
+                    var maxStackable = item.MaxStackable();
+                    if (item.amount > pipe.FlowRate)
+                        item.SplitItem(pipe.FlowRate);
+                    var noEmptyStacks = destinationContainer.inventory.itemList.Count ==
+                                        destinationContainer.inventory.capacity;
+                    if (!pipe.IsMultiStack || noEmptyStacks)
+                    {
+                        var itemStacks = destinationContainer.inventory.FindItemsByItemID(item.info.itemid);
+                        int minStackSize = GetMinStackSize(itemStacks);
+                        if (minStackSize == 0 && noEmptyStacks || minStackSize == maxStackable)
+                            return null;
+                        var space = maxStackable - minStackSize;
+                        if (space < item.amount)
+                            return item.SplitItem(space);
+                        return item;
+                    }
+
                     return item;
                 }
-
-                return item;
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(GetItemToMove));
+                    return item;
+                }
             }
             private static int GetMinStackSize(List<Item> itemStacks)
             {

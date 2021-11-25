@@ -121,24 +121,23 @@ namespace Oxide.Plugins
 
             private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
             {
-                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", pipeData.SourceId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", pipeData.DestinationId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", pipeData.SourceContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", pipeData.DestinationContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", pipeData.Grade), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", pipeData.IsEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", pipeData.IsAutoStart), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", pipeData.Health), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", pipeData.Priority), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", pipeData.FurnaceSplitterStacks), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", pipeData.ItemFilter.Count), Instance);
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", pipeData.SourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", pipeData.DestinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", pipeData.SourceContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", pipeData.DestinationContainerType);
+                Logger.PipeLoader.Log("Material: {0}", pipeData.Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", pipeData.IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", pipeData.IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", pipeData.Health);
+                Logger.PipeLoader.Log("Priority: {0}", pipeData.Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter);
+                Logger.PipeLoader.Log("Splitter Count: {0}", pipeData.FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", pipeData.ItemFilter.Count);
                 for (int i = 0; i < pipeData.ItemFilter.Count; i++)
-                    Instance.LogToFile("PipeLoadErrors", string.Format("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]), Instance);
-                Instance.LogToFile("PipeLoadErrors", "", Instance);
-
+                    Logger.PipeLoader.Log("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]);
+                Logger.PipeLoader.Log("");
             }
 
             /// <summary>
@@ -257,23 +256,23 @@ namespace Oxide.Plugins
 
             private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
             {
-                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", sourceId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", destinationId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", Source?.ContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", Destination?.ContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", Grade), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", IsEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", IsAutoStart), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", _initialHealth), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", Priority), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", IsFurnaceSplitterEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", FurnaceSplitterStacks), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", PipeFilter?.Items.Count), Instance);
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", sourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", Source?.ContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", Destination?.ContainerType);
+                Logger.PipeLoader.Log("Material: {0}", Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", _initialHealth);
+                Logger.PipeLoader.Log("Priority: {0}", Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", IsFurnaceSplitterEnabled);
+                Logger.PipeLoader.Log("Splitter Count: {0}", FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", PipeFilter?.Items.Count);
                 for (int i = 0; i < PipeFilter?.Items.Count; i++)
-                    Instance.LogToFile("PipeLoadErrors", string.Format("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english), Instance);
-                Instance.LogToFile("PipeLoadErrors", "", Instance);
+                    Logger.PipeLoader.Log("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english);
+                Logger.PipeLoader.Log("");
             }
 
             private Pipe(JsonReader reader, JsonSerializer serializer)

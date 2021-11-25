@@ -56,16 +56,17 @@ namespace Oxide.Plugins
                 return ContainerType.General;
             }
 
-            private const string _loadErrorFilename = "FindErrors";
-
             private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
             {
-                Instance.LogToFile(_loadErrorFilename, string.Format("------------------- {0} -------------------", parentId), Instance);
-                Instance.LogToFile(_loadErrorFilename, entity == null ? "Entity not found" : string.Format("Entity: {0} ({1})", entity.ShortPrefabName, entity), Instance);
-                Instance.LogToFile(_loadErrorFilename, string.Format("Type: {0}", containerType), Instance);
+                Logger.FindErrors.Log("------------------- {0} -------------------", parentId);
+                if (entity == null)
+                    Logger.FindErrors.Log("Entity not found");
+                else
+                    Logger.FindErrors.Log("Entity: {0} ({1})", entity.ShortPrefabName, entity);
+                Logger.FindErrors.Log("Type: {0}", containerType);
                 for (int i = 0; i < children?.Count; i++)
-                    Instance.LogToFile(_loadErrorFilename, string.Format("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]), Instance);
-                Instance.LogToFile(_loadErrorFilename, "", Instance);
+                    Logger.FindErrors.Log("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]);
+                Logger.FindErrors.Log("");
             }
 
             public static BaseEntity Find(uint parentId, ContainerType containerType)

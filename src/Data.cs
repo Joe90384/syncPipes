@@ -63,37 +63,59 @@ namespace Oxide.Plugins
 
             public static bool Save(bool backgroundSave = true)
             {
-                if (backgroundSave && _running)
+                try
                 {
-                    if(DataStore._coroutine != null)
-                        DataStore.StopCoroutine(DataStore._coroutine);
+                    if (backgroundSave && _running)
+                    {
+                        if (DataStore._coroutine != null)
+                            DataStore.StopCoroutine(DataStore._coroutine);
+                        _running = false;
+                    }
+
+                    if (_running)
+                        return false;
+                    _running = true;
+                    if (backgroundSave)
+                        DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
+                    else
+                    {
+                        var enumerator = DataStore.BufferedSave(Filename);
+                        while (enumerator.MoveNext())
+                        {
+                        }
+                    }
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "DataStore1_0.Save");
                     _running = false;
-                }
-                if (_running)
                     return false;
-                _running = true;
-                if (backgroundSave)
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
-                else
-                {
-                    var enumerator = DataStore.BufferedSave(Filename);
-                    while (enumerator.MoveNext()) { }
                 }
-                return true;
             }
 
             public static bool Load()
             {
-                var filename = Filename;
-                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                try
                 {
-                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
-                        return false;
-                    filename = OldFilename;
+                    var filename = Filename;
+                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                    {
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                            return false;
+                        filename = OldFilename;
+                    }
+
+                    _running = true;
+                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                    return true;
                 }
-                _running = true;
-                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
-                return true;
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "DataStore1_0.Load");
+                    return false;
+                }
             }
 
             private UnityEngine.Coroutine _coroutine;
@@ -103,79 +125,99 @@ namespace Oxide.Plugins
             {
                 public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                 {
-                    var buffer = value as Buffer;
-                    if (buffer == null) return;
+                    try
+                    {
+                        var buffer = value as Buffer;
+                        if (buffer == null) return;
 
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("pipes");
-                    writer.WriteStartArray();
-                    for(int i = 0; i < buffer.Pipes.Count; i++)
-                        writer.WriteRawValue(buffer.Pipes[i]);
-                    writer.WriteEndArray();
-                    writer.WritePropertyName("containers");
-                    writer.WriteStartArray();
-                    for(int i = 0; i < buffer.Containers.Count; i++)
-                        writer.WriteRawValue(buffer.Containers[i]);
-                    writer.WriteEndArray();
-                    writer.WriteEndObject();
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("pipes");
+                        writer.WriteStartArray();
+                        for (int i = 0; i < buffer.Pipes.Count; i++)
+                            writer.WriteRawValue(buffer.Pipes[i]);
+                        writer.WriteEndArray();
+                        writer.WritePropertyName("containers");
+                        writer.WriteStartArray();
+                        for (int i = 0; i < buffer.Containers.Count; i++)
+                            writer.WriteRawValue(buffer.Containers[i]);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.WriteJson");
+                    }
                 }
 
                 public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                     JsonSerializer serializer)
                 {
                     var buffer = new Loader();
-                    while (reader.Read())
+                    try
                     {
-                        if (reader.TokenType == JsonToken.PropertyName)
+                        while (reader.Read())
                         {
-                            switch ((string) reader.Value)
+                            if (reader.TokenType == JsonToken.PropertyName)
                             {
-                                case "pipes":
-                                    reader.Read();
-                                    reader.Read();
-                                    while (reader.TokenType != JsonToken.EndArray)
-                                    {
-                                        var pipe = serializer.Deserialize<Pipe>(reader);
-                                        if (pipe.Validity == Pipe.Status.Success)
-                                            buffer.Pipes.Add(pipe);
-                                        else
-                                            Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
-                                    }
-                                    break;
-                                case "containers":
-                                    reader.Read();
-                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
-                                    {
-                                        var data = new ContainerManager.Data();
-                                        while (reader.Read() && reader.TokenType != JsonToken.EndObject)
+                                switch ((string) reader.Value)
+                                {
+                                    case "pipes":
+                                        reader.Read();
+                                        reader.Read();
+                                        while (reader.TokenType != JsonToken.EndArray)
                                         {
-                                            if (reader.TokenType == JsonToken.PropertyName)
+                                            var pipe = serializer.Deserialize<Pipe>(reader);
+                                            if (pipe.Validity == Pipe.Status.Success)
+                                                buffer.Pipes.Add(pipe);
+                                            else
+                                                Instance.Puts("Failed to read pipe {0}({1})",
+                                                    pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                                        }
+
+                                        break;
+                                    case "containers":
+                                        reader.Read();
+                                        while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                        {
+                                            var data = new ContainerManager.Data();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndObject)
                                             {
-                                                switch (reader.Value.ToString())
+                                                if (reader.TokenType == JsonToken.PropertyName)
                                                 {
-                                                    case "ci":
-                                                        reader.Read();
-                                                        uint.TryParse(reader.Value.ToString(), out data.ContainerId);
-                                                        break;
-                                                    case "cs":
-                                                        data.CombineStacks = reader.ReadAsBoolean() ?? true;
-                                                        break;
-                                                    case "dn":
-                                                        data.DisplayName = reader.ReadAsString();
-                                                        break;
-                                                    case "ct":
-                                                        data.ContainerType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault();
-                                                        break;
+                                                    switch (reader.Value.ToString())
+                                                    {
+                                                        case "ci":
+                                                            reader.Read();
+                                                            uint.TryParse(reader.Value.ToString(),
+                                                                out data.ContainerId);
+                                                            break;
+                                                        case "cs":
+                                                            data.CombineStacks = reader.ReadAsBoolean() ?? true;
+                                                            break;
+                                                        case "dn":
+                                                            data.DisplayName = reader.ReadAsString();
+                                                            break;
+                                                        case "ct":
+                                                            data.ContainerType =
+                                                                (ContainerType) reader.ReadAsInt32()
+                                                                    .GetValueOrDefault();
+                                                            break;
+                                                    }
                                                 }
                                             }
+
+                                            buffer.Containers.Add(data);
                                         }
-                                        buffer.Containers.Add(data);
-                                    }
-                                    break;
+
+                                        break;
+                                }
                             }
                         }
                     }
-
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.ReadJson");
+                    }
                     return buffer;
                 }
 
@@ -209,14 +251,29 @@ namespace Oxide.Plugins
                 var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
                 for (int i = 0; i < pipeSnapshot.Count; i++)
                 {
-                    buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                    try
+                    {
+                        buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                    }
+
                     yield return null;
                 }
                 Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
                 for(int i = 0; i < containerSnapshot.Count; i++)
                 {
-                    if (!containerSnapshot[i].HasAnyPipes) continue;
-                    buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                    try
+                    {
+                        if (!containerSnapshot[i].HasAnyPipes) continue;
+                        buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                    }
                     yield return null;
                 }
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);

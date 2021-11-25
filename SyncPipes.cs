@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.23")]
+    [Info("Sync Pipes", "Joe 90", "0.9.24")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -541,6 +541,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 };
             }
 
+
+            [JsonProperty("LogLevel")]
+            public int LogLevel { get; set; } = (int)LogLevels.Error;
+
             [JsonProperty("filterSizes")] 
             public List<int> FilterSizes { get; set; }
 
@@ -634,19 +638,33 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public static SyncPipesConfig Load()
             {
-                Instance.Puts("Loading Config");
-                var config = Instance.Config.ReadObject<SyncPipesConfig>();
-                if (config?.FilterSizes == null)
+                try
                 {
-                    Instance.Puts("Setting Defaults");
-                    config = New();
-                    Instance.Config.WriteObject(config);
-                }
+                    Instance.Puts("Loading Config");
+                    var config = Instance.Config.ReadObject<SyncPipesConfig>();
+                    if (config?.FilterSizes == null)
+                    {
+                        Instance.Puts("Setting Defaults");
+                        config = New();
+                        Instance.Config.WriteObject(config);
+                    }
 
-                var errors = config.Validate();
-                for(var i =0; i < errors.Length; i++)
-                    Instance.PrintWarning(errors[i]);
-                return config;
+                    var errors = config.Validate();
+                    for (var i = 0; i < errors.Length; i++)
+                        Instance.PrintWarning(errors[i]);
+                    if (errors.Length > 0)
+                    {
+                        Instance.PrintError("Invalid config file. Using default configs.");
+                        return Default;
+                    }
+                    return config;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "Config.Load");
+                    Instance.PrintError("Invalid config file. Using default configs.");
+                    return Default;
+                }
             }
 
 
@@ -742,16 +760,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 return ContainerType.General;
             }
 
-            private const string _loadErrorFilename = "FindErrors";
-
             private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
             {
-                Instance.LogToFile(_loadErrorFilename, string.Format("------------------- {0} -------------------", parentId), Instance);
-                Instance.LogToFile(_loadErrorFilename, entity == null ? "Entity not found" : string.Format("Entity: {0} ({1})", entity.ShortPrefabName, entity), Instance);
-                Instance.LogToFile(_loadErrorFilename, string.Format("Type: {0}", containerType), Instance);
+                Logger.FindErrors.Log("------------------- {0} -------------------", parentId);
+                if (entity == null)
+                    Logger.FindErrors.Log("Entity not found");
+                else
+                    Logger.FindErrors.Log("Entity: {0} ({1})", entity.ShortPrefabName, entity);
+                Logger.FindErrors.Log("Type: {0}", containerType);
                 for (int i = 0; i < children?.Count; i++)
-                    Instance.LogToFile(_loadErrorFilename, string.Format("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]), Instance);
-                Instance.LogToFile(_loadErrorFilename, "", Instance);
+                    Logger.FindErrors.Log("Child {0}: {1} ({2})", i, children[i].ShortPrefabName, children[i]);
+                Logger.FindErrors.Log("");
             }
 
             public static BaseEntity Find(uint parentId, ContainerType containerType)
@@ -889,10 +908,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private static void LogLoadError(Data data)
             {
-                Instance.LogToFile("ContainerLoadErrors", string.Format("------------------- {0} -------------------", data.ContainerId), Instance);
-                Instance.LogToFile("ContainerLoadErrors", string.Format("Container Type: {0}", data.ContainerType), Instance);
-                Instance.LogToFile("ContainerLoadErrors", string.Format("Display Name: {0}", data.DisplayName), Instance);
-                Instance.LogToFile("ContainerLoadErrors", "", Instance);
+                Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
+                Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
+                Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
+                Logger.ContainerLoader.Log("");
             }
 
             /// <summary>
@@ -1045,7 +1064,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 catch (Exception e)
                 {
-                    Instance.PrintError("{0}", e.StackTrace);
+                    Logger.Runtime.LogException(e, nameof(Detach));
                 }
             }
 
@@ -1054,37 +1073,45 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             private void Update()
             {
-                if (_container == null)
-                    Kill();
-                if (_destroyed || !HasAnyPipes) return;
-                _cumulativeDeltaTime += Time.deltaTime;
-                if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
-                _cumulativeDeltaTime = 0f;
-                if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
-                    return;
-                var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
-                for (var i = 0; i < _attachedPipes.Count; i++)
+                try
                 {
-                    var pipe = _attachedPipes[i];
-                    if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
-                        continue;
-                    var priority = (int) pipe.Priority;
-                    var grade = (int) pipe.Grade;
-                    if(!pipeGroups.ContainsKey(priority))
-                        pipeGroups.Add(priority, new Dictionary<int, List<Pipe>>());
-                    if(!pipeGroups[priority].ContainsKey(grade))
-                        pipeGroups[priority].Add(grade, new List<Pipe>());
-                    pipeGroups[priority][grade].Add(pipe);
+                    if (_container == null)
+                        Kill();
+                    if (_destroyed || !HasAnyPipes) return;
+                    _cumulativeDeltaTime += Time.deltaTime;
+                    if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
+                    _cumulativeDeltaTime = 0f;
+                    if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
+                        return;
+                    var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
+                    for (var i = 0; i < _attachedPipes.Count; i++)
+                    {
+                        var pipe = _attachedPipes[i];
+                        if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
+                            continue;
+                        var priority = (int) pipe.Priority;
+                        var grade = (int) pipe.Grade;
+                        if (!pipeGroups.ContainsKey(priority))
+                            pipeGroups.Add(priority, new Dictionary<int, List<Pipe>>());
+                        if (!pipeGroups[priority].ContainsKey(grade))
+                            pipeGroups[priority].Add(grade, new List<Pipe>());
+                        pipeGroups[priority][grade].Add(pipe);
+                    }
+
+                    //var pipeGroups = _attachedPipeLookup.Values.Where(a => a.Source.ContainerManager == this)
+                    //    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
+                    for (int i = (int) Pipe.PipePriority.Highest; i > (int) Pipe.PipePriority.Demand; i--)
+                    {
+                        if (!pipeGroups.ContainsKey(i)) continue;
+                        if (CombineStacks)
+                            MoveCombineStacks(pipeGroups[i]);
+                        else
+                            MoveIndividualStacks(pipeGroups[i]);
+                    }
                 }
-                //var pipeGroups = _attachedPipeLookup.Values.Where(a => a.Source.ContainerManager == this)
-                //    .GroupBy(a => a.Priority).OrderByDescending(a => a.Key).ToArray();
-                for (int i = (int)Pipe.PipePriority.Highest; i > (int)Pipe.PipePriority.Demand; i--)
+                catch (Exception e)
                 {
-                    if (!pipeGroups.ContainsKey(i)) continue;
-                    if(CombineStacks)
-                        MoveCombineStacks(pipeGroups[i]);
-                    else
-                        MoveIndividualStacks(pipeGroups[i]);
+                    Logger.Runtime.LogException(e, nameof(Update));
                 }
             }
 
@@ -1111,44 +1138,60 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private MovableType CanPuItem(Item item)
             {
-                var oven = _container as BaseOven;
-                if (oven == null) return MovableType.Allowed;
-                if (
-                    item.info.category != ItemCategory.Resources && 
-                    item.info.category != ItemCategory.Food ||
-                    item.info.shortname.EndsWith("cooked") ||
-                    item.info.shortname.EndsWith("burned")
+                try
+                {
+                    var oven = _container as BaseOven;
+                    if (oven == null) return MovableType.Allowed;
+                    if (
+                        item.info.category != ItemCategory.Resources &&
+                        item.info.category != ItemCategory.Food ||
+                        item.info.shortname.EndsWith("cooked") ||
+                        item.info.shortname.EndsWith("burned")
                     ) return MovableType.Rejected;
-                var fuel = item.info.GetComponent<ItemModBurnable>();
-                if (fuel != null)
-                    return oven.fuelType.Equals(item.info) ? MovableType.Fuel : MovableType.Rejected;
-                var cookable = item.info.GetComponent<ItemModCookable>();
-                if (cookable != null &&
-                    cookable.lowTemp <= oven.cookingTemperature &&
-                    cookable.highTemp >= oven.cookingTemperature)
-                    return MovableType.Cookable;
-                return MovableType.Rejected;
+                    var fuel = item.info.GetComponent<ItemModBurnable>();
+                    if (fuel != null)
+                        return oven.fuelType?.Equals(item.info) ?? false ? MovableType.Fuel : MovableType.Rejected;
+                    var cookable = item.info.GetComponent<ItemModCookable>();
+                    if (cookable != null &&
+                        cookable.lowTemp <= oven.cookingTemperature &&
+                        cookable.highTemp >= oven.cookingTemperature)
+                        return MovableType.Cookable;
+                    return MovableType.Rejected;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(CanPuItem));
+                    return MovableType.Rejected;
+                }
             }
 
             private bool CanTakeItem(Item item)
             {
-                var oven = _container as BaseOven;
-                if (oven == null) return true;
-                if (
-                    item.info.category != ItemCategory.Resources && 
-                    item.info.category != ItemCategory.Food ||
-                    item.info.shortname.ToLower().EndsWith("cooked") ||
-                    item.info.shortname.EndsWith("burned")
+                try
+                {
+                    var oven = _container as BaseOven;
+                    if (oven == null) return true;
+                    if (
+                        item.info.category != ItemCategory.Resources &&
+                        item.info.category != ItemCategory.Food ||
+                        item.info.shortname.ToLower().EndsWith("cooked") ||
+                        item.info.shortname.EndsWith("burned")
                     ) return true;
-                var fuel = item.info.GetComponent<ItemModBurnable>();
-                if (fuel != null)
-                    return !oven.fuelType.Equals(item.info);
-                var cookable = item.info.GetComponent<ItemModCookable>();
-                if (cookable != null &&
-                    cookable.lowTemp <= oven.cookingTemperature &&
-                    cookable.highTemp >= oven.cookingTemperature)
+                    var fuel = item.info.GetComponent<ItemModBurnable>();
+                    if (fuel != null)
+                        return !oven.fuelType.Equals(item.info);
+                    var cookable = item.info.GetComponent<ItemModCookable>();
+                    if (cookable != null &&
+                        cookable.lowTemp <= oven.cookingTemperature &&
+                        cookable.highTemp >= oven.cookingTemperature)
+                        return false;
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(CanTakeItem));
                     return false;
-                return true;
+                }
             }
 
             private enum MovableType
@@ -1167,131 +1210,142 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="pipeGroup">Pipes grouped by their priority</param>
             private void MoveCombineStacks(Dictionary<int, List<Pipe>> pipeGroup)
             {
-                var distinctItemIds = new List<int>();
-                var distinctItems = new Dictionary<int, List<Item>>();
-                var itemList = ItemList;
-                for (var i = 0; i < itemList.Count; i++)
+                try
                 {
-                    var itemId = itemList[i].info.itemid;
-                    if (!distinctItems.ContainsKey(itemList[i].info.itemid))
+                    var distinctItemIds = new List<int>();
+                    var distinctItems = new Dictionary<int, List<Item>>();
+                    var itemList = ItemList;
+                    for (var i = 0; i < itemList.Count; i++)
                     {
-                        distinctItems.Add(itemId, new List<Item>());
-                        distinctItemIds.Add(itemId);
-                    }
-
-                    distinctItems[itemId].Add(itemList[i]);
-                }
-                var unusedPipes = new List<Pipe>();
-                for (var i = (int) BuildingGrade.Enum.Twigs; i <= (int) BuildingGrade.Enum.TopTier; i++)
-                {
-                    if (!pipeGroup.ContainsKey(i))
-                        continue;
-                    for (var j = 0; j < pipeGroup[i].Count; j++)
-                    {
-                        var pipe = pipeGroup[i][j];
-                        if (pipe.Source.Id != ContainerId)
-                            continue;
-                        if (pipe.PipeFilter.Items.Count > 0)
+                        var itemId = itemList[i].info.itemid;
+                        if (!distinctItems.ContainsKey(itemList[i].info.itemid))
                         {
-                            var found = false;
-                            for (var k = 0; k < pipe.PipeFilter.Items.Count; k++)
-                            {
-                                if (distinctItems.ContainsKey(pipe.PipeFilter.Items[k].info.itemid))
-                                    found = true;
-                            }
-                            if (!found) 
-                                continue;
-                        }
-                        unusedPipes.Add(pipe);
-                    }
-                }
-
-                while (unusedPipes.Count > 0 && distinctItems.Count > 0)
-                {
-                    var itemId = distinctItemIds[0];
-                    var item = distinctItems[itemId];
-                    distinctItems.Remove(distinctItemIds[0]);
-                    distinctItemIds.RemoveAt(0);
-                    var quantity = 0;
-                    for (var i = 0; i < item.Count; i++)
-                        quantity += item[0].amount;
-                    var validPipes = new List<Pipe>();
-                    for (var i = 0; i < unusedPipes.Count; i++)
-                    {
-                        var pipe = unusedPipes[i];
-                        if (pipe.PipeFilter.Items.Count > 0)
-                        {
-                            bool found = false;
-                            for (var j = 0; j < pipe.PipeFilter.Items.Count; j++)
-                            {
-                                if (pipe.PipeFilter.Items[j].info.itemid == itemId)
-                                    found = true;
-                            }
-
-                            if (!found) 
-                                continue;
+                            distinctItems.Add(itemId, new List<Item>());
+                            distinctItemIds.Add(itemId);
                         }
 
-                        validPipes.Add(pipe);
+                        distinctItems[itemId].Add(itemList[i]);
                     }
-                    var pipesLeft = validPipes.Count;
-                    for(var i = 0; i < validPipes.Count; i++)
-                    {
-                        var validPipe = validPipes[i];
-                        var recycler = validPipe.Destination.Storage as Recycler;
-                        if (recycler != null && !recycler.RecyclerItemFilter(item[0], -1))
-                            continue;
-                        var canPut = validPipe.Destination.ContainerManager.CanPuItem(item[0]);
-                        var canTake = CanTakeItem(item[0]);
-                        if (canPut == MovableType.Rejected || !canTake)
-                            continue;
-                        var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
-                            item[0]?.MaxStackable() ?? 0, validPipe.IsMultiStack && canPut != MovableType.Fuel);
-                        if (amountToMove <= 0)
-                            break;
-                        quantity -= amountToMove;
-                        for(var j = 0; j < item.Count; j++)
-                        {
-                            var itemStack = item[j];
-                            var toMove = itemStack;
-                            if (amountToMove <= 0) break;
-                            if (amountToMove < itemStack.amount)
-                                toMove = itemStack.SplitItem(amountToMove);
 
-                            unusedPipes.Remove(validPipe);
-                            if (Instance.FurnaceSplitter != null &&
-                                canPut != MovableType.Fuel &&
-                                validPipe.Destination.ContainerType == ContainerType.Oven &&
-                                validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
+                    var unusedPipes = new List<Pipe>();
+                    for (var i = (int) BuildingGrade.Enum.Twigs; i <= (int) BuildingGrade.Enum.TopTier; i++)
+                    {
+                        if (!pipeGroup.ContainsKey(i))
+                            continue;
+                        for (var j = 0; j < pipeGroup[i].Count; j++)
+                        {
+                            var pipe = pipeGroup[i][j];
+                            if (pipe.Source.Id != ContainerId)
+                                continue;
+                            if (pipe.PipeFilter.Items.Count > 0)
                             {
-                                var result = Instance.FurnaceSplitter.Call("MoveSplitItem", toMove,
-                                    validPipe.Destination.Storage,
-                                    validPipe.FurnaceSplitterStacks);
-                                if(!result.ToString().Equals("ok", StringComparison.InvariantCultureIgnoreCase))
-                                    toMove.MoveToContainer(validPipe.Source.Storage.inventory);
-                            }
-                            else
-                            {
-                                var toContainer = validPipe.Destination.Storage.inventory;
-                                if (!toMove.MoveToContainer(toContainer))
+                                var found = false;
+                                for (var k = 0; k < pipe.PipeFilter.Items.Count; k++)
                                 {
-                                    // Fix for issue with Vending machines not being able to move the end of a stack stack from a container.
-                                    // Remove item from container and then move it. If it didn't actually move then add it back to the source.
-                                    toMove.RemoveFromContainer();
-                                    if (!toMove.MoveToContainer(toContainer))
+                                    if (distinctItems.ContainsKey(pipe.PipeFilter.Items[k].info.itemid))
+                                        found = true;
+                                }
+
+                                if (!found)
+                                    continue;
+                            }
+
+                            unusedPipes.Add(pipe);
+                        }
+                    }
+
+                    while (unusedPipes.Count > 0 && distinctItems.Count > 0)
+                    {
+                        var itemId = distinctItemIds[0];
+                        var item = distinctItems[itemId];
+                        distinctItems.Remove(distinctItemIds[0]);
+                        distinctItemIds.RemoveAt(0);
+                        var quantity = 0;
+                        for (var i = 0; i < item.Count; i++)
+                            quantity += item[0].amount;
+                        var validPipes = new List<Pipe>();
+                        for (var i = 0; i < unusedPipes.Count; i++)
+                        {
+                            var pipe = unusedPipes[i];
+                            if (pipe.PipeFilter.Items.Count > 0)
+                            {
+                                bool found = false;
+                                for (var j = 0; j < pipe.PipeFilter.Items.Count; j++)
+                                {
+                                    if (pipe.PipeFilter.Items[j].info.itemid == itemId)
+                                        found = true;
+                                }
+
+                                if (!found)
+                                    continue;
+                            }
+
+                            validPipes.Add(pipe);
+                        }
+
+                        var pipesLeft = validPipes.Count;
+                        for (var i = 0; i < validPipes.Count; i++)
+                        {
+                            var validPipe = validPipes[i];
+                            var recycler = validPipe.Destination.Storage as Recycler;
+                            if (recycler != null && !recycler.RecyclerItemFilter(item[0], -1))
+                                continue;
+                            var canPut = validPipe.Destination.ContainerManager.CanPuItem(item[0]);
+                            var canTake = CanTakeItem(item[0]);
+                            if (canPut == MovableType.Rejected || !canTake)
+                                continue;
+                            var amountToMove = GetAmountToMove(itemId, quantity, pipesLeft--, validPipe,
+                                item[0]?.MaxStackable() ?? 0, validPipe.IsMultiStack && canPut != MovableType.Fuel);
+                            if (amountToMove <= 0)
+                                break;
+                            quantity -= amountToMove;
+                            for (var j = 0; j < item.Count; j++)
+                            {
+                                var itemStack = item[j];
+                                var toMove = itemStack;
+                                if (amountToMove <= 0) break;
+                                if (amountToMove < itemStack.amount)
+                                    toMove = itemStack.SplitItem(amountToMove);
+
+                                unusedPipes.Remove(validPipe);
+                                if (Instance.FurnaceSplitter != null &&
+                                    canPut != MovableType.Fuel &&
+                                    validPipe.Destination.ContainerType == ContainerType.Oven &&
+                                    validPipe.IsFurnaceSplitterEnabled && validPipe.FurnaceSplitterStacks > 1)
+                                {
+                                    var result = Instance.FurnaceSplitter.Call("MoveSplitItem", toMove,
+                                        validPipe.Destination.Storage,
+                                        validPipe.FurnaceSplitterStacks);
+                                    if (!result.ToString().Equals("ok", StringComparison.InvariantCultureIgnoreCase))
                                         toMove.MoveToContainer(validPipe.Source.Storage.inventory);
                                 }
+                                else
+                                {
+                                    var toContainer = validPipe.Destination.Storage.inventory;
+                                    if (!toMove.MoveToContainer(toContainer))
+                                    {
+                                        // Fix for issue with Vending machines not being able to move the end of a stack stack from a container.
+                                        // Remove item from container and then move it. If it didn't actually move then add it back to the source.
+                                        toMove.RemoveFromContainer();
+                                        if (!toMove.MoveToContainer(toContainer))
+                                            toMove.MoveToContainer(validPipe.Source.Storage.inventory);
+                                    }
+                                }
+
+                                if (validPipe.IsAutoStart && validPipe.Destination.HasFuel())
+                                    validPipe.Destination.Start();
+                                amountToMove -= toMove.amount;
                             }
 
-                            if (validPipe.IsAutoStart && validPipe.Destination.HasFuel())
-                                validPipe.Destination.Start();
-                            amountToMove -= toMove.amount;
+                            // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
+                            if (quantity <= 0)
+                                break;
                         }
-
-                        // If all items have been taken allow the pipe to transport something else. This will only occur if the initial quantity is less than the number of pipes
-                        if (quantity <= 0)
-                            break;
                     }
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(MoveCombineStacks));
                 }
             }
 
@@ -1328,32 +1382,40 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns></returns>
             private int GetAmountToMove(int itemId, int itemQuantity, int pipesLeft, Pipe pipe, int maxStackable, bool multiStack)
             {
-                var destinationContainer = pipe?.Destination.Storage;
-                if (destinationContainer == null || maxStackable == 0) return 0;
-                var amountToMove = (int) Math.Ceiling((decimal) itemQuantity / pipesLeft);
-                if (amountToMove > pipe.FlowRate)
-                    amountToMove = pipe.FlowRate;
-                var emptySlots = destinationContainer.inventory.capacity -
-                                 destinationContainer.inventory.itemList.Count;
-                var itemStacks = destinationContainer.inventory.FindItemsByItemID(itemId);
-                int minStackSize = GetMinStackSize(itemStacks);
-                if (minStackSize <= 0 && emptySlots == 0)
-                    return 0;
-                if (!multiStack)
+                try
                 {
-                    var stackCapacity = maxStackable - minStackSize;
-                    if (minStackSize > 0)
-                        return amountToMove <= stackCapacity ? amountToMove : stackCapacity;
-                    return amountToMove;
-                }
+                    var destinationContainer = pipe?.Destination.Storage;
+                    if (destinationContainer == null || maxStackable == 0) return 0;
+                    var amountToMove = (int) Math.Ceiling((decimal) itemQuantity / pipesLeft);
+                    if (amountToMove > pipe.FlowRate)
+                        amountToMove = pipe.FlowRate;
+                    var emptySlots = destinationContainer.inventory.capacity -
+                                     destinationContainer.inventory.itemList.Count;
+                    var itemStacks = destinationContainer.inventory.FindItemsByItemID(itemId);
+                    int minStackSize = GetMinStackSize(itemStacks);
+                    if (minStackSize <= 0 && emptySlots == 0)
+                        return 0;
+                    if (!multiStack)
+                    {
+                        var stackCapacity = maxStackable - minStackSize;
+                        if (minStackSize > 0)
+                            return amountToMove <= stackCapacity ? amountToMove : stackCapacity;
+                        return amountToMove;
+                    }
 
-                var slotsRequired = (int) Math.Ceiling((decimal) amountToMove / maxStackable);
-                if (slotsRequired <= emptySlots)
-                    return amountToMove;
-                var neededSpace = amountToMove % maxStackable;
-                return maxStackable - minStackSize >= neededSpace
-                    ? amountToMove
-                    : maxStackable * (slotsRequired - 1) + maxStackable - minStackSize;
+                    var slotsRequired = (int) Math.Ceiling((decimal) amountToMove / maxStackable);
+                    if (slotsRequired <= emptySlots)
+                        return amountToMove;
+                    var neededSpace = amountToMove % maxStackable;
+                    return maxStackable - minStackSize >= neededSpace
+                        ? amountToMove
+                        : maxStackable * (slotsRequired - 1) + maxStackable - minStackSize;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(GetAmountToMove));
+                    return 0;
+                }
             }
 
             /// <summary>
@@ -1365,26 +1427,34 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns></returns>
             private Item GetItemToMove(Item item, Pipe pipe)
             {
-                var destinationContainer = pipe.Destination.Storage;
-                if (destinationContainer == null) return null;
-                var maxStackable = item.MaxStackable();
-                if (item.amount > pipe.FlowRate)
-                    item.SplitItem(pipe.FlowRate);
-                var noEmptyStacks = destinationContainer.inventory.itemList.Count ==
-                                    destinationContainer.inventory.capacity;
-                if (!pipe.IsMultiStack || noEmptyStacks)
+                try
                 {
-                    var itemStacks = destinationContainer.inventory.FindItemsByItemID(item.info.itemid);
-                    int minStackSize = GetMinStackSize(itemStacks);
-                    if (minStackSize == 0 && noEmptyStacks || minStackSize == maxStackable)
-                        return null;
-                    var space = maxStackable - minStackSize;
-                    if (space < item.amount)
-                        return item.SplitItem(space);
+                    var destinationContainer = pipe.Destination.Storage;
+                    if (destinationContainer == null) return null;
+                    var maxStackable = item.MaxStackable();
+                    if (item.amount > pipe.FlowRate)
+                        item.SplitItem(pipe.FlowRate);
+                    var noEmptyStacks = destinationContainer.inventory.itemList.Count ==
+                                        destinationContainer.inventory.capacity;
+                    if (!pipe.IsMultiStack || noEmptyStacks)
+                    {
+                        var itemStacks = destinationContainer.inventory.FindItemsByItemID(item.info.itemid);
+                        int minStackSize = GetMinStackSize(itemStacks);
+                        if (minStackSize == 0 && noEmptyStacks || minStackSize == maxStackable)
+                            return null;
+                        var space = maxStackable - minStackSize;
+                        if (space < item.amount)
+                            return item.SplitItem(space);
+                        return item;
+                    }
+
                     return item;
                 }
-
-                return item;
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, nameof(GetItemToMove));
+                    return item;
+                }
             }
             private static int GetMinStackSize(List<Item> itemStacks)
             {
@@ -1486,37 +1556,59 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             public static bool Save(bool backgroundSave = true)
             {
-                if (backgroundSave && _running)
+                try
                 {
-                    if(DataStore._coroutine != null)
-                        DataStore.StopCoroutine(DataStore._coroutine);
+                    if (backgroundSave && _running)
+                    {
+                        if (DataStore._coroutine != null)
+                            DataStore.StopCoroutine(DataStore._coroutine);
+                        _running = false;
+                    }
+
+                    if (_running)
+                        return false;
+                    _running = true;
+                    if (backgroundSave)
+                        DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
+                    else
+                    {
+                        var enumerator = DataStore.BufferedSave(Filename);
+                        while (enumerator.MoveNext())
+                        {
+                        }
+                    }
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "DataStore1_0.Save");
                     _running = false;
-                }
-                if (_running)
                     return false;
-                _running = true;
-                if (backgroundSave)
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
-                else
-                {
-                    var enumerator = DataStore.BufferedSave(Filename);
-                    while (enumerator.MoveNext()) { }
                 }
-                return true;
             }
 
             public static bool Load()
             {
-                var filename = Filename;
-                if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                try
                 {
-                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
-                        return false;
-                    filename = OldFilename;
+                    var filename = Filename;
+                    if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                    {
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                            return false;
+                        filename = OldFilename;
+                    }
+
+                    _running = true;
+                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                    return true;
                 }
-                _running = true;
-                DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
-                return true;
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "DataStore1_0.Load");
+                    return false;
+                }
             }
 
             private UnityEngine.Coroutine _coroutine;
@@ -1526,79 +1618,99 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                 {
-                    var buffer = value as Buffer;
-                    if (buffer == null) return;
+                    try
+                    {
+                        var buffer = value as Buffer;
+                        if (buffer == null) return;
 
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("pipes");
-                    writer.WriteStartArray();
-                    for(int i = 0; i < buffer.Pipes.Count; i++)
-                        writer.WriteRawValue(buffer.Pipes[i]);
-                    writer.WriteEndArray();
-                    writer.WritePropertyName("containers");
-                    writer.WriteStartArray();
-                    for(int i = 0; i < buffer.Containers.Count; i++)
-                        writer.WriteRawValue(buffer.Containers[i]);
-                    writer.WriteEndArray();
-                    writer.WriteEndObject();
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("pipes");
+                        writer.WriteStartArray();
+                        for (int i = 0; i < buffer.Pipes.Count; i++)
+                            writer.WriteRawValue(buffer.Pipes[i]);
+                        writer.WriteEndArray();
+                        writer.WritePropertyName("containers");
+                        writer.WriteStartArray();
+                        for (int i = 0; i < buffer.Containers.Count; i++)
+                            writer.WriteRawValue(buffer.Containers[i]);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.WriteJson");
+                    }
                 }
 
                 public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                     JsonSerializer serializer)
                 {
                     var buffer = new Loader();
-                    while (reader.Read())
+                    try
                     {
-                        if (reader.TokenType == JsonToken.PropertyName)
+                        while (reader.Read())
                         {
-                            switch ((string) reader.Value)
+                            if (reader.TokenType == JsonToken.PropertyName)
                             {
-                                case "pipes":
-                                    reader.Read();
-                                    reader.Read();
-                                    while (reader.TokenType != JsonToken.EndArray)
-                                    {
-                                        var pipe = serializer.Deserialize<Pipe>(reader);
-                                        if (pipe.Validity == Pipe.Status.Success)
-                                            buffer.Pipes.Add(pipe);
-                                        else
-                                            Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
-                                    }
-                                    break;
-                                case "containers":
-                                    reader.Read();
-                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
-                                    {
-                                        var data = new ContainerManager.Data();
-                                        while (reader.Read() && reader.TokenType != JsonToken.EndObject)
+                                switch ((string) reader.Value)
+                                {
+                                    case "pipes":
+                                        reader.Read();
+                                        reader.Read();
+                                        while (reader.TokenType != JsonToken.EndArray)
                                         {
-                                            if (reader.TokenType == JsonToken.PropertyName)
+                                            var pipe = serializer.Deserialize<Pipe>(reader);
+                                            if (pipe.Validity == Pipe.Status.Success)
+                                                buffer.Pipes.Add(pipe);
+                                            else
+                                                Instance.Puts("Failed to read pipe {0}({1})",
+                                                    pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                                        }
+
+                                        break;
+                                    case "containers":
+                                        reader.Read();
+                                        while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                        {
+                                            var data = new ContainerManager.Data();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndObject)
                                             {
-                                                switch (reader.Value.ToString())
+                                                if (reader.TokenType == JsonToken.PropertyName)
                                                 {
-                                                    case "ci":
-                                                        reader.Read();
-                                                        uint.TryParse(reader.Value.ToString(), out data.ContainerId);
-                                                        break;
-                                                    case "cs":
-                                                        data.CombineStacks = reader.ReadAsBoolean() ?? true;
-                                                        break;
-                                                    case "dn":
-                                                        data.DisplayName = reader.ReadAsString();
-                                                        break;
-                                                    case "ct":
-                                                        data.ContainerType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault();
-                                                        break;
+                                                    switch (reader.Value.ToString())
+                                                    {
+                                                        case "ci":
+                                                            reader.Read();
+                                                            uint.TryParse(reader.Value.ToString(),
+                                                                out data.ContainerId);
+                                                            break;
+                                                        case "cs":
+                                                            data.CombineStacks = reader.ReadAsBoolean() ?? true;
+                                                            break;
+                                                        case "dn":
+                                                            data.DisplayName = reader.ReadAsString();
+                                                            break;
+                                                        case "ct":
+                                                            data.ContainerType =
+                                                                (ContainerType) reader.ReadAsInt32()
+                                                                    .GetValueOrDefault();
+                                                            break;
+                                                    }
                                                 }
                                             }
+
+                                            buffer.Containers.Add(data);
                                         }
-                                        buffer.Containers.Add(data);
-                                    }
-                                    break;
+
+                                        break;
+                                }
                             }
                         }
                     }
-
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.ReadJson");
+                    }
                     return buffer;
                 }
 
@@ -1632,14 +1744,29 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
                 for (int i = 0; i < pipeSnapshot.Count; i++)
                 {
-                    buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                    try
+                    {
+                        buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                    }
+
                     yield return null;
                 }
                 Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
                 for(int i = 0; i < containerSnapshot.Count; i++)
                 {
-                    if (!containerSnapshot[i].HasAnyPipes) continue;
-                    buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                    try
+                    {
+                        if (!containerSnapshot[i].HasAnyPipes) continue;
+                        buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                    }
                     yield return null;
                 }
                 Instance.Puts("Saved {0} managers", buffer.Containers.Count);
@@ -2127,6 +2254,62 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 pipe.Upgrade(grade);
                 return null;
+            }
+        }
+        #endregion
+        #region Logging
+
+        public enum LogLevels
+        {
+            Debug = 1,
+            Info = 2,
+            Warning = 3,
+            Error = 4,
+            Fatal = 5
+        }
+
+        class Logger
+        {
+            public static readonly Logger PipeLoader = new Logger("PipeLoadErrors", LogLevels.Error);
+            public static readonly Logger ContainerLoader = new Logger("ContainerLoadErrors", LogLevels.Error);
+            public static readonly Logger FindErrors = new Logger("FindErrors", LogLevels.Error);
+            public static readonly Logger Runtime = new Logger("Runtime", LogLevels.Info);
+
+            public Logger(string filename, LogLevels defaultLogLevel)
+            {
+                _filename = filename;
+                _defaultLogLevel = defaultLogLevel;
+            }
+
+            private readonly string _filename;
+            private readonly LogLevels _defaultLogLevel;
+
+            public void Log(string format, params object[] args)
+            {
+                Log(_defaultLogLevel, format, args);
+            }
+            public void Log(LogLevels logLevel, string format, params object[] args)
+            {
+                Instance.LogToFile(_filename, string.Format("[{0}]: {1}", logLevel, string.Format(format, args)), Instance);
+            }
+
+            public void LogSection(string section, string format, params object[] args)
+            {
+                LogSection(_defaultLogLevel, section, format, args);
+            }
+            public void LogSection(LogLevels logLevel, string section, string format, params object[] args)
+            {
+                Log(logLevel, "{0} - {1}", section, string.Format(format, args));
+            }
+
+            public void LogException(Exception e, string section = null)
+            {
+                Log(LogLevels.Error, e.Message);
+                if(section != null)
+                    Log(LogLevels.Error, "Exception thrown in {0}", section);
+                Log(LogLevels.Error, e.Source);
+                Log(LogLevels.Error, e.StackTrace);
+                Instance.PrintError("Exception thrown. See log file for more details.");
             }
         }
         #endregion
@@ -3122,24 +3305,23 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
             {
-                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", pipeData.SourceId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", pipeData.DestinationId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", pipeData.SourceContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", pipeData.DestinationContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", pipeData.Grade), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", pipeData.IsEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", pipeData.IsAutoStart), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", pipeData.Health), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", pipeData.Priority), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", pipeData.FurnaceSplitterStacks), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", pipeData.ItemFilter.Count), Instance);
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", pipeData.SourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", pipeData.DestinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", pipeData.SourceContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", pipeData.DestinationContainerType);
+                Logger.PipeLoader.Log("Material: {0}", pipeData.Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", pipeData.IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", pipeData.IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", pipeData.Health);
+                Logger.PipeLoader.Log("Priority: {0}", pipeData.Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter);
+                Logger.PipeLoader.Log("Splitter Count: {0}", pipeData.FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", pipeData.ItemFilter.Count);
                 for (int i = 0; i < pipeData.ItemFilter.Count; i++)
-                    Instance.LogToFile("PipeLoadErrors", string.Format("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]), Instance);
-                Instance.LogToFile("PipeLoadErrors", "", Instance);
-
+                    Logger.PipeLoader.Log("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]);
+                Logger.PipeLoader.Log("");
             }
 
             /// <summary>
@@ -3240,23 +3422,23 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
             {
-                Instance.LogToFile("PipeLoadErrors", string.Format("------------------- {0} -------------------", pipeId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Status: {0}", status), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Id: {0}", sourceId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Id: {0}", destinationId), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Source Type: {0}", Source?.ContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Destination Type: {0}", Destination?.ContainerType), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Material: {0}", Grade), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Enabled: {0}", IsEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Auto-start: {0}", IsAutoStart), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Health: {0}", _initialHealth), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Priority: {0}", Priority), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Enabled: {0}", IsFurnaceSplitterEnabled), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Splitter Count: {0}", FurnaceSplitterStacks), Instance);
-                Instance.LogToFile("PipeLoadErrors", string.Format("Item Filter: ({0})", PipeFilter?.Items.Count), Instance);
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", sourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", Source?.ContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", Destination?.ContainerType);
+                Logger.PipeLoader.Log("Material: {0}", Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", _initialHealth);
+                Logger.PipeLoader.Log("Priority: {0}", Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", IsFurnaceSplitterEnabled);
+                Logger.PipeLoader.Log("Splitter Count: {0}", FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", PipeFilter?.Items.Count);
                 for (int i = 0; i < PipeFilter?.Items.Count; i++)
-                    Instance.LogToFile("PipeLoadErrors", string.Format("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english), Instance);
-                Instance.LogToFile("PipeLoadErrors", "", Instance);
+                    Logger.PipeLoader.Log("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english);
+                Logger.PipeLoader.Log("");
             }
 
             private Pipe(JsonReader reader, JsonSerializer serializer)
