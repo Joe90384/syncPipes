@@ -33,6 +33,14 @@ namespace Oxide.Plugins
             NoPrivilegeToCreate,
 
             [MessageType(MessageType.Warning)]
+            [English("You're not allowed to connect to monument containers.")]
+            MonumentDenied,
+
+            [MessageType(MessageType.Warning)]
+            [English("You're not allowed to connect to this type of container.")]
+            BlacklistedContainer,
+
+            [MessageType(MessageType.Warning)]
             [English("This pipe won't listen to you. Get the owner to do it for you.")]
             NoPrivilegeToEdit,
 

@@ -98,9 +98,6 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\steam_servers\rust\oxide\plugins\Debug.cs">
-      <Link>Debug.cs</Link>
-    </Compile>
     <Compile Include="Attributes.cs" />
     <Compile Include="Commands.cs" />
     <Compile Include="Config.cs" />

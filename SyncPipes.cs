@@ -13,7 +13,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.24")]
+    [Info("Sync Pipes", "Joe 90", "0.9.25")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     class SyncPipes : RustPlugin
     {
@@ -65,6 +65,8 @@ namespace Oxide.Plugins
                 {Oxide.Plugins.SyncPipes.Overlay.TooFar, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.TooClose, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToCreate, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.MonumentDenied, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.BlacklistedContainer, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToEdit, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.PipeLimitReached, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.UpgradeLimitReached, MessageType.Warning},
@@ -725,7 +727,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True if the container type is blacklisted</returns>
             public static bool IsBlacklisted(BaseEntity container) =>
                 container is BaseFuelLightSource || container is Locker || container is ShopFront ||
-                container is RepairBench;
+                container is RepairBench || container is LootContainer;
 
             /// <summary>
             /// Get a storage container from its Id
@@ -758,6 +760,26 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
                 return ContainerType.General;
+            }
+
+            public static bool InMonument(BaseEntity entity)
+            {
+                switch (GetEntityType(entity))
+                {
+                    case ContainerType.PumpJackOutput:
+                    case ContainerType.QuarryOutput:
+                    case ContainerType.FuelStorage:
+                    case ContainerType.Recycler:
+                        for (int i = 0; i < TerrainMeta.Path.Monuments.Count; i++)
+                        {
+                            var monument = TerrainMeta.Path.Monuments[i];
+                            if (monument.IsInBounds(entity.transform.position))
+                                return false;
+                        }
+                        break;
+                }
+
+                return true;
             }
 
             private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
@@ -2103,20 +2125,32 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                if (playerHelper.State != PlayerHelper.UserState.Placing || 
+                if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    ContainerHelper.IsBlacklisted(entity) || 
-                    entity.GetComponent<StorageContainer>() == null) 
+                    entity.GetComponent<StorageContainer>() == null)
                     return false;
+
                 if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
                     return false;
                 }
+                if (ContainerHelper.IsBlacklisted(entity))
+                {
+                    playerHelper.ShowOverlay(Overlay.BlacklistedContainer);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
+                    playerHelper.ShowPlacingOverlay(2f);
+                }
+
+                if (!ContainerHelper.InMonument(entity))
+                {
+                    playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);
                 }
                 else
@@ -2923,6 +2957,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"Overlay.TooFar", "The pipes just don't stretch that far. You'll just have to select a closer container."},
                 {"Overlay.TooClose", "There isn't a pipe short enough. You need more space between the containers"},
                 {"Overlay.NoPrivilegeToCreate", "This isn't your container to connect to. You'll need to speak nicely to the owner."},
+                {"Overlay.MonumentDenied", "You're not allowed to connect to monument containers."},
+                {"Overlay.BlacklistedContainer", "You're not allowed to connect to this type of container."},
                 {"Overlay.NoPrivilegeToEdit", "This pipe won't listen to you. Get the owner to do it for you."},
                 {"Overlay.PipeLimitReached", "You've not got enough pipes to build that I'm afraid."},
                 {"Overlay.UpgradeLimitReached", "You're just not able to upgrade this pipe any further."},
@@ -3015,6 +3051,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             TooClose,
 
             NoPrivilegeToCreate,
+
+            MonumentDenied,
+
+            BlacklistedContainer,
 
             NoPrivilegeToEdit,
 

@@ -21,7 +21,7 @@ namespace Oxide.Plugins
             /// <returns>True if the container type is blacklisted</returns>
             public static bool IsBlacklisted(BaseEntity container) =>
                 container is BaseFuelLightSource || container is Locker || container is ShopFront ||
-                container is RepairBench;
+                container is RepairBench || container is LootContainer;
 
             /// <summary>
             /// Get a storage container from its Id
@@ -54,6 +54,26 @@ namespace Oxide.Plugins
                     }
                 }
                 return ContainerType.General;
+            }
+
+            public static bool InMonument(BaseEntity entity)
+            {
+                switch (GetEntityType(entity))
+                {
+                    case ContainerType.PumpJackOutput:
+                    case ContainerType.QuarryOutput:
+                    case ContainerType.FuelStorage:
+                    case ContainerType.Recycler:
+                        for (int i = 0; i < TerrainMeta.Path.Monuments.Count; i++)
+                        {
+                            var monument = TerrainMeta.Path.Monuments[i];
+                            if (monument.IsInBounds(entity.transform.position))
+                                return false;
+                        }
+                        break;
+                }
+
+                return true;
             }
 
             private static void LogFindError(uint parentId, BaseEntity entity, ContainerType containerType, List<BaseEntity> children = null)
