@@ -22,14 +22,14 @@
         /// Hook: Used to ensure pipes are removed when a segment of the pipe is killed
         /// </summary>
         /// <param name="entity">Entity to check to see if it's a pipe segment</param>
-        void OnEntityKill(BaseNetworkable entity) => entity.GetComponent<PipeSegment>()?.Pipe?.Remove();
+        void OnEntityKill(BaseNetworkable entity) => entity?.GetComponent<PipeSegment>()?.Pipe?.Remove();
 
         /// <summary>
         /// Hook: Used to ensure pies are removed when a segment of the pipe dies
         /// </summary>
         /// <param name="entity">Entity to check to see if it's a pipe segment</param>
         /// <param name="info"></param>
-        void OnEntityDeath(BaseCombatEntity entity, HitInfo info) => entity.GetComponent<PipeSegment>()?.Pipe?.Remove();
+        void OnEntityDeath(BaseCombatEntity entity, HitInfo info) => entity?.GetComponent<PipeSegment>()?.Pipe?.Remove();
 
         /// <summary>
         /// Hook: Used to handle hits to the pipes or connected containers
@@ -38,6 +38,8 @@
         /// <param name="hit">Information about the hit</param>
         void OnHammerHit(BasePlayer player, HitInfo hit)
         {
+            if (player == null || hit?.HitEntity == null)
+                return;
             var playerHelper = PlayerHelper.Get(player);
             var handled =
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
@@ -54,13 +56,13 @@
         /// <param name="entity">Entity to check to see if it a pipe</param>
         /// <param name="checkRunning">Only return true if the pipe is also running</param>
         /// <returns>True if the entity is a pipe segment (and if it is running)</returns>
-        private bool IsPipe(BaseEntity entity, bool checkRunning = false) => checkRunning ? entity.GetComponent<PipeSegment>()?.enabled ?? false : entity.GetComponent<PipeSegment>()?.Pipe != null;
+        private bool IsPipe(BaseEntity entity, bool checkRunning = false) => checkRunning ? entity?.GetComponent<PipeSegment>()?.enabled ?? false : entity?.GetComponent<PipeSegment>()?.Pipe != null;
 
         /// <summary>
         /// New Hook: This allows other plugins to determine if the entity is a managed container.
         /// </summary>
         /// <param name="entity">Entity to check to see if it is a managed container</param>
         /// <returns>True if the entity is a managed container</returns>
-        private bool IsManagedContainer(BaseEntity entity) => entity.GetComponent<ContainerManager>()?.HasAnyPipes ?? false;
+        private bool IsManagedContainer(BaseEntity entity) => entity?.GetComponent<ContainerManager>()?.HasAnyPipes ?? false;
     }
 }

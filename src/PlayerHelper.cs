@@ -155,19 +155,19 @@ namespace Oxide.Plugins
             /// <summary>
             /// Does this player have syncPipes admin privilege
             /// </summary>
-            public bool IsAdmin => Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.admin");
+            public bool IsAdmin => Instance.permission.UserHasPermission(Player?.UserIDString, $"{Instance.Name}.admin");
 
-            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name}.user");
+            public bool IsUser => IsAdmin || Instance.permission.UserHasPermission(Player?.UserIDString, $"{Instance.Name}.user");
 
             /// <summary>
             /// Can the player build in the current area (not blocked by TC) or has syncPipes admin privilege
             /// </summary>
-            public bool CanBuild => IsAdmin || Player.CanBuild();
+            public bool CanBuild => IsAdmin || (Player?.CanBuild() ?? false);
 
             /// <summary>
             /// Check if the player has and authorised TC in range of has syncPipes admin privilege
             /// </summary>
-            public bool HasBuildPrivilege => IsAdmin || Player.GetBuildingPrivilege().IsAuthed(Player);
+            public bool HasBuildPrivilege => IsAdmin || (Player?.GetBuildingPrivilege()?.IsAuthed(Player) ?? false);
 
             /// <summary>
             /// Gets the syncPipes privileges currently held by this player
@@ -176,7 +176,7 @@ namespace Oxide.Plugins
             {
                 get
                 {
-                    var permissions = Instance.permission.GetUserPermissions(Player.UserIDString);
+                    var permissions = Instance.permission.GetUserPermissions(Player?.UserIDString);
                     for (var i = 0; i < permissions.Length; i++)
                     {
                         var permission = GetPermission(permissions[i]);
@@ -261,6 +261,8 @@ namespace Oxide.Plugins
             {
                 get
                 {
+                    if(Player == null)
+                        return new Dictionary<ulong, Pipe>();
                     if(!AllPipes.ContainsKey(Player.userID))
                         AllPipes.Add(Player.userID, new Dictionary<ulong, Pipe>());
                     return AllPipes[Player.userID];
@@ -273,7 +275,10 @@ namespace Oxide.Plugins
             /// <param name="container">Container to check the permission of</param>
             /// <returns>True if the player can open the container</returns>
             public bool HasContainerPrivilege(BaseEntity container) =>
-                container.GetComponent<StorageContainer>().CanOpenLootPanel(Player) && CanBuild;
+                HasContainerPrivilege(container.GetComponent<StorageContainer>());
+
+            public bool HasContainerPrivilege(StorageContainer container) =>
+                container.CanOpenLootPanel(Player, container.panelName) && CanBuild;
 
             /// <summary>
             /// Checks if the player has reached their pipe limit
@@ -508,7 +513,7 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="commandName">Command to call (without the 'syncpipes.' prefix)</param>
             /// <param name="args">Any arguments to send with the command</param>
-            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
+            public void SendSyncPipesConsoleCommand(string commandName, params object[] args) => Player?.SendConsoleCommand($"{Instance.Name}.{commandName}", args);
 
             /// <summary>
             /// Close the pipe filter the player is currently viewing

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Oxide.Plugins
@@ -21,9 +22,22 @@ namespace Oxide.Plugins
                     CommandPrefix = "p",
                     HotKey = "p",
                     UpdateRate = 2,
-                    AttachXmasLights = false
+                    AttachXmasLights = false,
+                    DestroyWithSalvage = false,
+                    PermissionLevels = new Dictionary<string, PermissionLevel>
+                    {
+                        {"sticks", new PermissionLevel{MaximumGrade = 0, MaximumPipes = 15}},
+                        {"wood", new PermissionLevel{MaximumGrade = 1, MaximumPipes = 25}},
+                        {"stone", new PermissionLevel{MaximumGrade = 2, MaximumPipes = 35}},
+                        {"metal", new PermissionLevel{MaximumGrade = 3, MaximumPipes = 45}},
+                        {"hqm", new PermissionLevel{MaximumGrade = -1, MaximumPipes = -1}}
+                    }
                 };
             }
+
+
+            [JsonProperty("LogLevel")]
+            public int LogLevel { get; set; } = (int)LogLevels.Error;
 
             [JsonProperty("filterSizes")] 
             public List<int> FilterSizes { get; set; }
@@ -121,19 +135,33 @@ namespace Oxide.Plugins
 
             public static SyncPipesConfig Load()
             {
-                Instance.Puts("Loading Config");
-                var config = Instance.Config.ReadObject<SyncPipesConfig>();
-                if (config?.FilterSizes == null)
+                try
                 {
-                    Instance.Puts("Setting Defaults");
-                    config = New();
-                    Instance.Config.WriteObject(config);
-                }
+                    Instance.Puts("Loading Config");
+                    var config = Instance.Config.ReadObject<SyncPipesConfig>();
+                    if (config?.FilterSizes == null)
+                    {
+                        Instance.Puts("Setting Defaults");
+                        config = New();
+                        Instance.Config.WriteObject(config);
+                    }
 
-                var errors = config.Validate();
-                for(var i =0; i < errors.Length; i++)
-                    Instance.PrintWarning(errors[i]);
-                return config;
+                    var errors = config.Validate();
+                    for (var i = 0; i < errors.Length; i++)
+                        Instance.PrintWarning(errors[i]);
+                    if (errors.Length > 0)
+                    {
+                        Instance.PrintError("Invalid config file. Using default configs.");
+                        return Default;
+                    }
+                    return config;
+                }
+                catch (Exception e)
+                {
+                    Logger.Runtime.LogException(e, "Config.Load");
+                    Instance.PrintError("Invalid config file. Using default configs.");
+                    return Default;
+                }
             }
 
 

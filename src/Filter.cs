@@ -61,9 +61,9 @@ namespace Oxide.Plugins
             /// <param name="player">Player to close the filter for</param>
             private void ForceClosePlayer(BasePlayer player)
             {
-                player.inventory.loot.Clear();
-                player.inventory.loot.MarkDirty();
-                player.inventory.loot.SendImmediate();
+                player?.inventory.loot.Clear();
+                player?.inventory.loot.MarkDirty();
+                player?.inventory.loot.SendImmediate();
                 Closing(player);
             }
 
@@ -71,7 +71,11 @@ namespace Oxide.Plugins
             /// Remove the player from the list of players in the filter
             /// </summary>
             /// <param name="player">Player closing the menu</param>
-            public void Closing(BasePlayer player) => _playersInFilter.Remove(player);
+            public void Closing(BasePlayer player)
+            {
+                if(player != null)
+                    _playersInFilter.Remove(player);
+            }
 
             /// <summary>
             /// Creates a virtual storage container with all the items from the pipe and limits it to the pipes filter capacity
@@ -145,6 +149,8 @@ namespace Oxide.Plugins
             public void Open(PlayerHelper playerHelper)
             {
                 var player = playerHelper.Player;
+                if (player == null)
+                    return;
                 playerHelper.PipeFilter = this;
                 if (_playersInFilter.Contains(player) || !Active)
                     return;
@@ -157,7 +163,7 @@ namespace Oxide.Plugins
                 player.inventory.loot.AddContainer(_filterContainer);
                 player.inventory.loot.SendImmediate();
                 player.inventory.loot.useGUILayout = false;
-                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "genericlarge");
+                player.ClientRPCPlayer(null, player, "RPC_OpenLootPanel", "generic_resizable");
             }
 
             private ItemContainer _filterContainer;
@@ -179,8 +185,8 @@ namespace Oxide.Plugins
         /// <param name="item">Item being removed</param>
         private void OnItemRemovedFromContainer(ItemContainer container, Item item)
         {
-            if (container.entityOwner?.GetComponent<PipeSegment>() != null)
-                item.Remove();
+            if (container?.entityOwner?.GetComponent<PipeSegment>() != null)
+                item?.Remove();
         }
 
         /// <summary>

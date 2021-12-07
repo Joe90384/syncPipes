@@ -2,7 +2,7 @@
 
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.17")]
+    [Info("Sync Pipes", "Joe 90", "0.9.25")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     public partial class SyncPipesDevelopment : RustPlugin
     {
@@ -13,10 +13,13 @@ namespace Oxide.Plugins
 
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
+#pragma warning disable CS0649
         Plugin FurnaceSplitter;
 
+        // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
         [PluginReference] 
         Plugin QuickSmelt;
+#pragma warning restore CS0649
 
         /// <summary>
         /// Hook: Initializes syncPipes when the server starts to load it

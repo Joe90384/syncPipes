@@ -80,6 +80,7 @@ namespace Oxide.Plugins
         /// false for everything else to prevent the can't repair error</returns>
         private static bool? OnPipeRepair(BaseCombatEntity entity, BasePlayer player, Pipe pipe)
         {
+            if (entity == null) return false;
             if ((int)entity.Health() == (int)entity.MaxHealth())
                 return false;
             if (pipe.Repairing)
@@ -97,7 +98,7 @@ namespace Oxide.Plugins
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
         /// <returns>False if it is a pipe, null if it isn't</returns>
-        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player) => entity.GetComponent<PipeSegment>() ? (bool?)false : null;
+        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player) => entity?.GetComponent<PipeSegment>() ? (bool?)false : null;
 
         /// <summary>
         /// Hook: Ensures the all pipe sections are upgraded together

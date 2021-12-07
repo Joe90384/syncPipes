@@ -7,6 +7,7 @@ namespace Oxide.Plugins
     {
 
         // All enums that need chat command substitution
+#pragma warning disable CS0649
         private static Dictionary<Enum, bool> _chatCommands;
 
         // All enums that need binding command substitution
@@ -14,6 +15,7 @@ namespace Oxide.Plugins
 
         // All enums that have a message type (mainly for overlay text)
         private static Dictionary<Enum, MessageType> _messageTypes;
+#pragma warning restore CS0649
 
         /// <summary>
         /// Message type for helping with overlay messages

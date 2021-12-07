@@ -48,23 +48,34 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-
-                if (playerHelper.State != PlayerHelper.UserState.Placing || 
+                if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    ContainerHelper.IsBlacklisted(entity) || 
                     entity.GetComponent<StorageContainer>() == null ||
                     entity.GetComponent<PipeSegment>() != null
                     ) 
                     return false;
+
                 if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
                     return false;
                 }
+                if (ContainerHelper.IsBlacklisted(entity))
+                {
+                    playerHelper.ShowOverlay(Overlay.BlacklistedContainer);
+                    OverlayText.Hide(playerHelper.Player, 2f);
+                    return false;
+                }
                 if (!playerHelper.HasContainerPrivilege(entity) || !playerHelper.CanBuild)
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
+                    playerHelper.ShowPlacingOverlay(2f);
+                }
+
+                if (!ContainerHelper.InMonument(entity))
+                {
+                    playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);
                 }
                 else
@@ -142,13 +153,13 @@
             {
 
                 var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 if (!playerHelper.IsUser)
                 {
                     playerHelper.ShowOverlay(Overlay.NotAuthorisedOnSyncPipes);
                     OverlayText.Hide(playerHelper.Player, 2f);
                     return false;
                 }
-                if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 pipe.OpenMenu(playerHelper);
                 return true;
             }

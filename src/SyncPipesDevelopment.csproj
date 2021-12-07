@@ -118,6 +118,7 @@
     <Compile Include="EntityHooks.cs" />
     <Compile Include="Filter.cs" />
     <Compile Include="Handlers.cs" />
+    <Compile Include="Logging.cs" />
     <Compile Include="MenuTest.cs" />
     <Compile Include="Messages.cs" />
     <Compile Include="OverlayText.cs" />

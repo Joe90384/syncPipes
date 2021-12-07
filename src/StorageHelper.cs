@@ -163,9 +163,11 @@ namespace Oxide.Plugins
 		}
 
         // This stores an indexed form of the Storage enum list
-		private static Dictionary<Storage, StorageData> _storageDetails;
+#pragma warning disable CS0649
+        private static Dictionary<Storage, StorageData> _storageDetails;
+#pragma warning restore CS0649
 
-		static class StorageHelper
+        static class StorageHelper
         {
 
 			///// <summary>
