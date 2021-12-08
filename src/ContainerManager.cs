@@ -420,6 +420,8 @@ namespace Oxide.Plugins
                         for (var i = 0; i < unusedPipes.Count; i++)
                         {
                             var pipe = unusedPipes[i];
+                            if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                                continue;
                             if (pipe.PipeFilter.Items.Count > 0)
                             {
                                 bool found = false;

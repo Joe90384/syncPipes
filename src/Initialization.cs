@@ -11,9 +11,9 @@ namespace Oxide.Plugins
         /// </summary>
         private static SyncPipesDevelopment Instance;
 
+#pragma warning disable CS0649
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
-#pragma warning disable CS0649
         Plugin FurnaceSplitter;
 
         // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
@@ -44,7 +44,9 @@ namespace Oxide.Plugins
             Pipe.Cleanup();
             ContainerManager.Cleanup();
             PlayerHelper.Cleanup();
-            UICleanup.Cleanup();
+            ExperimentalUnload();
         }
+
+        partial void ExperimentalUnload();
     }
 }

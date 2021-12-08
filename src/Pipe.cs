@@ -777,7 +777,6 @@ namespace Oxide.Plugins
             /// <param name="cleanup">If true then destruction animations are disabled</param>
             public void Kill(bool cleanup = false)
             {
-                Instance.Puts("Kill Pipe");
                 for (var i = 0; i < PlayersViewingMenu.Count; i++)
                     PlayersViewingMenu[i]?.SendSyncPipesConsoleCommand("forceclosemenu");
                 PipeFilter?.Kill();

@@ -200,6 +200,23 @@ namespace Oxide.Plugins
                     $@".*partial *class *{primaryClass}.*\r\n.*\{{ *(?<Content>(?:\r\n.*)*)\r\n.*\}} *\r\n.*\}}", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.ExplicitCapture);
             foreach (var file in seedDirectory.GetFiles("*.cs", SearchOption.AllDirectories).Where(a=>a.Name != seedFile.Name))
             {
+#if !Experimental
+                var directory = file.Directory;
+                var experimental = false;
+                while (directory != null)
+                {
+                    if (directory.Name.Equals("Experimental", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        experimental = true;
+                        break;
+                    }
+
+                    directory = directory.Parent;
+                }
+
+                if (experimental)
+                    continue;
+#endif
                 if (!partialClassContents.ContainsKey(file.Directory.Name))
                     partialClassContents.Add(file.Directory.Name, new Dictionary<string, string>());
                 using (var sr = new StreamReader(file.FullName))
@@ -244,7 +261,7 @@ namespace Oxide.Plugins
                 sw.WriteLine($"{{{classComments}");
                 sw.WriteLine($"    {info}");
                 sw.WriteLine($"    {description}");
-                sw.WriteLine($"    class {primaryClass} : RustPlugin");
+                sw.WriteLine($"    partial class {primaryClass} : RustPlugin");
                 sw.WriteLine("    {");
                 foreach (var folderGroup in partialClassContents.Where(a=>a.Value.Any()))
                 {

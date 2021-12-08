@@ -19,12 +19,8 @@ namespace Oxide.Plugins
         /// <summary>
         /// Player helper holds additional information and methods for a player that is needed for syncPipes to work correctly
         /// </summary>
-        public class PlayerHelper
+        public partial class PlayerHelper
         {
-            internal SidebarMenu SideBar { get; }
-            internal MenuTest MenuTest { get; }
-
-
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
             /// </summary>
@@ -85,9 +81,9 @@ namespace Oxide.Plugins
             private PlayerHelper(BasePlayer player)
             {
                 Player = player;
-                SideBar = new SidebarMenu(this);
-                MenuTest = new MenuTest(this);
             }
+
+            partial void ExperimentalConstructor();
 
             /// <summary>
             /// Player this player helper is attached to
@@ -501,12 +497,13 @@ namespace Oxide.Plugins
                 {
                     OverlayText.Hide(player.Player);
                     player.Menu?.Close(player);
-                    player.MenuTest?.Close();
-                    player.SideBar?.Close();
+                    player.ExperimentalCleanup();
                 }
                 Players.Clear();
                 AllPipes.Clear();
             }
+
+            partial void ExperimentalCleanup();
 
             /// <summary>
             /// Sends a console command with the 'syncPipes.' prefix

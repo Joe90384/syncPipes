@@ -39,6 +39,15 @@
   <PropertyGroup>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Experimental|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Experimental\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RustServerDir)\RustDedicated_Data\Managed\Assembly-CSharp.dll</HintPath>
@@ -100,31 +109,33 @@
   <ItemGroup>
     <Compile Include="Attributes.cs" />
     <Compile Include="Commands.cs" />
-    <Compile Include="Components\UIButton.cs" />
-    <Compile Include="Components\UICleanup.cs" />
-    <Compile Include="Components\UIComponentBase.cs" />
-    <Compile Include="Components\ToggleButton.cs" />
-    <Compile Include="Components\UIGrid.cs" />
-    <Compile Include="Components\UIImage.cs" />
-    <Compile Include="Components\UIToggleButton.cs" />
-    <Compile Include="Components\UINumericUpDown.cs" />
-    <Compile Include="Components\UIPanel.cs" />
-    <Compile Include="Components\UIStackPanel.cs" />
+    <Compile Include="Experimental\Components\UIButton.cs" />
+    <Compile Include="Experimental\Components\UICleanup.cs" />
+    <Compile Include="Experimental\Components\UIComponentBase.cs" />
+    <Compile Include="Experimental\Components\ToggleButton.cs" />
+    <Compile Include="Experimental\Components\UIGrid.cs" />
+    <Compile Include="Experimental\Components\UIImage.cs" />
+    <Compile Include="Experimental\Components\UIToggleButton.cs" />
+    <Compile Include="Experimental\Components\UINumericUpDown.cs" />
+    <Compile Include="Experimental\Components\UIPanel.cs" />
+    <Compile Include="Experimental\Components\UIStackPanel.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="ContainerManager.cs" />
     <Compile Include="ContainerHelper.cs" />
     <Compile Include="CuiBase.cs" />
     <Compile Include="Data.cs" />
     <Compile Include="EntityHooks.cs" />
+    <Compile Include="Experimental\Partials\PlayerHelper.cs" />
+    <Compile Include="Experimental\Partials\Initialization.cs" />
     <Compile Include="Filter.cs" />
     <Compile Include="Handlers.cs" />
     <Compile Include="Logging.cs" />
-    <Compile Include="MenuTest.cs" />
+    <Compile Include="Experimental\MenuTest.cs" />
     <Compile Include="Messages.cs" />
     <Compile Include="OverlayText.cs" />
     <Compile Include="PipeFactory.cs" />
     <Compile Include="ServerHooks.cs" />
-    <Compile Include="SidebarMenu\SidebarMenu.cs" />
+    <Compile Include="Experimental\SidebarMenu.cs" />
     <Compile Include="StorageHelper.cs" />
     <Compile Include="Menu.cs" />
     <Compile Include="PipeEndContainer.cs" />
@@ -133,7 +144,7 @@
     <Compile Include="Pipe.cs" />
     <Compile Include="PipeSegment.cs" />
     <Compile Include="PlayerHelper.cs" />
-    <Compile Include="TestMenu.cs" />
+    <Compile Include="Experimental\TestMenu.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

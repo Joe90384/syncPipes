@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Newtonsoft.Json;
 using Oxide.Core;
 using UnityEngine;
@@ -16,6 +17,7 @@ namespace Oxide.Plugins
         //[JsonConverter(typeof(DataConverter))]
         class Data
         {
+
             /// <summary>
             /// The data for all the pipes
             /// </summary>
@@ -41,6 +43,9 @@ namespace Oxide.Plugins
 
         class DataStore1_0: MonoBehaviour
         {
+            private static UnityEngine.Coroutine _coroutine;
+            private static bool _saving;
+            private static bool _loading;
             private static GameObject _saverGameObject;
             private static DataStore1_0 _dataStore;
 
@@ -65,32 +70,39 @@ namespace Oxide.Plugins
             {
                 try
                 {
-                    if (backgroundSave && _running)
-                    {
-                        if (DataStore._coroutine != null)
-                            DataStore.StopCoroutine(DataStore._coroutine);
-                        _running = false;
-                    }
-
-                    if (_running)
+                    if (_loading)
                         return false;
-                    _running = true;
-                    if (backgroundSave)
-                        DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
-                    else
+                    if (!backgroundSave && _saving)
                     {
-                        var enumerator = DataStore.BufferedSave(Filename);
-                        while (enumerator.MoveNext())
-                        {
-                        }
+                        if (_coroutine != null)
+                            DataStore.StopCoroutine(_coroutine);
+                        _saving = false;
                     }
+                    else if (_saving)
+                        return false;
 
-                    return true;
+                    try
+                    {
+                        _saving = true;
+                        if (backgroundSave)
+                            _coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
+                        else
+                        {
+                            var enumerator = DataStore.BufferedSave(Filename);
+                            while (enumerator.MoveNext()) { }
+                        }
+
+                        return true;
+                    }
+                    finally
+                    {
+                        _saving = false;
+                    }
                 }
                 catch (Exception e)
                 {
                     Logger.Runtime.LogException(e, "DataStore1_0.Save");
-                    _running = false;
+                    _saving = false;
                     return false;
                 }
             }
@@ -99,6 +111,7 @@ namespace Oxide.Plugins
             {
                 try
                 {
+                    _loading = true;
                     var filename = Filename;
                     if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
                     {
@@ -106,20 +119,18 @@ namespace Oxide.Plugins
                             return false;
                         filename = OldFilename;
                     }
-
-                    _running = true;
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                    
+                    _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                     return true;
                 }
                 catch (Exception e)
                 {
+                    _loading = false;
                     Logger.Runtime.LogException(e, "DataStore1_0.Load");
                     return false;
                 }
             }
 
-            private UnityEngine.Coroutine _coroutine;
-            private static bool _running;
 
             class Converter : JsonConverter
             {
@@ -281,25 +292,32 @@ namespace Oxide.Plugins
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                 Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
-                _running = false;
+                _saving = false;
                 yield return null;
             }
 
             IEnumerator BufferedLoad(string filename)
             {
-                yield return null;
-                Instance.Puts("Load v1.0 starting");
-                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
-                for (int i = 0; i < loader.Pipes.Count; i++)
+                try
                 {
-                    loader.Pipes[i].Create();
+                    yield return null;
+                    Instance.Puts("Load v1.0 starting");
+                    var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
+                    for (int i = 0; i < loader.Pipes.Count; i++)
+                    {
+                        loader.Pipes[i].Create();
+                        yield return null;
+                    }
+
+                    Instance.Puts("Successfully loaded {0} pipes", loader.Pipes.Count);
+                    ContainerManager.Load(loader.Containers);
+                    Instance.Puts("Load v1.0 complete");
                     yield return null;
                 }
-                Instance.Puts("Successfully loaded {0} pipes", loader.Pipes.Count);
-                ContainerManager.Load(loader.Containers);
-                Instance.Puts("Load v1.0 complete");
-                _running = false;
-                yield return null;
+                finally
+                {
+                    _loading = false;
+                }
             }
         }
     }
