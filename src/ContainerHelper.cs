@@ -19,16 +19,21 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="container">The container to check</param>
             /// <returns>True if the container type is blacklisted</returns>
-            public static bool IsBlacklisted(BaseEntity container) =>
-                container is BaseFuelLightSource || container is Locker || container is ShopFront ||
-                container is RepairBench || container is LootContainer;
+            public static bool IsBlacklisted(BaseEntity container)
+            {
+                return container is BaseFuelLightSource || container is Locker || container is ShopFront ||
+                       container is RepairBench || container is LootContainer;
+            }
 
             /// <summary>
             /// Get a storage container from its Id
             /// </summary>
             /// <param name="id">The Id to search for</param>
             /// <returns>The container that matches the id</returns>
-            public static StorageContainer Find(uint id) => Find((BaseEntity) BaseNetworkable.serverEntities.Find(id));
+            public static StorageContainer Find(uint id)
+            {
+                return Find((BaseEntity)BaseNetworkable.serverEntities.Find(id));
+            }
 
             /// <summary>
             /// Get the container id and the startable type from a container
@@ -100,18 +105,31 @@ namespace Oxide.Plugins
 
                 if (!IsComplexStorage(containerType))
                     return entity;
-                var children = entity?.GetComponent<BaseResourceExtractor>()?.children;
-                var prefabName = GetShortPrefabName(containerType);
-                for (var i = 0; i < children?.Count; i++)
+                BaseResourceExtractor resourceExtractor = null;
+                if (entity?.TryGetComponent<BaseResourceExtractor>(out resourceExtractor) ?? false)
                 {
-                    if (children[i].ShortPrefabName == prefabName)
-                        return children[i] as ResourceExtractorFuelStorage;
+                    var children = resourceExtractor.children;
+                    var prefabName = GetShortPrefabName(containerType);
+                    for (var i = 0; i < children?.Count; i++)
+                    {
+                        if (children[i].ShortPrefabName == prefabName)
+                            return children[i] as ResourceExtractorFuelStorage;
+                    }
+
+                    LogFindError(parentId, entity, containerType, children);
                 }
-                LogFindError(parentId, entity, containerType, children);
+                else
+                {
+                    LogFindError(parentId, entity, containerType);
+                }
                 return null;
             }
 
-            public static StorageContainer Find(BaseEntity parent) => parent?.GetComponent<StorageContainer>();
+            public static StorageContainer Find(BaseEntity parent)
+            {
+                StorageContainer container = null;
+                return parent?.TryGetComponent<StorageContainer>(out container) ?? false ? container : null;
+            }
 
             public static string GetShortPrefabName(ContainerType containerType)
             {

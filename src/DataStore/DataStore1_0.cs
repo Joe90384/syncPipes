@@ -2,48 +2,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Oxide.Core;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    public partial class SyncPipesDevelopment
+    partial class SyncPipesDevelopment
     {
-        /// <summary>
-        /// The data handler for loading and saving data to disk
-        /// </summary>
-        //[JsonConverter(typeof(DataConverter))]
-        class Data
+        class DataStore1_0 : MonoBehaviour
         {
-
-            /// <summary>
-            /// The data for all the pipes
-            /// </summary>
-            public PipeData[] PipeData { get; set; }
-
-            /// <summary>
-            /// The data for all the container managers
-            /// </summary>
-            public List<ContainerManager.Data> ContainerData { get; set; }
-            /// <summary>
-            /// Load syncPipes data from disk
-            /// </summary>
-            public static void Load()
-            {
-                var data = Interface.Oxide.DataFileSystem.ReadObject<Data>(Instance.Name);
-                if (data != null)
-                {
-                    Pipe.Load(data.PipeData);
-                    ContainerManager.Load(data.ContainerData);
-                }
-            }
-        }
-
-        class DataStore1_0: MonoBehaviour
-        {
-            private static UnityEngine.Coroutine _coroutine;
+            private static Coroutine _coroutine;
             private static bool _saving;
             private static bool _loading;
             private static GameObject _saverGameObject;
@@ -101,7 +73,7 @@ namespace Oxide.Plugins
                 }
                 catch (Exception e)
                 {
-                    Logger.Runtime.LogException(e, "DataStore1_0.Save");
+                    SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.Save");
                     _saving = false;
                     return false;
                 }
@@ -119,14 +91,14 @@ namespace Oxide.Plugins
                             return false;
                         filename = OldFilename;
                     }
-                    
+
                     _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                     return true;
                 }
                 catch (Exception e)
                 {
                     _loading = false;
-                    Logger.Runtime.LogException(e, "DataStore1_0.Load");
+                    SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.Load");
                     return false;
                 }
             }
@@ -156,7 +128,7 @@ namespace Oxide.Plugins
                     }
                     catch (Exception e)
                     {
-                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.WriteJson");
+                        SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.Converter.WriteJson");
                     }
                 }
 
@@ -170,15 +142,15 @@ namespace Oxide.Plugins
                         {
                             if (reader.TokenType == JsonToken.PropertyName)
                             {
-                                switch ((string) reader.Value)
+                                switch ((string)reader.Value)
                                 {
                                     case "pipes":
                                         reader.Read();
                                         reader.Read();
                                         while (reader.TokenType != JsonToken.EndArray)
                                         {
-                                            var pipe = serializer.Deserialize<Pipe>(reader);
-                                            if (pipe.Validity == Pipe.Status.Success)
+                                            var pipe = serializer.Deserialize<SyncPipesDevelopment.Pipe>(reader);
+                                            if (pipe.Validity == SyncPipesDevelopment.Pipe.Status.Success)
                                                 buffer.Pipes.Add(pipe);
                                             else
                                                 Instance.Puts("Failed to read pipe {0}({1})",
@@ -190,7 +162,7 @@ namespace Oxide.Plugins
                                         reader.Read();
                                         while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                         {
-                                            var data = new ContainerManager.Data();
+                                            var data = new SyncPipesDevelopment.ContainerManager.Data();
                                             while (reader.Read() && reader.TokenType != JsonToken.EndObject)
                                             {
                                                 if (reader.TokenType == JsonToken.PropertyName)
@@ -210,7 +182,7 @@ namespace Oxide.Plugins
                                                             break;
                                                         case "ct":
                                                             data.ContainerType =
-                                                                (ContainerType) reader.ReadAsInt32()
+                                                                (SyncPipesDevelopment.ContainerType)reader.ReadAsInt32()
                                                                     .GetValueOrDefault();
                                                             break;
                                                     }
@@ -227,7 +199,7 @@ namespace Oxide.Plugins
                     }
                     catch (Exception e)
                     {
-                        Logger.Runtime.LogException(e, "DataStore1_0.Converter.ReadJson");
+                        SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.Converter.ReadJson");
                     }
                     return buffer;
                 }
@@ -235,6 +207,99 @@ namespace Oxide.Plugins
                 public override bool CanConvert(Type objectType)
                 {
                     return true;
+                }
+            }
+
+            public class PipeConverter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var pipe = value as Pipe;
+                    if (pipe == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("enb");
+                    writer.WriteValue(pipe.IsEnabled);
+                    writer.WritePropertyName("grd");
+                    writer.WriteValue(pipe.Grade);
+                    writer.WritePropertyName("sid");
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType)
+                        ? pipe.Source.Container.parentEntity.uid
+                        : pipe.Source.Id);
+                    writer.WritePropertyName("did");
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType)
+                        ? pipe.Destination.Container.parentEntity.uid
+                        : pipe.Destination.Id);
+                    writer.WritePropertyName("sct");
+                    writer.WriteValue(pipe.Source.ContainerType);
+                    writer.WritePropertyName("dct");
+                    writer.WriteValue(pipe.Destination.ContainerType);
+                    writer.WritePropertyName("hth");
+                    writer.WriteValue(pipe.Health);
+                    writer.WritePropertyName("mst");
+                    writer.WriteValue(pipe.IsMultiStack);
+                    writer.WritePropertyName("ast");
+                    writer.WriteValue(pipe.IsAutoStart);
+                    writer.WritePropertyName("fso");
+                    writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
+                    writer.WritePropertyName("fss");
+                    writer.WriteValue(pipe.FurnaceSplitterStacks);
+                    writer.WritePropertyName("prt");
+                    writer.WriteValue(pipe.Priority);
+                    writer.WritePropertyName("oid");
+                    writer.WriteValue(pipe.OwnerId);
+                    writer.WritePropertyName("onm");
+                    writer.WriteValue(pipe.OwnerName);
+                    writer.WritePropertyName("nme");
+                    writer.WriteValue(pipe.DisplayName);
+                    writer.WritePropertyName("flr");
+                    writer.WriteStartArray();
+                    for (var i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                    JsonSerializer serializer)
+                {
+                    return new Pipe(reader, serializer);
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(Pipe);
+                }
+            }
+
+            public class ContainerManagerConverter : JsonConverter
+            {
+                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                {
+                    var container = value as ContainerManager;
+                    if (container == null) return;
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("ci");
+                    if (container.Container is ResourceExtractorFuelStorage)
+                        writer.WriteValue(container.Container.parentEntity.uid);
+                    else
+                        writer.WriteValue(container.ContainerId);
+                    writer.WritePropertyName("cs");
+                    writer.WriteValue(container.CombineStacks);
+                    writer.WritePropertyName("dn");
+                    writer.WriteValue(container.DisplayName);
+                    writer.WritePropertyName("ct");
+                    writer.WriteValue(ContainerHelper.GetEntityType(container.Container));
+                    writer.WriteEndObject();
+                }
+
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                {
+                    return null;
+                }
+
+                public override bool CanConvert(Type objectType)
+                {
+                    return objectType == typeof(ContainerManager);
                 }
             }
 
@@ -251,39 +316,39 @@ namespace Oxide.Plugins
                 public List<Pipe> Pipes { get; } = new List<Pipe>();
                 public List<ContainerManager.Data> Containers { get; } = new List<ContainerManager.Data>();
             }
-            
+
             IEnumerator BufferedSave(string filename)
             {
                 var sw = Stopwatch.StartNew();
                 yield return null;
                 Instance.Puts("Save v1.0 starting");
                 var buffer = new Buffer();
-                var pipeSnapshot = new List<Pipe>(Pipe.Pipes);
-                var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
+                var pipeSnapshot = new List<Pipe>(SyncPipesDevelopment.Pipe.Pipes);
+                var containerSnapshot = new List<ContainerManager>(SyncPipesDevelopment.ContainerManager.ManagedContainers);
                 for (int i = 0; i < pipeSnapshot.Count; i++)
                 {
                     try
                     {
-                        buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None));
+                        buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None, new PipeConverter()));
                     }
                     catch (Exception e)
                     {
-                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                        SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
                     }
 
                     yield return null;
                 }
                 Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
-                for(int i = 0; i < containerSnapshot.Count; i++)
+                for (int i = 0; i < containerSnapshot.Count; i++)
                 {
                     try
                     {
                         if (!containerSnapshot[i].HasAnyPipes) continue;
-                        buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None));
+                        buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None, new ContainerManagerConverter()));
                     }
                     catch (Exception e)
                     {
-                        Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
+                        SyncPipesDevelopment.Logger.Runtime.LogException(e, "DataStore1_0.BufferedSave");
                     }
                     yield return null;
                 }

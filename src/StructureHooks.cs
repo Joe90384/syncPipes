@@ -10,7 +10,12 @@ namespace Oxide.Plugins
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
         /// <param name="immediate">Whether this is an immediate demolish</param>
-        void OnStructureDemolish(BaseCombatEntity entity, BasePlayer player, bool immediate) => entity?.GetComponent<PipeSegment>()?.Pipe?.Remove();
+        void OnStructureDemolish(BaseCombatEntity entity, BasePlayer player, bool immediate)
+        {
+            PipeSegment segment = null;
+            if(entity?.TryGetComponent(out segment) ?? false)
+                segment.Pipe?.Remove();
+        }
 
         /// <summary>
         /// Hook: Ensures the who pipe is at the same damage level and to prevent decay when this is switched off
@@ -20,8 +25,9 @@ namespace Oxide.Plugins
         /// <returns>True to enable the damage handler to continue</returns>
         bool? OnEntityTakeDamage(BaseCombatEntity entity, HitInfo hitInfo)
         {
-            var pipe = entity?.GetComponent<PipeSegment>()?.Pipe;
-            if (pipe == null || hitInfo == null) return null;
+            PipeSegment segment = null;
+            if ((!entity?.TryGetComponent(out segment) ?? true) || hitInfo == null) return null;
+            var pipe = segment.Pipe;
             if (InstanceConfig.NoDecay)
                 hitInfo.damageTypes.Scale(DamageType.Decay, 0f);
             if (InstanceConfig.DestroyWithSalvage && hitInfo.WeaponPrefab?.prefabID == 1744180387 && PlayerHelper.Get(hitInfo.InitiatorPlayer).HasBuildPrivilege)
@@ -32,15 +38,14 @@ namespace Oxide.Plugins
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {
-                var health = entity.GetComponent<BaseCombatEntity>()?.health;
-                if (health.HasValue)
-                {
-                    health -= damage;
-                    if (health >= 1f)
-                        pipe.SetHealth(health.Value);
-                    else
-                        pipe.Remove();
-                }
+                BaseCombatEntity combatEntity = null; 
+                if(!entity.TryGetComponent<BaseCombatEntity>(out combatEntity)) return true;
+                var health = combatEntity.health;
+                health -= damage;
+                if (health >= 1f)
+                    pipe.SetHealth(health);
+                else
+                    pipe.Remove();
             }
             return true;
         }
@@ -64,10 +69,9 @@ namespace Oxide.Plugins
                     return false;
                 return null;
             }
-            var pipe = entity.GetComponent<PipeSegment>()?.Pipe;
-            if (pipe != null)
-                return OnPipeRepair(entity, player, pipe);
-            return null;
+
+            PipeSegment segment = null;
+            return entity?.TryGetComponent(out segment) ?? false ? OnPipeRepair(entity, player, segment.Pipe) : null;
         }
 
         /// <summary>
@@ -87,8 +91,11 @@ namespace Oxide.Plugins
                 return null;
             pipe.Repairing = true;
             entity.DoRepair(player);
-            pipe.SetHealth(entity.GetComponent<BuildingBlock>().health);
-            pipe.Repairing = false;
+            BuildingBlock buildingBlock = null;
+            if (entity.TryGetComponent(out buildingBlock))
+                pipe.SetHealth(buildingBlock.health);
+                pipe.Repairing = false;
+
             return false;
         }
 
@@ -98,7 +105,11 @@ namespace Oxide.Plugins
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
         /// <returns>False if it is a pipe, null if it isn't</returns>
-        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player) => entity?.GetComponent<PipeSegment>() ? (bool?)false : null;
+        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player)
+        {
+            PipeSegment segment = null;
+            return !entity?.TryGetComponent(out segment);
+        }
 
         /// <summary>
         /// Hook: Ensures the all pipe sections are upgraded together

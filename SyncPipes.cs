@@ -2344,7 +2344,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <param name="item">Item being removed</param>
         /// <param name="targetItem">Stack being added to</param>
         /// <returns>If the item can be stacked</returns>
-        private bool? CanStackItem(Item item, Item targetItem) => targetItem?.parent?.entityOwner?.GetComponent<PipeSegment>() != null ? (bool?)false : null;
+        private bool? CanStackItem(Item item, Item targetItem)
+        {
+            PipeSegment component
+            targetItem?.parent?.entityOwner?.TryGetComponent<PipeSegment>() != null ? (bool?)false : null
+        }
+
         #endregion
         #region Handlers
 

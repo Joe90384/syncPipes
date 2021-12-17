@@ -8,105 +8,7 @@ namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
-        /// <summary>
-        ///     This is the serializable data format for creating, loading or saving pipes with
-        /// </summary>
-        public class PipeData
-        {
-            private BaseEntity _destination;
-            private BaseEntity _source;
-            public ContainerType DestinationContainerType;
-            public uint DestinationId;
-            public int FurnaceSplitterStacks = 1;
-            public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
-            public float Health;
-            public bool IsAutoStart;
-            public bool IsEnabled = true;
-            public bool IsFurnaceSplitter;
-            public bool IsMultiStack = true;
-            public List<int> ItemFilter = new List<int>();
-            public ulong OwnerId;
-            public string OwnerName;
-            public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
-            public ContainerType SourceContainerType;
-            public uint SourceId;
 
-
-            /// <summary>
-            ///     This is required to deserialize from json
-            /// </summary>
-            public PipeData()
-            {
-            }
-
-            /// <summary>
-            ///     Create data from a pipe for saving
-            /// </summary>
-            /// <param name="pipe">Pipe to extract settings from</param>
-            public PipeData(Pipe pipe)
-            {
-                IsEnabled = pipe.IsEnabled;
-                Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage ||
-                           pipe.Source.ContainerType == ContainerType.ResourceExtractor
-                    ? pipe.Source.Container.parentEntity.uid
-                    : pipe.Source.Id;
-                DestinationId =
-                    pipe.Destination.ContainerType == ContainerType.FuelStorage ||
-                    pipe.Destination.ContainerType == ContainerType.ResourceExtractor
-                        ? pipe.Destination.Container.parentEntity.uid
-                        : pipe.Destination.Id;
-                SourceContainerType = pipe.Source.ContainerType;
-                DestinationContainerType = pipe.Destination.ContainerType;
-                Health = pipe.Health;
-                ItemFilter = new List<int>(pipe.FilterItems);
-                IsMultiStack = pipe.IsMultiStack;
-                IsAutoStart = pipe.IsAutoStart;
-                IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
-                FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
-                Priority = pipe.Priority;
-                OwnerId = pipe.OwnerId;
-                OwnerName = pipe.OwnerName;
-            }
-
-            /// <summary>
-            ///     Create a pipe data from the player helper's source and destination
-            /// </summary>
-            /// <param name="playerHelper">Player helper to pull the source and destination from</param>
-            public PipeData(PlayerHelper playerHelper)
-            {
-                OwnerId = playerHelper.Player.userID;
-                OwnerName = playerHelper.Player.displayName;
-                Source = playerHelper.Source;
-                Destination = playerHelper.Destination;
-                SourceId = Source.net.ID;
-                DestinationId = Destination.net.ID;
-                SourceContainerType = ContainerHelper.GetEntityType(playerHelper.Source);
-                DestinationContainerType = ContainerHelper.GetEntityType(playerHelper.Destination);
-                IsEnabled = true;
-            }
-
-            [JsonIgnore]
-            public BaseEntity Source
-            {
-                get { return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType)); }
-                private set { _source = value; }
-            }
-
-            [JsonIgnore]
-            public BaseEntity Destination
-            {
-                get
-                {
-                    return _destination ??
-                           (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
-                }
-                private set { _destination = value; }
-            }
-        }
-
-
-        [JsonConverter(typeof(Converter))]
         public class Pipe
         {
             /// <summary>
@@ -157,12 +59,6 @@ namespace Oxide.Plugins
                 IdGenerationFailed
             }
 
-            // Length of each segment
-            private const float PipeLength = 3f;
-
-            // Offset of every other pipe segment to remove z fighting when wall segments overlap
-            private static readonly Vector3 PipeFightOffset = new Vector3(0.0001f, 0.0001f, 0);
-
             // The random generator used to generate the id for this pipe.
             private static readonly Random RandomGenerator;
             private PipeFactory _factory;
@@ -206,7 +102,7 @@ namespace Oxide.Plugins
                 Create();
             }
 
-            private Pipe(JsonReader reader, JsonSerializer serializer)
+            public Pipe(JsonReader reader, JsonSerializer serializer)
             {
                 Id = GenerateId();
                 var depth = 1;
@@ -620,7 +516,9 @@ namespace Oxide.Plugins
             /// <returns></returns>
             public static Pipe Get(BaseEntity entity)
             {
-                return entity.GetComponent<PipeSegment>()?.Pipe;
+                PipeSegment segment = null;
+                entity?.TryGetComponent(out segment);
+                return segment?.Pipe;
             }
 
             /// <summary>
@@ -950,67 +848,6 @@ namespace Oxide.Plugins
                 InvertFilter = pipe.InvertFilter;
                 FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
                 Priority = pipe.Priority;
-            }
-
-            public class Converter : JsonConverter
-            {
-                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-                {
-                    var pipe = value as Pipe;
-                    if (pipe == null) return;
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("enb");
-                    writer.WriteValue(pipe.IsEnabled);
-                    writer.WritePropertyName("grd");
-                    writer.WriteValue(pipe.Grade);
-                    writer.WritePropertyName("sid");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType)
-                        ? pipe.Source.Container.parentEntity.uid
-                        : pipe.Source.Id);
-                    writer.WritePropertyName("did");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType)
-                        ? pipe.Destination.Container.parentEntity.uid
-                        : pipe.Destination.Id);
-                    writer.WritePropertyName("sct");
-                    writer.WriteValue(pipe.Source.ContainerType);
-                    writer.WritePropertyName("dct");
-                    writer.WriteValue(pipe.Destination.ContainerType);
-                    writer.WritePropertyName("hth");
-                    writer.WriteValue(pipe.Health);
-                    writer.WritePropertyName("mst");
-                    writer.WriteValue(pipe.IsMultiStack);
-                    writer.WritePropertyName("ast");
-                    writer.WriteValue(pipe.IsAutoStart);
-                    writer.WritePropertyName("fso");
-                    writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
-                    writer.WritePropertyName("fss");
-                    writer.WriteValue(pipe.FurnaceSplitterStacks);
-                    writer.WritePropertyName("prt");
-                    writer.WriteValue(pipe.Priority);
-                    writer.WritePropertyName("oid");
-                    writer.WriteValue(pipe.OwnerId);
-                    writer.WritePropertyName("onm");
-                    writer.WriteValue(pipe.OwnerName);
-                    writer.WritePropertyName("nme");
-                    writer.WriteValue(pipe.DisplayName);
-                    writer.WritePropertyName("flr");
-                    writer.WriteStartArray();
-                    for (var i = 0; i < pipe.PipeFilter.Items.Count; i++)
-                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
-                    writer.WriteEndArray();
-                    writer.WriteEndObject();
-                }
-
-                public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
-                    JsonSerializer serializer)
-                {
-                    return new Pipe(reader, serializer);
-                }
-
-                public override bool CanConvert(Type objectType)
-                {
-                    return objectType == typeof(Pipe);
-                }
             }
         }
     }

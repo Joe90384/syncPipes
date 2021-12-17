@@ -16,8 +16,11 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandleNamingContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                var containerManager = entity?.GetComponent<ContainerManager>();
-                var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                ContainerManager containerManager = null;
+                PipeSegmentBase segment = null;
+                entity?.TryGetComponent(out containerManager);
+                entity?.TryGetComponent(out segment);
+                var pipe = segment?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Naming)
                     return false;
                 if (!playerHelper.IsUser)
@@ -48,10 +51,12 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
+                StorageContainer conatainer = null;
+                PipeSegment segment = null;
                 if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    entity.GetComponent<StorageContainer>() == null ||
-                    entity.GetComponent<PipeSegment>() != null
+                    (!entity?.TryGetComponent(out conatainer) ?? false) ||
+                    (entity?.TryGetComponent(out segment) ?? false)
                     ) 
                     return false;
 
@@ -103,7 +108,9 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePipeCopy(PlayerHelper playerHelper, BaseEntity entity)
             {
-                var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                PipeSegmentBase segment = null;
+                entity?.TryGetComponent(out segment);
+                var pipe = segment?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Copying || pipe == null) return false;
                 if (!playerHelper.IsUser)
                 {
@@ -136,7 +143,9 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePipeRemove(PlayerHelper playerHelper, BaseEntity entity)
             {
-                var pipe = entity?.GetComponent<PipeSegment>()?.Pipe;
+                PipeSegment segment = null;
+                entity?.TryGetComponent(out segment);
+                var pipe = segment?.Pipe;
                 if (playerHelper.State != PlayerHelper.UserState.Removing || pipe == null) return false;
                 pipe.Remove();
                 playerHelper.ShowRemoveOverlay();
@@ -151,8 +160,9 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePipeMenu(PlayerHelper playerHelper, BaseEntity entity)
             {
-
-                var pipe = entity?.GetComponent<PipeSegmentBase>()?.Pipe;
+                PipeSegmentBase segment = null;
+                entity?.TryGetComponent(out segment);
+                var pipe = segment?.Pipe;
                 if (pipe == null || !pipe.CanPlayerOpen(playerHelper)) return false;
                 if (!playerHelper.IsUser)
                 {
@@ -196,7 +206,9 @@
             /// <returns>True indicates the upgrade was handled</returns>
             public static bool? HandlePipeUpgrade(BaseCombatEntity entity, PlayerHelper playerHelper, BuildingGrade.Enum grade)
             {
-                var pipe = entity?.GetComponent<PipeSegment>()?.Pipe;
+                PipeSegment segment = null;
+                entity?.TryGetComponent(out segment);
+                var pipe = segment?.Pipe;
                 if (pipe == null || playerHelper == null) return null;
                 var maxUpgrade = playerHelper.MaxUpgrade;
                 if (!playerHelper.IsUser)
