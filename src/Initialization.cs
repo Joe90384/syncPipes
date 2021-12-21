@@ -39,7 +39,7 @@ namespace Oxide.Plugins
         /// </summary>
         void Unload()
         {
-            DataStore1_0.Save(false);
+            Data.OnePointZero.Save(false);
             Puts("Unloading All Pipes");
             Pipe.Cleanup();
             ContainerManager.Cleanup();

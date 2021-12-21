@@ -14,94 +14,68 @@ namespace Oxide.Plugins
         /// </summary>
         public class ContainerManager : MonoBehaviour
         {
-            /// <summary>
-            /// This is the serializable data format fro loading or saving container manager data
-            /// </summary>
-            public class Data
-            {
-                public uint ContainerId;
-                public bool CombineStacks;
-                public string DisplayName;
-                public ContainerType ContainerType;
+            
 
-                /// <summary>
-                /// This is required to deserialize from json
-                /// </summary>
-                public Data() { }
+            ///// <summary>
+            ///// Get the save data for all container managers
+            ///// </summary>
+            ///// <returns>data for all container managers</returns>
+            //public static IEnumerable<Data> Save()
+            //{
+            //    using (var enumerator = ManagedContainerLookup.GetEnumerator())
+            //    {
+            //        while (enumerator.MoveNext())
+            //        {
+            //            if (enumerator.Current.Value.HasAnyPipes)
+            //                yield return new Data(enumerator.Current.Value);
+            //        }
+            //    }
+            //}
 
-                /// <summary>
-                /// Create data from a container manager for saving
-                /// </summary>
-                /// <param name="containerManager">Container manager to extract settings from</param>
-                public Data(ContainerManager containerManager)
-                {
-                    ContainerId = containerManager.ContainerId;
-                    CombineStacks = containerManager.CombineStacks;
-                    DisplayName = containerManager.DisplayName;
-                    ContainerType = ContainerHelper.GetEntityType(containerManager.Container);
-                }
-            }
+            //private static void LogLoadError(Data data)
+            //{
+            //    Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
+            //    Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
+            //    Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
+            //    Logger.ContainerLoader.Log("");
+            //}
 
-            /// <summary>
-            /// Get the save data for all container managers
-            /// </summary>
-            /// <returns>data for all container managers</returns>
-            public static IEnumerable<Data> Save()
-            {
-                using (var enumerator = ManagedContainerLookup.GetEnumerator())
-                {
-                    while (enumerator.MoveNext())
-                    {
-                        if (enumerator.Current.Value.HasAnyPipes)
-                            yield return new Data(enumerator.Current.Value);
-                    }
-                }
-            }
-
-            private static void LogLoadError(Data data)
-            {
-                Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
-                Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
-                Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
-                Logger.ContainerLoader.Log("");
-            }
-
-            /// <summary>
-            /// Load all data into the container managers.
-            /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
-            /// </summary>
-            /// <param name="dataToLoad">Data to load into container managers</param>
-            public static void Load(List<Data> dataToLoad)
-            {
-                if (dataToLoad == null) return;
-                var containerCount = 0;
-                for(int i = 0; i < dataToLoad.Count; i++)
-                {
-                    ContainerManager manager;
-                    if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
-                    {
-                        var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
-                        dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
-                    }
-                    if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
-                    {
-                        containerCount++;
-                        manager.DisplayName = dataToLoad[i].DisplayName;
-                        manager.CombineStacks = dataToLoad[i].CombineStacks;
-                    }
-                    else
-                    {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
-                        LogLoadError(dataToLoad[i]);
-                    }
-                }
-                Instance.Puts("Successfully loaded {0} managers", containerCount);
-            }
+            ///// <summary>
+            ///// Load all data into the container managers.
+            ///// This must be run after Pipe.Load as it only updates container managers created by the pipes.
+            ///// </summary>
+            ///// <param name="dataToLoad">Data to load into container managers</param>
+            //public static void Load(List<Data> dataToLoad)
+            //{
+            //    if (dataToLoad == null) return;
+            //    var containerCount = 0;
+            //    for(int i = 0; i < dataToLoad.Count; i++)
+            //    {
+            //        ContainerManager manager;
+            //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+            //        {
+            //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
+            //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+            //        }
+            //        if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
+            //        {
+            //            containerCount++;
+            //            manager.DisplayName = dataToLoad[i].DisplayName;
+            //            manager.CombineStacks = dataToLoad[i].CombineStacks;
+            //        }
+            //        else
+            //        {
+            //            Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
+            //            LogLoadError(dataToLoad[i]);
+            //        }
+            //    }
+            //    Instance.Puts("Successfully loaded {0} managers", containerCount);
+            //}
 
             /// <summary>
             ///     Keeps track of all the container managers that have been created.
             /// </summary>
-            private static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
+            internal static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
                 new Dictionary<uint, ContainerManager>();
             public static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
 
@@ -111,7 +85,7 @@ namespace Oxide.Plugins
 
             // Pull from multiple stack of the same type whe moving or only move one stack per priority level
             // This has been implemented but the controlling systems have not been developed
-            public bool CombineStacks { get; private set; } = true;
+            public bool CombineStacks { get; internal set; } = true;
 
             public StorageContainer Container { get; set; } // The storage container this manager is attached to
             public uint ContainerId; // The id of the storage container this manager is attached to
@@ -195,6 +169,7 @@ namespace Oxide.Plugins
                 }
                 containerManager.ContainerId = entity.net.ID;
                 containerManager.Container = container;
+                containerManager.ContainerType = ContainerHelper.GetEntityType(container);
                 return containerManager;
             }
 
@@ -287,6 +262,8 @@ namespace Oxide.Plugins
                     return Container.inventory.itemList;
                 }
             }
+
+            public ContainerType ContainerType { get; set; }
 
             private MovableType CanPuItem(Item item)
             {

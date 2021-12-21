@@ -46,7 +46,7 @@
   <ItemGroup>
     <Reference Include="Oxide.CSharp, Version=2.0.4037.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\steam_servers\rust\RustDedicated_Data\Managed\Oxide.CSharp.dll</HintPath>
+      <HintPath>$(RustServerDir)\RustDedicated_Data\Managed\Oxide.CSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

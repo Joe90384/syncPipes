@@ -7,12 +7,7 @@
         /// </summary>
         void OnServerInitialized()
         {
-
-            if (!DataStore1_0.Load())
-            {
-                Instance.Puts("Upgrading from old data store");
-                Data.Load();
-            }
+            Data.OnePointZero.Load();
         }
 
         /// <summary>
@@ -20,7 +15,7 @@
         /// </summary>
         void OnServerSave()
         {
-            DataStore1_0.Save();
+            Data.OnePointZero.Save();
         }
     }
 }

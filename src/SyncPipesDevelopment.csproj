@@ -109,9 +109,14 @@
   <ItemGroup>
     <Compile Include="Attributes.cs" />
     <Compile Include="Commands.cs" />
-    <Compile Include="DataStore\Data.cs" />
-    <Compile Include="DataStore\DataStore1_0.cs" />
-    <Compile Include="DataStore\DataStore2_0.cs" />
+    <Compile Include="DataStore\1.0\ReadDataBuffer.cs" />
+    <Compile Include="DataStore\1.0\WriteDataBuffer.cs" />
+    <Compile Include="DataStore\1.0\ContainerManagerConverter.cs" />
+    <Compile Include="DataStore\1.0\DataConverter.cs" />
+    <Compile Include="DataStore\1.0\PipeConverter.cs" />
+    <Compile Include="DataStore\1.0\ContainerManagerData.cs" />
+    <Compile Include="DataStore\1.0\OnePointZero.cs" />
+    <Compile Include="DataStore\1.0\Logging.cs" />
     <Compile Include="Experimental\Components\UIButton.cs" />
     <Compile Include="Experimental\Components\UICleanup.cs" />
     <Compile Include="Experimental\Components\UIComponentBase.cs" />
