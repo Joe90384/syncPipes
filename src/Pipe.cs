@@ -61,7 +61,7 @@ namespace Oxide.Plugins
 
             // The random generator used to generate the id for this pipe.
             private static readonly Random RandomGenerator;
-            private PipeFactory _factory;
+            internal PipeFactoryBase Factory { get; set; }
 
             // This is the initial state of the filter. This is the fallback if the filter is not initialized
             public List<int> InitialFilterItems { get; internal set; }= new List<int>();
@@ -286,7 +286,7 @@ namespace Oxide.Plugins
             ///     Health of the pipe
             ///     Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => _factory.PrimarySegment.Health();
+            public float Health => Factory.PrimarySegment.Health();
 
             /// <summary>
             ///     Used to indicate this pipe is being repaired to prevent multiple repair triggers
@@ -296,7 +296,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Id of the pipe
             /// </summary>
-            public ulong Id { get; set; }
+            public uint Id { get; set; }
 
             /// <summary>
             ///     Allows for the filter to be used to reject rather than allow items
@@ -359,12 +359,12 @@ namespace Oxide.Plugins
             /// </summary>
             public Quaternion Rotation { get; private set; }
 
-            public BaseEntity PrimarySegment => _factory.PrimarySegment;
+            public BaseEntity PrimarySegment => Factory.PrimarySegment;
 
             /// <summary>
             ///     Get the save data for all pipes
             /// </summary>
-            /// <returns>Data for all pipes</returns>
+            /// <returns>DataStore for all pipes</returns>
             public static IEnumerable<PipeData> Save()
             {
                 for (var i = 0; i < Pipes.Count; i++) yield return new PipeData(Pipes[i]);
@@ -394,7 +394,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Load all data and re-create the saved pipes.
             /// </summary>
-            /// <param name="dataToLoad">Data to create the pipes from</param>
+            /// <param name="dataToLoad">DataStore to create the pipes from</param>
             public static void Load(PipeData[] dataToLoad)
             {
                 if (dataToLoad == null) return;
@@ -423,10 +423,10 @@ namespace Oxide.Plugins
                     return;
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
                     ? new PipeFactoryBarrel(this)
-                    : (PipeFactory)new PipeFactoryLowWall(this);
-                _factory.Create();
+                    : (PipeFactoryBase)new PipeFactoryLowWall(this);
+                Factory.Create();
                 if (PrimarySegment == null)
                     return;
                 Source.Attach();
@@ -472,15 +472,15 @@ namespace Oxide.Plugins
             ///     Generate a new Id for this pipe
             /// </summary>
             /// <returns></returns>
-            internal ulong GenerateId()
+            internal uint GenerateId()
             {
-                ulong id;
+                uint id;
                 var safetyCheck = 0;
                 do
                 {
-                    var buf = new byte[8];
+                    var buf = new byte[4];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong)BitConverter.ToInt64(buf, 0);
+                    id = (uint)BitConverter.ToUInt32(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -600,7 +600,7 @@ namespace Oxide.Plugins
                 Source = Destination;
                 Destination = stash;
                 Rotation = GetRotation();
-                _factory.Reverse();
+                Factory.Reverse();
                 RefreshMenu();
             }
 
@@ -682,15 +682,15 @@ namespace Oxide.Plugins
             {
                 if (cleanup)
                 {
-                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                        _factory.PrimarySegment?.Kill();
+                    if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                        Factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                            Factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
@@ -742,7 +742,7 @@ namespace Oxide.Plugins
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                _factory.Upgrade(grade);
+                Factory.Upgrade(grade);
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
                 RefreshMenu();
@@ -754,7 +754,7 @@ namespace Oxide.Plugins
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                _factory.SetHealth(health);
+                Factory.SetHealth(health);
             }
 
             /// <summary>

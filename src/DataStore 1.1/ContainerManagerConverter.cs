@@ -5,12 +5,14 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        partial class Data
+        partial class DataStore
         {
-            partial class OnePointZero
+            partial class OnePointOne
             {
                 public class ContainerManagerDataConverter : JsonConverter
                 {
+                    public bool IsRead { get; set; }
+
                     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                     {
                         var container = value as ContainerManager;
@@ -82,18 +84,9 @@ namespace Oxide.Plugins
                         return containerManagerData;
                     }
 
-                    public override bool CanConvert(Type objectType)
-                    {
-                        _canRead = objectType == typeof(ContainerManagerData);
-                        _canWrite = objectType == typeof(ContainerManager);
-                        return _canRead || _canWrite;
-                    }
-
-                    private bool _canWrite;
-                    private bool _canRead;
-
-                    public override bool CanWrite => _canWrite;
-                    public override bool CanRead => _canRead;
+                    public override bool CanConvert(Type objectType) => IsRead
+                        ? objectType == typeof(ContainerManagerData)
+                        : objectType == typeof(ContainerManager);
                 }
 
             }

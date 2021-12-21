@@ -5,7 +5,7 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        private class PipeFactoryBarrel : PipeFactory<StorageContainer>
+        private class PipeFactoryBarrel : PipeFactoryBase<StorageContainer>
         {
             protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
 

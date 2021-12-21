@@ -2,9 +2,9 @@
 {
     partial class SyncPipesDevelopment
     {
-        partial class Data
+        partial class DataStore
         {
-            partial class OnePointZero
+            partial class OnePointOne
             {
                 /// <summary>
                 /// This is the serializable data format fro loading or saving container manager data

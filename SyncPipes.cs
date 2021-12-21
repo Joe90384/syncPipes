@@ -137,7 +137,8 @@ namespace Oxide.Plugins
         /// </summary>
         void Unload()
         {
-            Data.OnePointZero.Save(false);
+            DataStore.OnePointZero.Save(false);
+            DataStore.OnePointOne.Save(false);
             Puts("Unloading All Pipes");
             Pipe.Cleanup();
             ContainerManager.Cleanup();
@@ -700,6 +701,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         {
             [JsonProperty("barrelPipe")]
             public bool BarrelPipe { get; set; }
+
+            [JsonProperty("permEntity")]
+            public bool PermanentEntities { get; set; }
         }
 
         /// <summary>
@@ -925,19 +929,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             ///// Get the save data for all container managers
             ///// </summary>
             ///// <returns>data for all container managers</returns>
-            //public static IEnumerable<Data> Save()
+            //public static IEnumerable<DataStore> Save()
             //{
             //    using (var enumerator = ManagedContainerLookup.GetEnumerator())
             //    {
             //        while (enumerator.MoveNext())
             //        {
             //            if (enumerator.Current.Value.HasAnyPipes)
-            //                yield return new Data(enumerator.Current.Value);
+            //                yield return new DataStore(enumerator.Current.Value);
             //        }
             //    }
             //}
 
-            //private static void LogLoadError(Data data)
+            //private static void LogLoadError(DataStore data)
             //{
             //    Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
             //    Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
@@ -949,8 +953,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             ///// Load all data into the container managers.
             ///// This must be run after Pipe.Load as it only updates container managers created by the pipes.
             ///// </summary>
-            ///// <param name="dataToLoad">Data to load into container managers</param>
-            //public static void Load(List<Data> dataToLoad)
+            ///// <param name="dataToLoad">DataStore to load into container managers</param>
+            //public static void Load(List<DataStore> dataToLoad)
             //{
             //    if (dataToLoad == null) return;
             //    var containerCount = 0;
@@ -2270,6 +2274,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         {
             public static readonly Logger PipeLoader = new Logger("PipeLoadErrors", LogLevels.Error);
             public static readonly Logger ContainerLoader = new Logger("ContainerLoadErrors", LogLevels.Error);
+            public static readonly Logger PipeFactoryLoader = new Logger("PipeFactoryErrors", LogLevels.Error);
             public static readonly Logger FindErrors = new Logger("FindErrors", LogLevels.Error);
             public static readonly Logger Runtime = new Logger("Runtime", LogLevels.Info);
 
@@ -3235,7 +3240,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             // The random generator used to generate the id for this pipe.
             private static readonly Random RandomGenerator;
-            private PipeFactory _factory;
+            internal PipeFactoryBase Factory { get; set; }
 
             // This is the initial state of the filter. This is the fallback if the filter is not initialized
             public List<int> InitialFilterItems { get; internal set; }= new List<int>();
@@ -3460,7 +3465,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             ///     Health of the pipe
             ///     Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => _factory.PrimarySegment.Health();
+            public float Health => Factory.PrimarySegment.Health();
 
             /// <summary>
             ///     Used to indicate this pipe is being repaired to prevent multiple repair triggers
@@ -3470,7 +3475,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             ///     Id of the pipe
             /// </summary>
-            public ulong Id { get; set; }
+            public uint Id { get; set; }
 
             /// <summary>
             ///     Allows for the filter to be used to reject rather than allow items
@@ -3533,12 +3538,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public Quaternion Rotation { get; private set; }
 
-            public BaseEntity PrimarySegment => _factory.PrimarySegment;
+            public BaseEntity PrimarySegment => Factory.PrimarySegment;
 
             /// <summary>
             ///     Get the save data for all pipes
             /// </summary>
-            /// <returns>Data for all pipes</returns>
+            /// <returns>DataStore for all pipes</returns>
             public static IEnumerable<PipeData> Save()
             {
                 for (var i = 0; i < Pipes.Count; i++) yield return new PipeData(Pipes[i]);
@@ -3568,7 +3573,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             ///     Load all data and re-create the saved pipes.
             /// </summary>
-            /// <param name="dataToLoad">Data to create the pipes from</param>
+            /// <param name="dataToLoad">DataStore to create the pipes from</param>
             public static void Load(PipeData[] dataToLoad)
             {
                 if (dataToLoad == null) return;
@@ -3597,10 +3602,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     return;
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
                     ? new PipeFactoryBarrel(this)
-                    : (PipeFactory)new PipeFactoryLowWall(this);
-                _factory.Create();
+                    : (PipeFactoryBase)new PipeFactoryLowWall(this);
+                Factory.Create();
                 if (PrimarySegment == null)
                     return;
                 Source.Attach();
@@ -3646,15 +3651,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             ///     Generate a new Id for this pipe
             /// </summary>
             /// <returns></returns>
-            internal ulong GenerateId()
+            internal uint GenerateId()
             {
-                ulong id;
+                uint id;
                 var safetyCheck = 0;
                 do
                 {
-                    var buf = new byte[8];
+                    var buf = new byte[4];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong)BitConverter.ToInt64(buf, 0);
+                    id = (uint)BitConverter.ToUInt32(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -3774,7 +3779,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Source = Destination;
                 Destination = stash;
                 Rotation = GetRotation();
-                _factory.Reverse();
+                Factory.Reverse();
                 RefreshMenu();
             }
 
@@ -3856,15 +3861,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 if (cleanup)
                 {
-                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                        _factory.PrimarySegment?.Kill();
+                    if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                        Factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                            Factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
@@ -3916,7 +3921,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                _factory.Upgrade(grade);
+                Factory.Upgrade(grade);
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
                 RefreshMenu();
@@ -3928,7 +3933,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                _factory.SetHealth(health);
+                Factory.SetHealth(health);
             }
 
             /// <summary>
@@ -4948,7 +4953,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerInitialized()
         {
-            Data.OnePointZero.Load();
+            //if(!InstanceConfig.Experimental.PermanentEntities || !DataStore.OnePointOne.Load())
+                DataStore.OnePointZero.Load();
+                DataStore.OnePointOne.Load();
         }
 
         /// <summary>
@@ -4956,7 +4963,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerSave()
         {
-            Data.OnePointZero.Save();
+            //if (InstanceConfig.Experimental.PermanentEntities)
+                DataStore.OnePointOne.Save();
+            //else
+                DataStore.OnePointZero.Save();
         }
         #endregion
         #region StorageHelper
@@ -5270,10 +5280,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             BuildingGrade.Enum grade) =>
             Handlers.HandlePipeUpgrade(entity, PlayerHelper.Get(player), grade);
         #endregion
-        #region 1.0
+        #region DataStore 1.0
         #region ContainerManagerConverter
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5369,7 +5379,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region ContainerManagerData
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5407,7 +5417,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region DataConverter
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5488,7 +5498,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region Logging
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5533,7 +5543,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region OnePointZero
 
-        internal partial class Data
+        internal partial class DataStore
         {
             internal partial class OnePointZero : MonoBehaviour
             {
@@ -5744,14 +5754,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         _loading = false;
                     }
                 }
-
-
             }
         }
         #endregion
         #region PipeConverter
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5928,7 +5936,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region ReadDataBuffer
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5943,7 +5951,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region WriteDataBuffer
 
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
@@ -5957,10 +5965,861 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         }
         #endregion
         #endregion
+        #region DataStore 1.1
+        #region ContainerManagerConverter
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class ContainerManagerDataConverter : JsonConverter
+                {
+                    public bool IsRead { get; set; }
+
+                    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                    {
+                        var container = value as ContainerManager;
+                        if (container == null) return;
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("ci");
+                        if (container.Container is ResourceExtractorFuelStorage)
+                            writer.WriteValue(container.Container.parentEntity.uid);
+                        else
+                            writer.WriteValue(container.ContainerId);
+                        writer.WritePropertyName("cs");
+                        writer.WriteValue(container.CombineStacks);
+                        writer.WritePropertyName("dn");
+                        writer.WriteValue(container.DisplayName);
+                        writer.WritePropertyName("ct");
+                        writer.WriteValue(ContainerHelper.GetEntityType(container.Container));
+                        writer.WriteEndObject();
+                    }
+
+                    public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                        JsonSerializer serializer)
+                    {
+                        var containerManagerData = new ContainerManagerData();
+
+                        var depth = 1;
+                        if (reader.TokenType != JsonToken.StartObject)
+                        {
+                            LogLoadError(containerManagerData,
+                                "Json StartObject for container manager is missing...");
+                            return containerManagerData;
+                        }
+
+                        while (reader.Read() && depth > 0)
+                        {
+                            switch (reader.TokenType)
+                            {
+                                case JsonToken.StartObject:
+                                    depth++;
+                                    break;
+                                case JsonToken.EndObject:
+                                    depth--;
+                                    break;
+                                case JsonToken.PropertyName:
+                                    switch (reader.Value.ToString())
+                                    {
+                                        case "ci":
+                                            reader.Read();
+                                            uint containerId;
+                                            if (uint.TryParse(reader.Value.ToString(), out containerId))
+                                                containerManagerData.ContainerId = containerId;
+                                            break;
+                                        case "cs":
+                                            containerManagerData.CombineStacks =
+                                                reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "dn":
+                                            containerManagerData.DisplayName = reader.ReadAsString();
+                                            break;
+                                        case "ct":
+                                            containerManagerData.ContainerType =
+                                                (ContainerType)(reader.ReadAsInt32() ?? 0);
+                                            break;
+                                    }
+
+                                    break;
+                            }
+                        }
+
+                        return containerManagerData;
+                    }
+
+                    public override bool CanConvert(Type objectType) => IsRead
+                        ? objectType == typeof(ContainerManagerData)
+                        : objectType == typeof(ContainerManager);
+                }
+
+            }
+        }
+        #endregion
+        #region ContainerManagerData
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                /// <summary>
+                /// This is the serializable data format fro loading or saving container manager data
+                /// </summary>
+                public class ContainerManagerData
+                {
+                    public uint ContainerId;
+                    public bool CombineStacks;
+                    public string DisplayName;
+                    public ContainerType ContainerType;
+
+                    /// <summary>
+                    /// This is required to deserialize from json
+                    /// </summary>
+                    public ContainerManagerData()
+                    {
+                    }
+
+                    /// <summary>
+                    /// Create data from a container manager for saving
+                    /// </summary>
+                    /// <param name="containerManager">Container manager to extract settings from</param>
+                    public ContainerManagerData(ContainerManager containerManager)
+                    {
+                        ContainerId = containerManager.ContainerId;
+                        CombineStacks = containerManager.CombineStacks;
+                        DisplayName = containerManager.DisplayName;
+                        ContainerType = ContainerHelper.GetEntityType(containerManager.Container);
+                    }
+                }
+            }
+        }
+        #endregion
+        #region DataConverter
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class DataConverter : JsonConverter
+                {
+                    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                    {
+                        try
+                        {
+                            var buffer = value as WriteDataBuffer;
+                            if (buffer == null) return;
+
+                            writer.WriteStartObject();
+                            writer.WritePropertyName("pipes");
+                            writer.WriteStartArray();
+                            for (int i = 0; i < buffer.Pipes.Count; i++)
+                                writer.WriteRawValue(buffer.Pipes[i]);
+                            writer.WriteEndArray();
+                            writer.WritePropertyName("factories");
+                            writer.WriteStartArray();
+                            for (int i = 0; i < buffer.Factories.Count; i++)
+                                writer.WriteRawValue(buffer.Factories[i]);
+                            writer.WriteEndArray();
+                            writer.WritePropertyName("containers");
+                            writer.WriteStartArray();
+                            for (int i = 0; i < buffer.Containers.Count; i++)
+                                writer.WriteRawValue(buffer.Containers[i]);
+                            writer.WriteEndArray();
+                            writer.WriteEndObject();
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "DataStore1_0.DataConverter.WriteJson");
+                        }
+                    }
+
+                    public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                        JsonSerializer serializer)
+                    {
+                        serializer.Converters.Add(new PipeConverter());
+                        serializer.Converters.Add(new ContainerManagerDataConverter(){IsRead = true});
+                        serializer.Converters.Add(new PipeFactoryDataConverter(){IsRead = true});
+                        var buffer = new ReadDataBuffer();
+                        try
+                        {
+                            while (reader.Read())
+                            {
+                                Instance.Puts("Reader: {0}", reader.Value);
+                                if (reader.TokenType == JsonToken.PropertyName)
+                                {
+                                    switch ((string)reader.Value)
+                                    {
+                                        case "pipes":
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            while (reader.TokenType != JsonToken.EndArray)
+                                                buffer.Pipes.Add(serializer.Deserialize<Pipe>(reader));
+                                            break;
+                                        case "factories":
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            while (reader.TokenType != JsonToken.EndArray)
+                                                buffer.Factories.Add(serializer.Deserialize<PipeFactoryData>(reader));
+                                            break;
+                                        case "containers":
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            reader.Read();
+                                            Instance.Puts("Reader: {0}", reader.Value);
+                                            while (reader.TokenType != JsonToken.EndArray)
+                                                buffer.Containers.Add(serializer.Deserialize<ContainerManagerData>(reader));
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "DataStore1_0.DataConverter.ReadJson");
+                        }
+
+                        return buffer;
+                    }
+
+                    public override bool CanConvert(Type objectType)
+                    {
+                        return true;
+                    }
+                }
+                
+            }
+        }
+        #endregion
+        #region Logging
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                private static void LogLoadError(ContainerManagerData containerManagerData,
+                    string message = null)
+                {
+                    Logger.ContainerLoader.Log("------------------- {0} -------------------",
+                        containerManagerData.ContainerId);
+                    if (!string.IsNullOrEmpty(message))
+                        Logger.ContainerLoader.Log(message);
+                    Logger.ContainerLoader.Log("Container Type: {0}", containerManagerData.ContainerType);
+                    Logger.ContainerLoader.Log("Display Name: {0}", containerManagerData.DisplayName);
+                    Logger.ContainerLoader.Log("");
+                }
+                private static void LogLoadError(PipeFactoryData pipeFactoryData, string message = null)
+                {
+                    Logger.PipeFactoryLoader.Log("------------------- {0} -------------------",
+                        pipeFactoryData.PipeId);
+                    if (!string.IsNullOrEmpty(message))
+                        Logger.ContainerLoader.Log(message);
+                    Logger.ContainerLoader.Log("Is Barrel: {0}", pipeFactoryData.IsBarrel);
+                    Logger.ContainerLoader.Log("EntityCount: {0}", pipeFactoryData.EntityIds?.Length ?? 0);
+                    Logger.ContainerLoader.Log("");
+                }
+
+                private static void LogLoadError(Pipe pipe, uint sourceId, uint destinationId,
+                    string message = null)
+                {
+                    Logger.PipeLoader.Log("------------------- {0} -------------------", pipe.Id);
+                    if (!string.IsNullOrEmpty(message))
+                        Logger.PipeLoader.Log("Error: {0}", message);
+                    Logger.PipeLoader.Log("Status: {0}", pipe.Validity);
+                    Logger.PipeLoader.Log("Source Id: {0}", sourceId);
+                    Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
+                    Logger.PipeLoader.Log("Source Type: {0}", pipe.Source?.ContainerType);
+                    Logger.PipeLoader.Log("Destination Type: {0}", pipe.Destination?.ContainerType);
+                    Logger.PipeLoader.Log("Material: {0}", pipe.Grade);
+                    Logger.PipeLoader.Log("Enabled: {0}", pipe.IsEnabled);
+                    Logger.PipeLoader.Log("Auto-start: {0}", pipe.IsAutoStart);
+                    Logger.PipeLoader.Log("Health: {0}", pipe.InitialHealth);
+                    Logger.PipeLoader.Log("Priority: {0}", pipe.Priority);
+                    Logger.PipeLoader.Log("Splitter Enabled: {0}", pipe.IsFurnaceSplitterEnabled);
+                    Logger.PipeLoader.Log("Splitter Count: {0}", pipe.FurnaceSplitterStacks);
+                    Logger.PipeLoader.Log("Item Filter: ({0})", pipe.PipeFilter?.Items.Count);
+                    for (var i = 0; i < pipe.PipeFilter?.Items.Count; i++)
+                        Logger.PipeLoader.Log("    Item[{0}]: {1}", i,
+                            pipe.PipeFilter.Items[i]?.info.displayName.english);
+                    Logger.PipeLoader.Log("");
+                }
+            }
+        }
+        #endregion
+        #region OnePointOne
+
+        internal partial class DataStore
+        {
+            internal partial class OnePointOne : MonoBehaviour
+            {
+                private const string Version = "1.1";
+                private static string FilenameVersion => Version.Replace('.', '-');
+                private static string _filename;
+                private static string Filename => _filename ?? (_filename = $"{Instance.Name}_v{FilenameVersion}");
+
+                private static Coroutine _coroutine;
+                private static bool _saving;
+                private static bool _loading;
+                private static GameObject _saverGameObject;
+                private static OnePointOne _dataStore;
+
+                private static OnePointOne DataStore
+                {
+                    get
+                    {
+                        if (_dataStore == null)
+                        {
+                            _saverGameObject =
+                                new GameObject($"{Instance.Name.ToLower()}-datastore-{FilenameVersion}");
+                            _dataStore = _saverGameObject.AddComponent<OnePointOne>();
+                        }
+
+                        return _dataStore;
+                    }
+                }
+
+                public static bool Save(bool backgroundSave = true)
+                {
+                    try
+                    {
+                        if (_loading)
+                            return false;
+                        if (!backgroundSave && _saving)
+                        {
+                            if (_coroutine != null)
+                                DataStore.StopCoroutine(_coroutine);
+                            _saving = false;
+                        }
+                        else if (_saving)
+                            return false;
+
+                        try
+                        {
+                            _saving = true;
+                            if (backgroundSave)
+                                _coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
+                            else
+                            {
+                                var enumerator = DataStore.BufferedSave(Filename);
+                                while (enumerator.MoveNext())
+                                {
+                                }
+                            }
+
+                            return true;
+                        }
+                        finally
+                        {
+                            _saving = false;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Runtime.LogException(e, "OnePointOne.Save");
+                        _saving = false;
+                        return false;
+                    }
+                }
+
+                public static bool Load()
+                {
+                    try
+                    {
+                        _loading = true;
+                        var filename = Filename;
+                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        _loading = false;
+                        Logger.Runtime.LogException(e, "OnePointOne.Load");
+                        return false;
+                    }
+                }
+
+                IEnumerator BufferedSave(string filename)
+                {
+                    var sw = Stopwatch.StartNew();
+                    yield return null;
+                    Instance.Puts($"Save v{Version} starting");
+                    var buffer = new WriteDataBuffer();
+                    var pipeSnapshot = new List<Pipe>(Pipe.Pipes);
+                    var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
+                    for (int i = 0; i < pipeSnapshot.Count; i++)
+                    {
+                        try
+                        {
+                            buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None, new PipeConverter()));
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.Pipe");
+                        }
+                        yield return null;
+                        try
+                        {
+                            buffer.Factories.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None, new PipeFactoryDataConverter()));
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.Factory");
+                        }
+                        yield return null;
+                    }
+
+                    Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
+                    for (int i = 0; i < containerSnapshot.Count; i++)
+                    {
+                        try
+                        {
+                            if (!containerSnapshot[i].HasAnyPipes) continue;
+                            buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None,
+                                new ContainerManagerDataConverter()));
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.ContainerManager");
+                        }
+
+                        yield return null;
+                    }
+
+                    Instance.Puts("Saved {0} managers", buffer.Containers.Count);
+                    Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
+                    Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
+                    Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
+                    sw.Stop();
+                    _saving = false;
+                    yield return null;
+                }
+
+                IEnumerator BufferedLoad(string filename)
+                {
+                    try
+                    {
+                        yield return null;
+                        Instance.Puts($"Load v{Version} starting");
+                        var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
+                        Instance.Puts("Loaded {0} pipes, {1} pipe factories and {2} container managers", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        //var validPipes = 0;
+                        //for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
+                        //{
+                        //    var pipe = readDataBuffer.Pipes[i];
+                        //    if (pipe.Validity == Pipe.Status.Success)
+                        //    {
+                        //        readDataBuffer.Pipes[i].Create();
+                        //        validPipes++;
+                        //    }
+                        //    else
+                        //        Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                        //    yield return null;
+                        //}
+
+                        //Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
+                        //var dataToLoad = readDataBuffer.Containers;
+                        //if (dataToLoad != null)
+                        //{
+                        //    var validContainers = 0;
+                        //    for (int i = 0; i < dataToLoad.Count; i++)
+                        //    {
+                        //        ContainerManager manager;
+                        //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                        //        {
+                        //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
+                        //                dataToLoad[i].ContainerType);
+                        //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+                        //        }
+
+                        //        if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
+                        //                out manager))
+                        //        {
+                        //            validContainers++;
+                        //            manager.DisplayName = dataToLoad[i].DisplayName;
+                        //            manager.CombineStacks = dataToLoad[i].CombineStacks;
+                        //        }
+                        //        else
+                        //        {
+                        //            Instance.PrintWarning(
+                        //                "Failed to load manager [{0} - {1} - {2}]: Container not found",
+                        //                dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
+                        //                dataToLoad[i].DisplayName);
+                        //            LogLoadError(dataToLoad[i]);
+                        //        }
+
+                        //        yield return null;
+                        //    }
+
+                        //    Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                        //}
+
+                        Instance.Puts($"Load v{Version} complete");
+                        yield return null;
+                    }
+                    finally
+                    {
+                        _loading = false;
+                    }
+                }
+            }
+        }
+        #endregion
+        #region PipeConverter
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class PipeConverter : JsonConverter
+                {
+                    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                    {
+                        var pipe = value as Pipe;
+                        if (pipe == null) return;
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("pid");
+                        writer.WriteValue(pipe.Id);
+                        writer.WritePropertyName("enb");
+                        writer.WriteValue(pipe.IsEnabled);
+                        writer.WritePropertyName("grd");
+                        writer.WriteValue(pipe.Grade);
+                        writer.WritePropertyName("sid");
+                        writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType)
+                            ? pipe.Source.Container.parentEntity.uid
+                            : pipe.Source.Id);
+                        writer.WritePropertyName("did");
+                        writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType)
+                            ? pipe.Destination.Container.parentEntity.uid
+                            : pipe.Destination.Id);
+                        writer.WritePropertyName("sct");
+                        writer.WriteValue(pipe.Source.ContainerType);
+                        writer.WritePropertyName("dct");
+                        writer.WriteValue(pipe.Destination.ContainerType);
+                        writer.WritePropertyName("hth");
+                        writer.WriteValue(pipe.Health);
+                        writer.WritePropertyName("mst");
+                        writer.WriteValue(pipe.IsMultiStack);
+                        writer.WritePropertyName("ast");
+                        writer.WriteValue(pipe.IsAutoStart);
+                        writer.WritePropertyName("fso");
+                        writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
+                        writer.WritePropertyName("fss");
+                        writer.WriteValue(pipe.FurnaceSplitterStacks);
+                        writer.WritePropertyName("prt");
+                        writer.WriteValue(pipe.Priority);
+                        writer.WritePropertyName("oid");
+                        writer.WriteValue(pipe.OwnerId);
+                        writer.WritePropertyName("onm");
+                        writer.WriteValue(pipe.OwnerName);
+                        writer.WritePropertyName("nme");
+                        writer.WriteValue(pipe.DisplayName);
+                        writer.WritePropertyName("flr");
+                        writer.WriteStartArray();
+                        for (var i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                            writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+
+                    public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                        JsonSerializer serializer)
+                    {
+                        Instance.Puts("Pipe Converter");
+                        var pipe = new Pipe();
+
+
+                        pipe.Id = pipe.GenerateId();
+                        var depth = 1;
+                        if (reader.TokenType != JsonToken.StartObject)
+                        {
+                            LogLoadError(pipe, 0, 0, "Json StartObject for pipe is missing...");
+                            return pipe;
+                        }
+
+                        uint sourceId = 0, destinationId = 0;
+                        ContainerType sourceType = ContainerType.General,
+                            destinationType = ContainerType.General;
+                        while (reader.Read() && depth > 0)
+                        {
+                            switch (reader.TokenType)
+                            {
+                                case JsonToken.StartObject:
+                                    depth++;
+                                    break;
+                                case JsonToken.EndObject:
+                                    depth--;
+                                    break;
+                                case JsonToken.PropertyName:
+                                    switch (reader.Value.ToString())
+                                    {
+                                        case "pid":
+                                            Instance.Puts("pid");
+                                            reader.Read();
+                                            //Instance.Puts("Value {0}",reader.Value);
+                                            uint id;
+                                            if (uint.TryParse(reader.Value.ToString(), out id))
+                                                pipe.Id = id;
+                                            Instance.Puts("eo pid");
+                                            break;
+                                        case "enb":
+                                            pipe.IsEnabled = reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "grd":
+                                            pipe.Grade =
+                                                (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
+                                            break;
+                                        case "sid":
+                                            reader.Read();
+                                            uint.TryParse(reader.Value.ToString(), out sourceId);
+                                            break;
+                                        case "did":
+                                            reader.Read();
+                                            uint.TryParse(reader.Value.ToString(), out destinationId);
+                                            break;
+                                        case "sct":
+                                            sourceType =
+                                                (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+                                            break;
+                                        case "dct":
+                                            destinationType =
+                                                (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+                                            break;
+                                        case "hth":
+                                            pipe.InitialHealth =
+                                                (float)reader.ReadAsDecimal().GetValueOrDefault(0);
+                                            break;
+                                        case "mst":
+                                            pipe.IsMultiStack = reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "ast":
+                                            pipe.IsAutoStart = reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "fso":
+                                            pipe.IsFurnaceSplitterEnabled = reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "fss":
+                                            pipe.FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+                                            break;
+                                        case "prt":
+                                            pipe.Priority =
+                                                (Pipe.PipePriority)reader.ReadAsInt32()
+                                                    .GetValueOrDefault(0);
+                                            break;
+                                        case "oid":
+                                            reader.Read();
+                                            ulong ownerId;
+                                            if (ulong.TryParse(reader.Value.ToString(), out ownerId))
+                                                pipe.OwnerId = ownerId;
+                                            break;
+                                        case "onm":
+                                            pipe.OwnerName = reader.ReadAsString();
+                                            break;
+                                        case "nme":
+                                            pipe.DisplayName = reader.ReadAsString();
+                                            break;
+                                        case "flr":
+                                            var filterIds = new List<int>();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                int value;
+                                                if (reader.Value != null &&
+                                                    int.TryParse(reader.Value?.ToString(), out value))
+                                                    filterIds.Add(value);
+                                            }
+
+                                            pipe.InitialFilterItems = filterIds;
+                                            break;
+                                    }
+
+                                    break;
+                            }
+                        }
+
+                        var source = ContainerHelper.Find(sourceId, sourceType);
+                        var destination = ContainerHelper.Find(destinationId, destinationType);
+                        pipe.Source = new PipeEndContainer(source, sourceType, pipe);
+                        pipe.Destination = new PipeEndContainer(destination, destinationType, pipe);
+                        pipe.Validate();
+                        if (pipe.Validity != Pipe.Status.Success)
+                            LogLoadError(pipe, sourceId, destinationId);
+                        return pipe;
+                    }
+
+                    public override bool CanConvert(Type objectType)
+                    {
+                        return objectType == typeof(Pipe);
+                    }
+                }
+            }
+        }
+        #endregion
+        #region PipeFactoryConverter
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class PipeFactoryDataConverter : JsonConverter
+                {
+                    public bool IsRead { get; set; }
+                    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                    {
+                        var pipe = value as Pipe;
+                        if (pipe == null) return;
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("pid");
+                        writer.WriteValue(pipe.Id);
+                        writer.WritePropertyName("brl");
+                        writer.WriteValue(pipe.Factory is PipeFactoryBarrel);
+                        writer.WritePropertyName("sgs");
+                        writer.WriteStartArray();
+                        for(int i = 0; i < pipe.Factory.Segments.Count; i++)
+                            writer.WriteValue(pipe.Factory.Segments[i].net.ID);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+
+                    public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                        JsonSerializer serializer)
+                    {
+                        Instance.Puts("Factory Converter");
+                        var pipeFactoryData = new PipeFactoryData();
+
+                        var depth = 1;
+                        if (reader.TokenType != JsonToken.StartObject)
+                        {
+                            LogLoadError(pipeFactoryData,
+                                "Json StartObject for pipe factory data is missing...");
+                            return pipeFactoryData;
+                        }
+
+                        while (reader.Read() && depth > 0)
+                        {
+                            switch (reader.TokenType)
+                            {
+                                case JsonToken.StartObject:
+                                    depth++;
+                                    break;
+                                case JsonToken.EndObject:
+                                    depth--;
+                                    break;
+                                case JsonToken.PropertyName:
+                                    switch (reader.Value.ToString())
+                                    {
+                                        case "pid":
+                                            reader.Read();
+                                            Instance.Puts("Value {0}", reader.Value?.ToString());
+                                            uint pipeId;
+                                            if (uint.TryParse(reader.Value.ToString(), out pipeId))
+                                                pipeFactoryData.PipeId = pipeId;
+                                            break;
+                                        case "brl":
+                                            pipeFactoryData.IsBarrel =
+                                                reader.ReadAsBoolean() ?? false;
+                                            break;
+                                        case "sgs":
+                                            var entityIds = new List<uint>();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                uint value;
+                                                if (reader.Value != null &&
+                                                    uint.TryParse(reader.Value?.ToString(), out value))
+                                                    entityIds.Add(value);
+                                            }
+                                            pipeFactoryData.EntityIds = entityIds.ToArray();
+                                            break;
+                                    }
+                                    break;
+                            }
+                        }
+                        return pipeFactoryData;
+                    }
+
+                    public override bool CanConvert(Type objectType) => IsRead ? objectType == typeof(PipeFactoryData) : objectType == typeof(Pipe);
+                }
+
+            }
+        }
+        #endregion
+        #region PipeFactoryData
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                /// <summary>
+                /// This is the serializable data format for loading or saving pipe factory data
+                /// </summary>
+                public class PipeFactoryData
+                {
+                    public uint PipeId { get; set; }
+                    public bool IsBarrel { get; set; }
+                    public uint[] EntityIds { get; set; }
+
+                    /// <summary>
+                    /// This is required to deserialize from json
+                    /// </summary>
+                    public PipeFactoryData()
+                    {
+                    }
+
+                    /// <summary>
+                    /// Create data from a container manager for saving
+                    /// </summary>
+                    /// <param name="pipe">Pipe to extract factory from</param>
+                    public PipeFactoryData(Pipe pipe)
+                    {
+                        PipeId = pipe.Id;
+                        IsBarrel = pipe.Factory is PipeFactoryBarrel;
+                        EntityIds = new uint[pipe.Factory.Segments.Count];
+                        for (int i = 0; i < pipe.Factory.Segments.Count; i++)
+                        {
+                            EntityIds[i] = pipe.Factory.Segments[i].net.ID;
+                        }
+                    }
+                }
+            }
+        }
+        #endregion
+        #region ReadDataBuffer
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                [JsonConverter(typeof(DataConverter))]
+                internal class ReadDataBuffer
+                {
+                    public List<Pipe> Pipes { get; } = new List<Pipe>();
+                    public List<PipeFactoryData> Factories { get; } = new List<PipeFactoryData>();
+                    public List<ContainerManagerData> Containers { get; } = new List<ContainerManagerData>();
+                }
+            }
+        }
+        #endregion
+        #region WriteDataBuffer
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                [JsonConverter(typeof(DataConverter))]
+                internal class WriteDataBuffer
+                {
+                    public List<string> Pipes { get; } = new List<string>();
+                    public List<string> Containers { get; } = new List<string>();
+                    public List<string> Factories { get; } = new List<string>();
+                }
+            }
+        }
+        #endregion
+        #endregion
         #region PipeFactory
         #region PipeFactory
 
-        private abstract class PipeFactory
+        internal abstract class PipeFactoryBase
         {
             protected Pipe _pipe;
             protected int _segmentCount;
@@ -5974,7 +6833,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected abstract string Prefab { get; }
             protected static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
             //protected 
-            protected PipeFactory(Pipe pipe)
+            protected PipeFactoryBase(Pipe pipe)
             {
                 _pipe = pipe;
                 Init();
@@ -6010,7 +6869,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
         }
 
-        private abstract class PipeFactory<TEntity> : PipeFactory
+        private abstract class PipeFactoryBase<TEntity> : PipeFactoryBase
         where TEntity : BaseEntity
         {
             /// <summary>
@@ -6042,12 +6901,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
             }
 
-            protected PipeFactory(Pipe pipe) : base(pipe) { }
+            protected PipeFactoryBase(Pipe pipe) : base(pipe) { }
         }
         #endregion
         #region PipeFactoryBarrel
 
-        private class PipeFactoryBarrel : PipeFactory<StorageContainer>
+        private class PipeFactoryBarrel : PipeFactoryBase<StorageContainer>
         {
             protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
 
@@ -6092,7 +6951,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #endregion
         #region PipeFactoryLowWall
 
-        private class PipeFactoryLowWall : PipeFactory<BuildingBlock>
+        private class PipeFactoryLowWall : PipeFactoryBase<BuildingBlock>
         {
             protected override float PipeLength => 3f;
 

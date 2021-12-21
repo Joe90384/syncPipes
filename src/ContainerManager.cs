@@ -20,19 +20,19 @@ namespace Oxide.Plugins
             ///// Get the save data for all container managers
             ///// </summary>
             ///// <returns>data for all container managers</returns>
-            //public static IEnumerable<Data> Save()
+            //public static IEnumerable<DataStore> Save()
             //{
             //    using (var enumerator = ManagedContainerLookup.GetEnumerator())
             //    {
             //        while (enumerator.MoveNext())
             //        {
             //            if (enumerator.Current.Value.HasAnyPipes)
-            //                yield return new Data(enumerator.Current.Value);
+            //                yield return new DataStore(enumerator.Current.Value);
             //        }
             //    }
             //}
 
-            //private static void LogLoadError(Data data)
+            //private static void LogLoadError(DataStore data)
             //{
             //    Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
             //    Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
@@ -44,8 +44,8 @@ namespace Oxide.Plugins
             ///// Load all data into the container managers.
             ///// This must be run after Pipe.Load as it only updates container managers created by the pipes.
             ///// </summary>
-            ///// <param name="dataToLoad">Data to load into container managers</param>
-            //public static void Load(List<Data> dataToLoad)
+            ///// <param name="dataToLoad">DataStore to load into container managers</param>
+            //public static void Load(List<DataStore> dataToLoad)
             //{
             //    if (dataToLoad == null) return;
             //    var containerCount = 0;

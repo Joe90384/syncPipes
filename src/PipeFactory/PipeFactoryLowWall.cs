@@ -7,7 +7,7 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        private class PipeFactoryLowWall : PipeFactory<BuildingBlock>
+        private class PipeFactoryLowWall : PipeFactoryBase<BuildingBlock>
         {
             protected override float PipeLength => 3f;
 

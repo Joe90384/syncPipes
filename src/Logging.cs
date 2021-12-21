@@ -17,6 +17,7 @@ namespace Oxide.Plugins
         {
             public static readonly Logger PipeLoader = new Logger("PipeLoadErrors", LogLevels.Error);
             public static readonly Logger ContainerLoader = new Logger("ContainerLoadErrors", LogLevels.Error);
+            public static readonly Logger PipeFactoryLoader = new Logger("PipeFactoryErrors", LogLevels.Error);
             public static readonly Logger FindErrors = new Logger("FindErrors", LogLevels.Error);
             public static readonly Logger Runtime = new Logger("Runtime", LogLevels.Info);
 

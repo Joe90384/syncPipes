@@ -6,7 +6,7 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        private abstract class PipeFactory
+        internal abstract class PipeFactoryBase
         {
             protected Pipe _pipe;
             protected int _segmentCount;
@@ -20,7 +20,7 @@ namespace Oxide.Plugins
             protected abstract string Prefab { get; }
             protected static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
             //protected 
-            protected PipeFactory(Pipe pipe)
+            protected PipeFactoryBase(Pipe pipe)
             {
                 _pipe = pipe;
                 Init();
@@ -56,7 +56,7 @@ namespace Oxide.Plugins
             protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
         }
 
-        private abstract class PipeFactory<TEntity> : PipeFactory
+        private abstract class PipeFactoryBase<TEntity> : PipeFactoryBase
         where TEntity : BaseEntity
         {
             /// <summary>
@@ -88,7 +88,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            protected PipeFactory(Pipe pipe) : base(pipe) { }
+            protected PipeFactoryBase(Pipe pipe) : base(pipe) { }
         }
     }
 }

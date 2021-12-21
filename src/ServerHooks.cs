@@ -7,7 +7,9 @@
         /// </summary>
         void OnServerInitialized()
         {
-            Data.OnePointZero.Load();
+            //if(!InstanceConfig.Experimental.PermanentEntities || !DataStore.OnePointOne.Load())
+                DataStore.OnePointZero.Load();
+                DataStore.OnePointOne.Load();
         }
 
         /// <summary>
@@ -15,7 +17,10 @@
         /// </summary>
         void OnServerSave()
         {
-            Data.OnePointZero.Save();
+            //if (InstanceConfig.Experimental.PermanentEntities)
+                DataStore.OnePointOne.Save();
+            //else
+                DataStore.OnePointZero.Save();
         }
     }
 }

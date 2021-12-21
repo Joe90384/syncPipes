@@ -10,34 +10,35 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        internal partial class Data
+        internal partial class DataStore
         {
-            internal partial class OnePointZero : MonoBehaviour
+            internal partial class OnePointOne : MonoBehaviour
             {
+                private const string Version = "1.1";
+                private static string FilenameVersion => Version.Replace('.', '-');
+                private static string _filename;
+                private static string Filename => _filename ?? (_filename = $"{Instance.Name}_v{FilenameVersion}");
+
                 private static Coroutine _coroutine;
                 private static bool _saving;
                 private static bool _loading;
                 private static GameObject _saverGameObject;
-                private static OnePointZero _dataStore;
+                private static OnePointOne _dataStore;
 
-                private static OnePointZero DataStore
+                private static OnePointOne DataStore
                 {
                     get
                     {
                         if (_dataStore == null)
                         {
                             _saverGameObject =
-                                new GameObject($"{Instance.Name.ToLower()}-datastore-1-0");
-                            _dataStore = _saverGameObject.AddComponent<OnePointZero>();
+                                new GameObject($"{Instance.Name.ToLower()}-datastore-{FilenameVersion}");
+                            _dataStore = _saverGameObject.AddComponent<OnePointOne>();
                         }
 
                         return _dataStore;
                     }
                 }
-
-                private static string _filename;
-                private static string Filename => _filename ?? (_filename = $"{Instance.Name}_v1-0");
-                private static string OldFilename => $"{Instance.Name} v1-0";
 
                 public static bool Save(bool backgroundSave = true)
                 {
@@ -76,7 +77,7 @@ namespace Oxide.Plugins
                     }
                     catch (Exception e)
                     {
-                        Logger.Runtime.LogException(e, "OnePointZero.Save");
+                        Logger.Runtime.LogException(e, "OnePointOne.Save");
                         _saving = false;
                         return false;
                     }
@@ -88,20 +89,13 @@ namespace Oxide.Plugins
                     {
                         _loading = true;
                         var filename = Filename;
-                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
-                        {
-                            if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
-                                return false;
-                            filename = OldFilename;
-                        }
-
                         _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                         return true;
                     }
                     catch (Exception e)
                     {
                         _loading = false;
-                        Logger.Runtime.LogException(e, "OnePointZero.Load");
+                        Logger.Runtime.LogException(e, "OnePointOne.Load");
                         return false;
                     }
                 }
@@ -110,7 +104,7 @@ namespace Oxide.Plugins
                 {
                     var sw = Stopwatch.StartNew();
                     yield return null;
-                    Instance.Puts("Save v1.0 starting");
+                    Instance.Puts($"Save v{Version} starting");
                     var buffer = new WriteDataBuffer();
                     var pipeSnapshot = new List<Pipe>(Pipe.Pipes);
                     var containerSnapshot = new List<ContainerManager>(ContainerManager.ManagedContainers);
@@ -118,14 +112,21 @@ namespace Oxide.Plugins
                     {
                         try
                         {
-                            buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None,
-                                new PipeConverter()));
+                            buffer.Pipes.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None, new PipeConverter()));
                         }
                         catch (Exception e)
                         {
-                            Logger.Runtime.LogException(e, "OnePointZero.BufferedSave");
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.Pipe");
                         }
-
+                        yield return null;
+                        try
+                        {
+                            buffer.Factories.Add(JsonConvert.SerializeObject(pipeSnapshot[i], Formatting.None, new PipeFactoryDataConverter()));
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.Factory");
+                        }
                         yield return null;
                     }
 
@@ -140,7 +141,7 @@ namespace Oxide.Plugins
                         }
                         catch (Exception e)
                         {
-                            Logger.Runtime.LogException(e, "OnePointZero.BufferedSave");
+                            Logger.Runtime.LogException(e, "OnePointOne.BufferedSave.ContainerManager");
                         }
 
                         yield return null;
@@ -149,7 +150,7 @@ namespace Oxide.Plugins
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
                     Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
-                    Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
+                    Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
                     sw.Stop();
                     _saving = false;
                     yield return null;
@@ -160,60 +161,61 @@ namespace Oxide.Plugins
                     try
                     {
                         yield return null;
-                        Instance.Puts("Load v1.0 starting");
+                        Instance.Puts($"Load v{Version} starting");
                         var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
-                        var validPipes = 0;
-                        for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
-                        {
-                            var pipe = readDataBuffer.Pipes[i];
-                            if (pipe.Validity == Pipe.Status.Success)
-                            {
-                                readDataBuffer.Pipes[i].Create();
-                                validPipes++;
-                            }
-                            else
-                                Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
-                            yield return null;
-                        }
+                        Instance.Puts("Loaded {0} pipes, {1} pipe factories and {2} container managers", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        //var validPipes = 0;
+                        //for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
+                        //{
+                        //    var pipe = readDataBuffer.Pipes[i];
+                        //    if (pipe.Validity == Pipe.Status.Success)
+                        //    {
+                        //        readDataBuffer.Pipes[i].Create();
+                        //        validPipes++;
+                        //    }
+                        //    else
+                        //        Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                        //    yield return null;
+                        //}
 
-                        Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
-                        var dataToLoad = readDataBuffer.Containers;
-                        if (dataToLoad != null)
-                        {
-                            var validContainers = 0;
-                            for (int i = 0; i < dataToLoad.Count; i++)
-                            {
-                                ContainerManager manager;
-                                if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
-                                {
-                                    var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
-                                        dataToLoad[i].ContainerType);
-                                    dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
-                                }
+                        //Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
+                        //var dataToLoad = readDataBuffer.Containers;
+                        //if (dataToLoad != null)
+                        //{
+                        //    var validContainers = 0;
+                        //    for (int i = 0; i < dataToLoad.Count; i++)
+                        //    {
+                        //        ContainerManager manager;
+                        //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                        //        {
+                        //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
+                        //                dataToLoad[i].ContainerType);
+                        //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+                        //        }
 
-                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
-                                        out manager))
-                                {
-                                    validContainers++;
-                                    manager.DisplayName = dataToLoad[i].DisplayName;
-                                    manager.CombineStacks = dataToLoad[i].CombineStacks;
-                                }
-                                else
-                                {
-                                    Instance.PrintWarning(
-                                        "Failed to load manager [{0} - {1} - {2}]: Container not found",
-                                        dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
-                                        dataToLoad[i].DisplayName);
-                                    LogLoadError(dataToLoad[i]);
-                                }
+                        //        if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
+                        //                out manager))
+                        //        {
+                        //            validContainers++;
+                        //            manager.DisplayName = dataToLoad[i].DisplayName;
+                        //            manager.CombineStacks = dataToLoad[i].CombineStacks;
+                        //        }
+                        //        else
+                        //        {
+                        //            Instance.PrintWarning(
+                        //                "Failed to load manager [{0} - {1} - {2}]: Container not found",
+                        //                dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
+                        //                dataToLoad[i].DisplayName);
+                        //            LogLoadError(dataToLoad[i]);
+                        //        }
 
-                                yield return null;
-                            }
+                        //        yield return null;
+                        //    }
 
-                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
-                        }
+                        //    Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                        //}
 
-                        Instance.Puts("Load v1.0 complete");
+                        Instance.Puts($"Load v{Version} complete");
                         yield return null;
                     }
                     finally
@@ -221,8 +223,6 @@ namespace Oxide.Plugins
                         _loading = false;
                     }
                 }
-
-
             }
         }
     }

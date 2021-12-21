@@ -5,15 +5,15 @@ namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
                 [JsonConverter(typeof(DataConverter))]
-                internal class ReadDataBuffer
+                internal class WriteDataBuffer
                 {
-                    public List<Pipe> Pipes { get; } = new List<Pipe>();
-                    public List<ContainerManagerData> Containers { get; } = new List<ContainerManagerData>();
+                    public List<string> Pipes { get; } = new List<string>();
+                    public List<string> Containers { get; } = new List<string>();
                 }
             }
         }

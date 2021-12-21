@@ -2,7 +2,7 @@
 {
     partial class SyncPipesDevelopment
     {
-        partial class Data
+        partial class DataStore
         {
             partial class OnePointZero
             {
