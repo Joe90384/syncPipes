@@ -89,6 +89,8 @@ namespace Oxide.Plugins
                     {
                         _loading = true;
                         var filename = Filename;
+                        if (Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                            return false;
                         _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                         return true;
                     }
