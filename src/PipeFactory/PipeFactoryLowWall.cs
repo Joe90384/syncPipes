@@ -26,7 +26,7 @@ namespace Oxide.Plugins
                 if (pipeSegmentEntity == null) return null;
                 pipeSegmentEntity.grounded = true;
                 pipeSegmentEntity.grade = _pipe.Grade;
-                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
                 pipeSegmentEntity.SetHealthToMax();
                 if (InstanceConfig.AttachXmasLights)
                 {

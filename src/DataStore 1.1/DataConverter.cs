@@ -53,32 +53,25 @@ namespace Oxide.Plugins
                         {
                             while (reader.Read())
                             {
-                                Instance.Puts("Reader: {0}", reader.Value);
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
                                     switch ((string)reader.Value)
                                     {
                                         case "pipes":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Pipes.Add(serializer.Deserialize<Pipe>(reader));
                                             break;
                                         case "factories":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Factories.Add(serializer.Deserialize<PipeFactoryData>(reader));
                                             break;
                                         case "containers":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Containers.Add(serializer.Deserialize<ContainerManagerData>(reader));
                                             break;

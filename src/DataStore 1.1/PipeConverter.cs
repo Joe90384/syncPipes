@@ -64,7 +64,6 @@ namespace Oxide.Plugins
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        Instance.Puts("Pipe Converter");
                         var pipe = new Pipe();
 
 
@@ -93,13 +92,10 @@ namespace Oxide.Plugins
                                     switch (reader.Value.ToString())
                                     {
                                         case "pid":
-                                            Instance.Puts("pid");
                                             reader.Read();
-                                            //Instance.Puts("Value {0}",reader.Value);
                                             uint id;
                                             if (uint.TryParse(reader.Value.ToString(), out id))
                                                 pipe.Id = id;
-                                            Instance.Puts("eo pid");
                                             break;
                                         case "enb":
                                             pipe.IsEnabled = reader.ReadAsBoolean() ?? false;

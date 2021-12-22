@@ -34,7 +34,6 @@ namespace Oxide.Plugins
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        Instance.Puts("Factory Converter");
                         var pipeFactoryData = new PipeFactoryData();
 
                         var depth = 1;
@@ -60,7 +59,6 @@ namespace Oxide.Plugins
                                     {
                                         case "pid":
                                             reader.Read();
-                                            Instance.Puts("Value {0}", reader.Value?.ToString());
                                             uint pipeId;
                                             if (uint.TryParse(reader.Value.ToString(), out pipeId))
                                                 pipeFactoryData.PipeId = pipeId;

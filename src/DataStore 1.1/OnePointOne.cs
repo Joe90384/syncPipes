@@ -45,7 +45,11 @@ namespace Oxide.Plugins
                     try
                     {
                         if (_loading)
+                        {
+                            Instance.PrintWarning($"V{Version} Save Skipped. Pipes still loading.");
                             return false;
+                        }
+
                         if (!backgroundSave && _saving)
                         {
                             if (_coroutine != null)
@@ -53,7 +57,10 @@ namespace Oxide.Plugins
                             _saving = false;
                         }
                         else if (_saving)
+                        {
+                            Instance.PrintWarning($"V{Version} Save Skipped. Save in progress.");
                             return false;
+                        }
 
                         try
                         {
@@ -89,8 +96,12 @@ namespace Oxide.Plugins
                     {
                         _loading = true;
                         var filename = Filename;
-                        if (Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                        {
+                            Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
                             return false;
+                        }
+
                         _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                         return true;
                     }
@@ -98,7 +109,8 @@ namespace Oxide.Plugins
                     {
                         _loading = false;
                         Logger.Runtime.LogException(e, "OnePointOne.Load");
-                        return false;
+                        Instance.PrintError($"Load error in V{Version} data file. See logs for more details.");
+                        return true; // File exists but load failed return true to prevent V1.0 upgrade.
                     }
                 }
 
@@ -165,57 +177,97 @@ namespace Oxide.Plugins
                         yield return null;
                         Instance.Puts($"Load v{Version} starting");
                         var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
-                        Instance.Puts("Loaded {0} pipes, {1} pipe factories and {2} container managers", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
-                        //var validPipes = 0;
-                        //for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
-                        //{
-                        //    var pipe = readDataBuffer.Pipes[i];
-                        //    if (pipe.Validity == Pipe.Status.Success)
-                        //    {
-                        //        readDataBuffer.Pipes[i].Create();
-                        //        validPipes++;
-                        //    }
-                        //    else
-                        //        Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
-                        //    yield return null;
-                        //}
+                        Instance.Puts($"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        var validPipes = 0;
+                        for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
+                        {
+                            var pipe = readDataBuffer.Pipes[i];
+                            var factoryData = readDataBuffer.Factories[i];
+                            if (InstanceConfig.Experimental.PermanentEntities)
+                            {
+                                PipeFactoryBase factory = null;
+                                var segments = new List<BaseEntity>();
+                                var segmentError = false;
+                                for (int j = 0; j < factoryData.EntityIds.Length; j++)
+                                {
+                                    var segment =
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(factoryData.EntityIds[j]);
+                                    if (segment == null)
+                                    {
+                                        Instance.Puts($"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
+                                        segmentError = true;
+                                        break;
+                                    }
+                                    PipeSegment.Attach(segment, pipe);
+                                    segments.Add(segment);
+                                }
 
-                        //Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
-                        //var dataToLoad = readDataBuffer.Containers;
-                        //if (dataToLoad != null)
-                        //{
-                        //    var validContainers = 0;
-                        //    for (int i = 0; i < dataToLoad.Count; i++)
-                        //    {
-                        //        ContainerManager manager;
-                        //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
-                        //        {
-                        //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
-                        //                dataToLoad[i].ContainerType);
-                        //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
-                        //        }
+                                if (!segmentError)
+                                {
+                                    if (factoryData.IsBarrel)
+                                    {
+                                        factory = new PipeFactoryBarrel(pipe)
+                                        {
+                                            Segments = segments
+                                        };
+                                    }
+                                    else
+                                    {
+                                        factory = new PipeFactoryLowWall(pipe)
+                                        {
+                                            Segments = segments
+                                        };
+                                    }
+                                }
+                                pipe.Factory = factory;
+                            }
 
-                        //        if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
-                        //                out manager))
-                        //        {
-                        //            validContainers++;
-                        //            manager.DisplayName = dataToLoad[i].DisplayName;
-                        //            manager.CombineStacks = dataToLoad[i].CombineStacks;
-                        //        }
-                        //        else
-                        //        {
-                        //            Instance.PrintWarning(
-                        //                "Failed to load manager [{0} - {1} - {2}]: Container not found",
-                        //                dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
-                        //                dataToLoad[i].DisplayName);
-                        //            LogLoadError(dataToLoad[i]);
-                        //        }
+                            if (pipe.Validity == Pipe.Status.Success)
+                            {
+                                readDataBuffer.Pipes[i].Create();
+                                validPipes++;
+                            }
+                            else
+                                Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                            yield return null;
+                        }
 
-                        //        yield return null;
-                        //    }
+                        Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
+                        var dataToLoad = readDataBuffer.Containers;
+                        if (dataToLoad != null)
+                        {
+                            var validContainers = 0;
+                            for (int i = 0; i < dataToLoad.Count; i++)
+                            {
+                                ContainerManager manager;
+                                if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                                {
+                                    var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
+                                        dataToLoad[i].ContainerType);
+                                    dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+                                }
 
-                        //    Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
-                        //}
+                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
+                                        out manager))
+                                {
+                                    validContainers++;
+                                    manager.DisplayName = dataToLoad[i].DisplayName;
+                                    manager.CombineStacks = dataToLoad[i].CombineStacks;
+                                }
+                                else
+                                {
+                                    Instance.PrintWarning(
+                                        "Failed to load manager [{0} - {1} - {2}]: Container not found",
+                                        dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
+                                        dataToLoad[i].DisplayName);
+                                    LogLoadError(dataToLoad[i]);
+                                }
+
+                                yield return null;
+                            }
+
+                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                        }
 
                         Instance.Puts($"Load v{Version} complete");
                         yield return null;

@@ -423,10 +423,14 @@ namespace Oxide.Plugins
                     return;
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
-                    ? new PipeFactoryBarrel(this)
-                    : (PipeFactoryBase)new PipeFactoryLowWall(this);
-                Factory.Create();
+                if (Factory == null)
+                {
+                    Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                        ? new PipeFactoryBarrel(this)
+                        : (PipeFactoryBase) new PipeFactoryLowWall(this);
+                    Factory.Create();
+                }
+
                 if (PrimarySegment == null)
                     return;
                 Source.Attach();
@@ -680,6 +684,19 @@ namespace Oxide.Plugins
 
             private void KillSegments(bool cleanup)
             {
+                if (cleanup && InstanceConfig.Experimental.PermanentEntities)
+                {
+                    for (var index = 0; index < Factory.Segments.Count; index++)
+                    {
+                        var segment = Factory.Segments[index];
+                        PipeSegment pipeSegmentComponent;
+                        if(segment.TryGetComponent(out pipeSegmentComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentComponent);
+                    }
+
+                    return;
+                }
+
                 if (cleanup)
                 {
                     if (!Factory.PrimarySegment?.IsDestroyed ?? false)

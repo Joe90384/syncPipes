@@ -69,14 +69,19 @@ namespace Oxide.Plugins
             {
                 var pipeSegmentEntity = pipeSegment as TEntity;
                 if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;;
                 pipeSegmentEntity.Spawn();
 
+                AttachPipeSegment(pipeSegmentEntity);
+                return pipeSegmentEntity;
+            }
+
+            private void AttachPipeSegment(TEntity pipeSegmentEntity)
+            {
                 PipeSegment.Attach(pipeSegmentEntity, _pipe);
 
                 if (PrimarySegment != pipeSegmentEntity)
                     pipeSegmentEntity.SetParent(PrimarySegment);
-                return pipeSegmentEntity;
             }
 
             public override void Create()

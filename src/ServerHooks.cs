@@ -7,9 +7,11 @@
         /// </summary>
         void OnServerInitialized()
         {
-            //if(!InstanceConfig.Experimental.PermanentEntities || !DataStore.OnePointOne.Load())
+            if (!DataStore.OnePointOne.Load())
+            {
+                Instance.PrintWarning("Upgrading from V1.0 to V1.1");
                 DataStore.OnePointZero.Load();
-                DataStore.OnePointOne.Load();
+            }
         }
 
         /// <summary>
@@ -17,10 +19,7 @@
         /// </summary>
         void OnServerSave()
         {
-            //if (InstanceConfig.Experimental.PermanentEntities)
-                DataStore.OnePointOne.Save();
-            //else
-                DataStore.OnePointZero.Save();
+            DataStore.OnePointOne.Save();
         }
     }
 }

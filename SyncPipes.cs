@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.26")]
+    [Info("Sync Pipes", "Joe 90", "0.9.27")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -137,13 +137,14 @@ namespace Oxide.Plugins
         /// </summary>
         void Unload()
         {
-            DataStore.OnePointZero.Save(false);
+            Instance.Puts("SyncPipes is unloading...");
             DataStore.OnePointOne.Save(false);
             Puts("Unloading All Pipes");
             Pipe.Cleanup();
             ContainerManager.Cleanup();
             PlayerHelper.Cleanup();
             ExperimentalUnload();
+            Instance.Puts("SyncPipes unloaded");
         }
 
         partial void ExperimentalUnload();
@@ -3602,10 +3603,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     return;
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
-                    ? new PipeFactoryBarrel(this)
-                    : (PipeFactoryBase)new PipeFactoryLowWall(this);
-                Factory.Create();
+                if (Factory == null)
+                {
+                    Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                        ? new PipeFactoryBarrel(this)
+                        : (PipeFactoryBase) new PipeFactoryLowWall(this);
+                    Factory.Create();
+                }
+
                 if (PrimarySegment == null)
                     return;
                 Source.Attach();
@@ -3859,6 +3864,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private void KillSegments(bool cleanup)
             {
+                if (cleanup && InstanceConfig.Experimental.PermanentEntities)
+                {
+                    for (var index = 0; index < Factory.Segments.Count; index++)
+                    {
+                        var segment = Factory.Segments[index];
+                        PipeSegment pipeSegmentComponent;
+                        if(segment.TryGetComponent(out pipeSegmentComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentComponent);
+                    }
+
+                    return;
+                }
+
                 if (cleanup)
                 {
                     if (!Factory.PrimarySegment?.IsDestroyed ?? false)
@@ -4953,9 +4971,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerInitialized()
         {
-            //if(!InstanceConfig.Experimental.PermanentEntities || !DataStore.OnePointOne.Load())
+            if (!DataStore.OnePointOne.Load())
+            {
+                Instance.PrintWarning("Upgrading from V1.0 to V1.1");
                 DataStore.OnePointZero.Load();
-                DataStore.OnePointOne.Load();
+            }
         }
 
         /// <summary>
@@ -4963,10 +4983,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerSave()
         {
-            //if (InstanceConfig.Experimental.PermanentEntities)
-                DataStore.OnePointOne.Save();
-            //else
-                DataStore.OnePointZero.Save();
+            DataStore.OnePointOne.Save();
         }
         #endregion
         #region StorageHelper
@@ -6143,32 +6160,25 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         {
                             while (reader.Read())
                             {
-                                Instance.Puts("Reader: {0}", reader.Value);
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
                                     switch ((string)reader.Value)
                                     {
                                         case "pipes":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Pipes.Add(serializer.Deserialize<Pipe>(reader));
                                             break;
                                         case "factories":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Factories.Add(serializer.Deserialize<PipeFactoryData>(reader));
                                             break;
                                         case "containers":
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             reader.Read();
-                                            Instance.Puts("Reader: {0}", reader.Value);
                                             while (reader.TokenType != JsonToken.EndArray)
                                                 buffer.Containers.Add(serializer.Deserialize<ContainerManagerData>(reader));
                                             break;
@@ -6285,7 +6295,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     try
                     {
                         if (_loading)
+                        {
+                            Instance.PrintWarning($"V{Version} Save Skipped. Pipes still loading.");
                             return false;
+                        }
+
                         if (!backgroundSave && _saving)
                         {
                             if (_coroutine != null)
@@ -6293,7 +6307,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             _saving = false;
                         }
                         else if (_saving)
+                        {
+                            Instance.PrintWarning($"V{Version} Save Skipped. Save in progress.");
                             return false;
+                        }
 
                         try
                         {
@@ -6329,6 +6346,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     {
                         _loading = true;
                         var filename = Filename;
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                        {
+                            Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
+                            return false;
+                        }
+
                         _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                         return true;
                     }
@@ -6336,7 +6359,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     {
                         _loading = false;
                         Logger.Runtime.LogException(e, "OnePointOne.Load");
-                        return false;
+                        Instance.PrintError($"Load error in V{Version} data file. See logs for more details.");
+                        return true; // File exists but load failed return true to prevent V1.0 upgrade.
                     }
                 }
 
@@ -6403,57 +6427,97 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         yield return null;
                         Instance.Puts($"Load v{Version} starting");
                         var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
-                        Instance.Puts("Loaded {0} pipes, {1} pipe factories and {2} container managers", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
-                        //var validPipes = 0;
-                        //for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
-                        //{
-                        //    var pipe = readDataBuffer.Pipes[i];
-                        //    if (pipe.Validity == Pipe.Status.Success)
-                        //    {
-                        //        readDataBuffer.Pipes[i].Create();
-                        //        validPipes++;
-                        //    }
-                        //    else
-                        //        Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
-                        //    yield return null;
-                        //}
+                        Instance.Puts($"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        var validPipes = 0;
+                        for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
+                        {
+                            var pipe = readDataBuffer.Pipes[i];
+                            var factoryData = readDataBuffer.Factories[i];
+                            if (InstanceConfig.Experimental.PermanentEntities)
+                            {
+                                PipeFactoryBase factory = null;
+                                var segments = new List<BaseEntity>();
+                                var segmentError = false;
+                                for (int j = 0; j < factoryData.EntityIds.Length; j++)
+                                {
+                                    var segment =
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(factoryData.EntityIds[j]);
+                                    if (segment == null)
+                                    {
+                                        Instance.Puts($"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
+                                        segmentError = true;
+                                        break;
+                                    }
+                                    PipeSegment.Attach(segment, pipe);
+                                    segments.Add(segment);
+                                }
 
-                        //Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
-                        //var dataToLoad = readDataBuffer.Containers;
-                        //if (dataToLoad != null)
-                        //{
-                        //    var validContainers = 0;
-                        //    for (int i = 0; i < dataToLoad.Count; i++)
-                        //    {
-                        //        ContainerManager manager;
-                        //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
-                        //        {
-                        //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
-                        //                dataToLoad[i].ContainerType);
-                        //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
-                        //        }
+                                if (!segmentError)
+                                {
+                                    if (factoryData.IsBarrel)
+                                    {
+                                        factory = new PipeFactoryBarrel(pipe)
+                                        {
+                                            Segments = segments
+                                        };
+                                    }
+                                    else
+                                    {
+                                        factory = new PipeFactoryLowWall(pipe)
+                                        {
+                                            Segments = segments
+                                        };
+                                    }
+                                }
+                                pipe.Factory = factory;
+                            }
 
-                        //        if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
-                        //                out manager))
-                        //        {
-                        //            validContainers++;
-                        //            manager.DisplayName = dataToLoad[i].DisplayName;
-                        //            manager.CombineStacks = dataToLoad[i].CombineStacks;
-                        //        }
-                        //        else
-                        //        {
-                        //            Instance.PrintWarning(
-                        //                "Failed to load manager [{0} - {1} - {2}]: Container not found",
-                        //                dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
-                        //                dataToLoad[i].DisplayName);
-                        //            LogLoadError(dataToLoad[i]);
-                        //        }
+                            if (pipe.Validity == Pipe.Status.Success)
+                            {
+                                readDataBuffer.Pipes[i].Create();
+                                validPipes++;
+                            }
+                            else
+                                Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                            yield return null;
+                        }
 
-                        //        yield return null;
-                        //    }
+                        Instance.Puts("Successfully loaded {0} of {1} pipes", validPipes, readDataBuffer.Pipes.Count);
+                        var dataToLoad = readDataBuffer.Containers;
+                        if (dataToLoad != null)
+                        {
+                            var validContainers = 0;
+                            for (int i = 0; i < dataToLoad.Count; i++)
+                            {
+                                ContainerManager manager;
+                                if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+                                {
+                                    var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
+                                        dataToLoad[i].ContainerType);
+                                    dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+                                }
 
-                        //    Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
-                        //}
+                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
+                                        out manager))
+                                {
+                                    validContainers++;
+                                    manager.DisplayName = dataToLoad[i].DisplayName;
+                                    manager.CombineStacks = dataToLoad[i].CombineStacks;
+                                }
+                                else
+                                {
+                                    Instance.PrintWarning(
+                                        "Failed to load manager [{0} - {1} - {2}]: Container not found",
+                                        dataToLoad[i].ContainerId, dataToLoad[i].ContainerType,
+                                        dataToLoad[i].DisplayName);
+                                    LogLoadError(dataToLoad[i]);
+                                }
+
+                                yield return null;
+                            }
+
+                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                        }
 
                         Instance.Puts($"Load v{Version} complete");
                         yield return null;
@@ -6526,7 +6590,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        Instance.Puts("Pipe Converter");
                         var pipe = new Pipe();
 
 
@@ -6555,13 +6618,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     switch (reader.Value.ToString())
                                     {
                                         case "pid":
-                                            Instance.Puts("pid");
                                             reader.Read();
-                                            //Instance.Puts("Value {0}",reader.Value);
                                             uint id;
                                             if (uint.TryParse(reader.Value.ToString(), out id))
                                                 pipe.Id = id;
-                                            Instance.Puts("eo pid");
                                             break;
                                         case "enb":
                                             pipe.IsEnabled = reader.ReadAsBoolean() ?? false;
@@ -6684,7 +6744,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        Instance.Puts("Factory Converter");
                         var pipeFactoryData = new PipeFactoryData();
 
                         var depth = 1;
@@ -6710,7 +6769,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                     {
                                         case "pid":
                                             reader.Read();
-                                            Instance.Puts("Value {0}", reader.Value?.ToString());
                                             uint pipeId;
                                             if (uint.TryParse(reader.Value.ToString(), out pipeId))
                                                 pipeFactoryData.PipeId = pipeId;
@@ -6882,14 +6940,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var pipeSegmentEntity = pipeSegment as TEntity;
                 if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;;
                 pipeSegmentEntity.Spawn();
 
+                AttachPipeSegment(pipeSegmentEntity);
+                return pipeSegmentEntity;
+            }
+
+            private void AttachPipeSegment(TEntity pipeSegmentEntity)
+            {
                 PipeSegment.Attach(pipeSegmentEntity, _pipe);
 
                 if (PrimarySegment != pipeSegmentEntity)
                     pipeSegmentEntity.SetParent(PrimarySegment);
-                return pipeSegmentEntity;
             }
 
             public override void Create()
@@ -6970,7 +7033,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 if (pipeSegmentEntity == null) return null;
                 pipeSegmentEntity.grounded = true;
                 pipeSegmentEntity.grade = _pipe.Grade;
-                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
                 pipeSegmentEntity.SetHealthToMax();
                 if (InstanceConfig.AttachXmasLights)
                 {
