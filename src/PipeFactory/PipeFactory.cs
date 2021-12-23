@@ -14,6 +14,7 @@ namespace Oxide.Plugins
             protected float _segmentOffset;
             protected Vector3 _rotationOffset;
             public List<BaseEntity> Segments = new List<BaseEntity>();
+            public List<BaseEntity> Lights = new List<BaseEntity>();
 
             protected abstract float PipeLength { get; }
 
@@ -28,6 +29,7 @@ namespace Oxide.Plugins
 
             private void Init()
             {
+                if (_pipe.Validity != Pipe.Status.Success) return;
                 _segmentCount = (int)Mathf.Ceil(_pipe.Distance / PipeLength);
                 _segmentOffset = _segmentCount * PipeLength - _pipe.Distance;
                 _rotationOffset = (_pipe.Source.Position.y - _pipe.Destination.Position.y) * Vector3.down * 0.0002f;
@@ -39,6 +41,21 @@ namespace Oxide.Plugins
             }
 
             public abstract void Create();
+            
+            public virtual void AttachPipeSegment(BaseEntity pipeSegmentEntity)
+            {
+                if (_pipe.Validity == Pipe.Status.Success) 
+                    PipeSegment.Attach(pipeSegmentEntity, _pipe);
+                Segments.Add(pipeSegmentEntity);
+            }
+
+            public virtual void AttachLights(BaseEntity pipeLightsEntity)
+            {
+                if (_pipe.Validity == Pipe.Status.Success)
+                    PipeSegmentLights.Attach(pipeLightsEntity, _pipe);
+                Lights.Add(pipeLightsEntity);
+            }
+
             public virtual void Reverse() { }
 
             public virtual void Upgrade(BuildingGrade.Enum grade) { }
@@ -73,15 +90,10 @@ namespace Oxide.Plugins
                 pipeSegmentEntity.Spawn();
 
                 AttachPipeSegment(pipeSegmentEntity);
-                return pipeSegmentEntity;
-            }
-
-            private void AttachPipeSegment(TEntity pipeSegmentEntity)
-            {
-                PipeSegment.Attach(pipeSegmentEntity, _pipe);
 
                 if (PrimarySegment != pipeSegmentEntity)
                     pipeSegmentEntity.SetParent(PrimarySegment);
+                return pipeSegmentEntity;
             }
 
             public override void Create()

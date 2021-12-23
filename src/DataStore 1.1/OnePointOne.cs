@@ -177,60 +177,84 @@ namespace Oxide.Plugins
                         yield return null;
                         Instance.Puts($"Load v{Version} starting");
                         var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
-                        Instance.Puts($"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        Instance.Puts(
+                            $"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}",
+                            readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count,
+                            readDataBuffer.Containers.Count);
                         var validPipes = 0;
                         for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
                         {
                             var pipe = readDataBuffer.Pipes[i];
-                            var factoryData = readDataBuffer.Factories[i];
-                            if (InstanceConfig.Experimental.PermanentEntities)
+                            try
                             {
+                                var factoryData = readDataBuffer.Factories[i];
                                 PipeFactoryBase factory = null;
-                                var segments = new List<BaseEntity>();
                                 var segmentError = false;
-                                for (int j = 0; j < factoryData.EntityIds.Length; j++)
+                                if (factoryData.IsBarrel)
+                                    factory = new PipeFactoryBarrel(pipe);
+                                else
+                                    factory = new PipeFactoryLowWall(pipe);
+                                for (int j = 0; j < factoryData.SegmentEntityIds.Length; j++)
                                 {
                                     var segment =
-                                        (BaseEntity) BaseNetworkable.serverEntities.Find(factoryData.EntityIds[j]);
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(
+                                            factoryData.SegmentEntityIds[j]);
                                     if (segment == null)
                                     {
-                                        Instance.Puts($"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
+                                        Instance.Puts(
+                                            $"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
                                         segmentError = true;
                                         break;
                                     }
-                                    PipeSegment.Attach(segment, pipe);
-                                    if (segment is BuildingBlock)
-                                        (segment as BuildingBlock).grounded = true;
-                                    segments.Add(segment);
+
+                                    factory.AttachPipeSegment(segment);
                                 }
 
-                                if (!segmentError)
+                                for (int j = 0; j < factoryData.LightEntityIds.Length; j++)
                                 {
-                                    if (factoryData.IsBarrel)
+                                    var lights =
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(
+                                            factoryData.LightEntityIds[j]);
+                                    if (lights == null)
                                     {
-                                        factory = new PipeFactoryBarrel(pipe)
-                                        {
-                                            Segments = segments
-                                        };
+                                        Instance.Puts($"Pipe {pipe.Id}: Lights not found. Pipe will be recreated.");
+                                        segmentError = true;
+                                        break;
                                     }
-                                    else
-                                    {
-                                        factory = new PipeFactoryLowWall(pipe)
-                                        {
-                                            Segments = segments
-                                        };
-                                    }
-                                }
-                                pipe.Factory = factory;
-                            }
 
-                            if (pipe.Validity == Pipe.Status.Success)
-                            {
-                                readDataBuffer.Pipes[i].Create();
-                                validPipes++;
+                                    factory.AttachLights(lights);
+                                }
+                                Instance.Puts("Pipe Validity: {0}", pipe.Validity);
+
+                                //If any segments or lights are missing remove them all and let the factory recreate.
+                                if (
+                                    !InstanceConfig.Experimental.PermanentEntities || 
+                                    segmentError || 
+                                    factory.Segments.Count == 0 || 
+                                    pipe.Validity != Pipe.Status.Success
+                                    )
+                                {
+                                    if (!factory.PrimarySegment?.IsDestroyed ?? false)
+                                        factory.PrimarySegment?.Kill();
+                                }
+                                else
+                                    pipe.Factory = factory;
+
+                                if (pipe.Validity == Pipe.Status.Success)
+                                {
+                                    readDataBuffer.Pipes[i].Create();
+                                    validPipes++;
+                                }
+                                else
+                                {
+                                    Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(),
+                                        pipe.OwnerId);
+                                }
                             }
-                            else
-                                Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                            catch (Exception e)
+                            {
+                                Logger.PipeLoader.LogException(e, "Pipe Creation");
+                            }
                             yield return null;
                         }
 
@@ -268,7 +292,8 @@ namespace Oxide.Plugins
                                 yield return null;
                             }
 
-                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers,
+                                readDataBuffer.Containers.Count);
                         }
 
                         Instance.Puts($"Load v{Version} complete");

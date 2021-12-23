@@ -359,7 +359,7 @@ namespace Oxide.Plugins
             /// </summary>
             public Quaternion Rotation { get; private set; }
 
-            public BaseEntity PrimarySegment => Factory.PrimarySegment;
+            public BaseEntity PrimarySegment => Factory?.PrimarySegment;
 
             /// <summary>
             ///     Get the save data for all pipes
@@ -694,6 +694,13 @@ namespace Oxide.Plugins
                             UnityEngine.Object.Destroy(pipeSegmentComponent);
                     }
 
+                    for (var index = 0; index < Factory.Lights.Count; index++)
+                    {
+                        var lights = Factory.Lights[index];
+                        PipeSegmentLights pipeSegmentLightsComponent;
+                        if (lights.TryGetComponent(out pipeSegmentLightsComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentLightsComponent);
+                    }
                     return;
                 }
 

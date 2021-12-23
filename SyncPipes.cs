@@ -3539,7 +3539,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// </summary>
             public Quaternion Rotation { get; private set; }
 
-            public BaseEntity PrimarySegment => Factory.PrimarySegment;
+            public BaseEntity PrimarySegment => Factory?.PrimarySegment;
 
             /// <summary>
             ///     Get the save data for all pipes
@@ -3874,6 +3874,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             UnityEngine.Object.Destroy(pipeSegmentComponent);
                     }
 
+                    for (var index = 0; index < Factory.Lights.Count; index++)
+                    {
+                        var lights = Factory.Lights[index];
+                        PipeSegmentLights pipeSegmentLightsComponent;
+                        if (lights.TryGetComponent(out pipeSegmentLightsComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentLightsComponent);
+                    }
                     return;
                 }
 
@@ -6227,7 +6234,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     if (!string.IsNullOrEmpty(message))
                         Logger.ContainerLoader.Log(message);
                     Logger.ContainerLoader.Log("Is Barrel: {0}", pipeFactoryData.IsBarrel);
-                    Logger.ContainerLoader.Log("EntityCount: {0}", pipeFactoryData.EntityIds?.Length ?? 0);
+                    Logger.ContainerLoader.Log("EntityCount: {0}", pipeFactoryData.SegmentEntityIds?.Length ?? 0);
                     Logger.ContainerLoader.Log("");
                 }
 
@@ -6427,60 +6434,84 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         yield return null;
                         Instance.Puts($"Load v{Version} starting");
                         var readDataBuffer = Interface.Oxide.DataFileSystem.ReadObject<ReadDataBuffer>(filename);
-                        Instance.Puts($"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}", readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count, readDataBuffer.Containers.Count);
+                        Instance.Puts(
+                            $"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}",
+                            readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count,
+                            readDataBuffer.Containers.Count);
                         var validPipes = 0;
                         for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
                         {
                             var pipe = readDataBuffer.Pipes[i];
-                            var factoryData = readDataBuffer.Factories[i];
-                            if (InstanceConfig.Experimental.PermanentEntities)
+                            try
                             {
+                                var factoryData = readDataBuffer.Factories[i];
                                 PipeFactoryBase factory = null;
-                                var segments = new List<BaseEntity>();
                                 var segmentError = false;
-                                for (int j = 0; j < factoryData.EntityIds.Length; j++)
+                                if (factoryData.IsBarrel)
+                                    factory = new PipeFactoryBarrel(pipe);
+                                else
+                                    factory = new PipeFactoryLowWall(pipe);
+                                for (int j = 0; j < factoryData.SegmentEntityIds.Length; j++)
                                 {
                                     var segment =
-                                        (BaseEntity) BaseNetworkable.serverEntities.Find(factoryData.EntityIds[j]);
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(
+                                            factoryData.SegmentEntityIds[j]);
                                     if (segment == null)
                                     {
-                                        Instance.Puts($"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
+                                        Instance.Puts(
+                                            $"Pipe {pipe.Id}: Segment not found. Pipe will be recreated.");
                                         segmentError = true;
                                         break;
                                     }
-                                    PipeSegment.Attach(segment, pipe);
-                                    if (segment is BuildingBlock)
-                                        (segment as BuildingBlock).grounded = true;
-                                    segments.Add(segment);
+
+                                    factory.AttachPipeSegment(segment);
                                 }
 
-                                if (!segmentError)
+                                for (int j = 0; j < factoryData.LightEntityIds.Length; j++)
                                 {
-                                    if (factoryData.IsBarrel)
+                                    var lights =
+                                        (BaseEntity) BaseNetworkable.serverEntities.Find(
+                                            factoryData.LightEntityIds[j]);
+                                    if (lights == null)
                                     {
-                                        factory = new PipeFactoryBarrel(pipe)
-                                        {
-                                            Segments = segments
-                                        };
+                                        Instance.Puts($"Pipe {pipe.Id}: Lights not found. Pipe will be recreated.");
+                                        segmentError = true;
+                                        break;
                                     }
-                                    else
-                                    {
-                                        factory = new PipeFactoryLowWall(pipe)
-                                        {
-                                            Segments = segments
-                                        };
-                                    }
-                                }
-                                pipe.Factory = factory;
-                            }
 
-                            if (pipe.Validity == Pipe.Status.Success)
-                            {
-                                readDataBuffer.Pipes[i].Create();
-                                validPipes++;
+                                    factory.AttachLights(lights);
+                                }
+                                Instance.Puts("Pipe Validity: {0}", pipe.Validity);
+
+                                //If any segments or lights are missing remove them all and let the factory recreate.
+                                if (
+                                    !InstanceConfig.Experimental.PermanentEntities || 
+                                    segmentError || 
+                                    factory.Segments.Count == 0 || 
+                                    pipe.Validity != Pipe.Status.Success
+                                    )
+                                {
+                                    if (!factory.PrimarySegment?.IsDestroyed ?? false)
+                                        factory.PrimarySegment?.Kill();
+                                }
+                                else
+                                    pipe.Factory = factory;
+
+                                if (pipe.Validity == Pipe.Status.Success)
+                                {
+                                    readDataBuffer.Pipes[i].Create();
+                                    validPipes++;
+                                }
+                                else
+                                {
+                                    Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(),
+                                        pipe.OwnerId);
+                                }
                             }
-                            else
-                                Instance.Puts("Failed to read pipe {0}({1})", pipe.DisplayName ?? pipe.Id.ToString(), pipe.OwnerId);
+                            catch (Exception e)
+                            {
+                                Logger.PipeLoader.LogException(e, "Pipe Creation");
+                            }
                             yield return null;
                         }
 
@@ -6518,7 +6549,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                 yield return null;
                             }
 
-                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers, readDataBuffer.Containers.Count);
+                            Instance.Puts("Successfully loaded {0} of {1} managers", validContainers,
+                                readDataBuffer.Containers.Count);
                         }
 
                         Instance.Puts($"Load v{Version} complete");
@@ -6701,8 +6733,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                         var source = ContainerHelper.Find(sourceId, sourceType);
                         var destination = ContainerHelper.Find(destinationId, destinationType);
-                        pipe.Source = new PipeEndContainer(source, sourceType, pipe);
-                        pipe.Destination = new PipeEndContainer(destination, destinationType, pipe);
+                        if(source != null)
+                            pipe.Source = new PipeEndContainer(source, sourceType, pipe);
+                        if(destination != null)
+                            pipe.Destination = new PipeEndContainer(destination, destinationType, pipe);
                         pipe.Validate();
                         if (pipe.Validity != Pipe.Status.Success)
                             LogLoadError(pipe, sourceId, destinationId);
@@ -6737,8 +6771,20 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         writer.WriteValue(pipe.Factory is PipeFactoryBarrel);
                         writer.WritePropertyName("sgs");
                         writer.WriteStartArray();
-                        for(int i = 0; i < pipe.Factory.Segments.Count; i++)
-                            writer.WriteValue(pipe.Factory.Segments[i].net.ID);
+                        if (InstanceConfig.Experimental.PermanentEntities)
+                        {
+                            for (int i = 0; i < pipe.Factory.Segments.Count; i++)
+                                writer.WriteValue(pipe.Factory.Segments[i].net.ID);
+                        }
+
+                        writer.WriteEndArray();
+                        writer.WritePropertyName("lts");
+                        writer.WriteStartArray();
+                        if (InstanceConfig.Experimental.PermanentEntities)
+                        {
+                            for (int i = 0; i < pipe.Factory.Lights.Count; i++)
+                                writer.WriteValue(pipe.Factory.Lights[i].net.ID);
+                        }
                         writer.WriteEndArray();
                         writer.WriteEndObject();
                     }
@@ -6780,15 +6826,26 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                                 reader.ReadAsBoolean() ?? false;
                                             break;
                                         case "sgs":
-                                            var entityIds = new List<uint>();
+                                            var segmentIds = new List<uint>();
                                             while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                             {
                                                 uint value;
                                                 if (reader.Value != null &&
                                                     uint.TryParse(reader.Value?.ToString(), out value))
-                                                    entityIds.Add(value);
+                                                    segmentIds.Add(value);
                                             }
-                                            pipeFactoryData.EntityIds = entityIds.ToArray();
+                                            pipeFactoryData.SegmentEntityIds = segmentIds.ToArray();
+                                            break;
+                                        case "lts":
+                                            var lightsIds = new List<uint>();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                uint value;
+                                                if (reader.Value != null &&
+                                                    uint.TryParse(reader.Value?.ToString(), out value))
+                                                    lightsIds.Add(value);
+                                            }
+                                            pipeFactoryData.LightEntityIds = lightsIds.ToArray();
                                             break;
                                     }
                                     break;
@@ -6816,7 +6873,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     public uint PipeId { get; set; }
                     public bool IsBarrel { get; set; }
-                    public uint[] EntityIds { get; set; }
+                    public uint[] SegmentEntityIds { get; set; }
+                    public uint[] LightEntityIds { get; set; }
 
                     /// <summary>
                     /// This is required to deserialize from json
@@ -6833,10 +6891,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     {
                         PipeId = pipe.Id;
                         IsBarrel = pipe.Factory is PipeFactoryBarrel;
-                        EntityIds = new uint[pipe.Factory.Segments.Count];
+                        SegmentEntityIds = new uint[pipe.Factory.Segments.Count];
                         for (int i = 0; i < pipe.Factory.Segments.Count; i++)
                         {
-                            EntityIds[i] = pipe.Factory.Segments[i].net.ID;
+                            SegmentEntityIds[i] = pipe.Factory.Segments[i].net.ID;
                         }
                     }
                 }
@@ -6887,6 +6945,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             protected float _segmentOffset;
             protected Vector3 _rotationOffset;
             public List<BaseEntity> Segments = new List<BaseEntity>();
+            public List<BaseEntity> Lights = new List<BaseEntity>();
 
             protected abstract float PipeLength { get; }
 
@@ -6901,6 +6960,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             private void Init()
             {
+                if (_pipe.Validity != Pipe.Status.Success) return;
                 _segmentCount = (int)Mathf.Ceil(_pipe.Distance / PipeLength);
                 _segmentOffset = _segmentCount * PipeLength - _pipe.Distance;
                 _rotationOffset = (_pipe.Source.Position.y - _pipe.Destination.Position.y) * Vector3.down * 0.0002f;
@@ -6912,6 +6972,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             public abstract void Create();
+            
+            public virtual void AttachPipeSegment(BaseEntity pipeSegmentEntity)
+            {
+                if (_pipe.Validity == Pipe.Status.Success) 
+                    PipeSegment.Attach(pipeSegmentEntity, _pipe);
+                Segments.Add(pipeSegmentEntity);
+            }
+
+            public virtual void AttachLights(BaseEntity pipeLightsEntity)
+            {
+                if (_pipe.Validity == Pipe.Status.Success)
+                    PipeSegmentLights.Attach(pipeLightsEntity, _pipe);
+                Lights.Add(pipeLightsEntity);
+            }
+
             public virtual void Reverse() { }
 
             public virtual void Upgrade(BuildingGrade.Enum grade) { }
@@ -6946,15 +7021,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 pipeSegmentEntity.Spawn();
 
                 AttachPipeSegment(pipeSegmentEntity);
-                return pipeSegmentEntity;
-            }
-
-            private void AttachPipeSegment(TEntity pipeSegmentEntity)
-            {
-                PipeSegment.Attach(pipeSegmentEntity, _pipe);
 
                 if (PrimarySegment != pipeSegmentEntity)
                     pipeSegmentEntity.SetParent(PrimarySegment);
+                return pipeSegmentEntity;
             }
 
             public override void Create()
@@ -7050,6 +7120,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     lights.enableSaving = false;
                     lights.Spawn();
                     lights.SetParent(pipeSegment);
+                    Lights.Add(lights);
                     PipeSegmentLights.Attach(lights, _pipe);
                 }
                 return pipeSegmentEntity;
@@ -7072,6 +7143,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                     return _segmentBuildingBlocks;
                 }
+            }
+
+            public override void AttachPipeSegment(BaseEntity pipeSegmentEntity)
+            {
+                base.AttachPipeSegment(pipeSegmentEntity);
+                var pipeSegmentBuildingBlock = pipeSegmentEntity as BuildingBlock;
+                if(pipeSegmentBuildingBlock != null)
+                    pipeSegmentBuildingBlock.grounded = true;
             }
 
             public override void Upgrade(BuildingGrade.Enum grade)

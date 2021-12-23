@@ -41,6 +41,7 @@ namespace Oxide.Plugins
                     lights.enableSaving = false;
                     lights.Spawn();
                     lights.SetParent(pipeSegment);
+                    Lights.Add(lights);
                     PipeSegmentLights.Attach(lights, _pipe);
                 }
                 return pipeSegmentEntity;
@@ -63,6 +64,14 @@ namespace Oxide.Plugins
 
                     return _segmentBuildingBlocks;
                 }
+            }
+
+            public override void AttachPipeSegment(BaseEntity pipeSegmentEntity)
+            {
+                base.AttachPipeSegment(pipeSegmentEntity);
+                var pipeSegmentBuildingBlock = pipeSegmentEntity as BuildingBlock;
+                if(pipeSegmentBuildingBlock != null)
+                    pipeSegmentBuildingBlock.grounded = true;
             }
 
             public override void Upgrade(BuildingGrade.Enum grade)

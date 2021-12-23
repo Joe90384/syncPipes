@@ -25,8 +25,20 @@ namespace Oxide.Plugins
                         writer.WriteValue(pipe.Factory is PipeFactoryBarrel);
                         writer.WritePropertyName("sgs");
                         writer.WriteStartArray();
-                        for(int i = 0; i < pipe.Factory.Segments.Count; i++)
-                            writer.WriteValue(pipe.Factory.Segments[i].net.ID);
+                        if (InstanceConfig.Experimental.PermanentEntities)
+                        {
+                            for (int i = 0; i < pipe.Factory.Segments.Count; i++)
+                                writer.WriteValue(pipe.Factory.Segments[i].net.ID);
+                        }
+
+                        writer.WriteEndArray();
+                        writer.WritePropertyName("lts");
+                        writer.WriteStartArray();
+                        if (InstanceConfig.Experimental.PermanentEntities)
+                        {
+                            for (int i = 0; i < pipe.Factory.Lights.Count; i++)
+                                writer.WriteValue(pipe.Factory.Lights[i].net.ID);
+                        }
                         writer.WriteEndArray();
                         writer.WriteEndObject();
                     }
@@ -68,15 +80,26 @@ namespace Oxide.Plugins
                                                 reader.ReadAsBoolean() ?? false;
                                             break;
                                         case "sgs":
-                                            var entityIds = new List<uint>();
+                                            var segmentIds = new List<uint>();
                                             while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                             {
                                                 uint value;
                                                 if (reader.Value != null &&
                                                     uint.TryParse(reader.Value?.ToString(), out value))
-                                                    entityIds.Add(value);
+                                                    segmentIds.Add(value);
                                             }
-                                            pipeFactoryData.EntityIds = entityIds.ToArray();
+                                            pipeFactoryData.SegmentEntityIds = segmentIds.ToArray();
+                                            break;
+                                        case "lts":
+                                            var lightsIds = new List<uint>();
+                                            while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                uint value;
+                                                if (reader.Value != null &&
+                                                    uint.TryParse(reader.Value?.ToString(), out value))
+                                                    lightsIds.Add(value);
+                                            }
+                                            pipeFactoryData.LightEntityIds = lightsIds.ToArray();
                                             break;
                                     }
                                     break;

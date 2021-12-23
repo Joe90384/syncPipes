@@ -16,7 +16,8 @@ namespace Oxide.Plugins
                 {
                     public uint PipeId { get; set; }
                     public bool IsBarrel { get; set; }
-                    public uint[] EntityIds { get; set; }
+                    public uint[] SegmentEntityIds { get; set; }
+                    public uint[] LightEntityIds { get; set; }
 
                     /// <summary>
                     /// This is required to deserialize from json
@@ -33,10 +34,10 @@ namespace Oxide.Plugins
                     {
                         PipeId = pipe.Id;
                         IsBarrel = pipe.Factory is PipeFactoryBarrel;
-                        EntityIds = new uint[pipe.Factory.Segments.Count];
+                        SegmentEntityIds = new uint[pipe.Factory.Segments.Count];
                         for (int i = 0; i < pipe.Factory.Segments.Count; i++)
                         {
-                            EntityIds[i] = pipe.Factory.Segments[i].net.ID;
+                            SegmentEntityIds[i] = pipe.Factory.Segments[i].net.ID;
                         }
                     }
                 }

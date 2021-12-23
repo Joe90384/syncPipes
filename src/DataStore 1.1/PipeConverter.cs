@@ -173,8 +173,10 @@ namespace Oxide.Plugins
 
                         var source = ContainerHelper.Find(sourceId, sourceType);
                         var destination = ContainerHelper.Find(destinationId, destinationType);
-                        pipe.Source = new PipeEndContainer(source, sourceType, pipe);
-                        pipe.Destination = new PipeEndContainer(destination, destinationType, pipe);
+                        if(source != null)
+                            pipe.Source = new PipeEndContainer(source, sourceType, pipe);
+                        if(destination != null)
+                            pipe.Destination = new PipeEndContainer(destination, destinationType, pipe);
                         pipe.Validate();
                         if (pipe.Validity != Pipe.Status.Success)
                             LogLoadError(pipe, sourceId, destinationId);

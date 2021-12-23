@@ -1,4 +1,6 @@
-﻿namespace Oxide.Plugins
+﻿using System;
+
+namespace Oxide.Plugins
 {
     partial class SyncPipesDevelopment
     {
@@ -24,7 +26,7 @@
                     if (!string.IsNullOrEmpty(message))
                         Logger.ContainerLoader.Log(message);
                     Logger.ContainerLoader.Log("Is Barrel: {0}", pipeFactoryData.IsBarrel);
-                    Logger.ContainerLoader.Log("EntityCount: {0}", pipeFactoryData.EntityIds?.Length ?? 0);
+                    Logger.ContainerLoader.Log("EntityCount: {0}", pipeFactoryData.SegmentEntityIds?.Length ?? 0);
                     Logger.ContainerLoader.Log("");
                 }
 
