@@ -199,6 +199,8 @@ namespace Oxide.Plugins
                                         break;
                                     }
                                     PipeSegment.Attach(segment, pipe);
+                                    if (segment is BuildingBlock)
+                                        (segment as BuildingBlock).grounded = true;
                                     segments.Add(segment);
                                 }
 

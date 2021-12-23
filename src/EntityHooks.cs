@@ -11,7 +11,7 @@
         bool? CanPickupEntity(BasePlayer player, BaseEntity entity)
         {
             PipeSegmentLights lights = null;
-            if (entity?.TryGetComponent(out lights) ?? false) return null;
+            if (!entity?.TryGetComponent(out lights) ?? true) return null;
             var playerHelper = PlayerHelper.Get(player);
             playerHelper?.ShowOverlay(Overlay.CantPickUpLights);
             OverlayText.Hide(player, 2f);
