@@ -109,6 +109,24 @@
   <ItemGroup>
     <Compile Include="Attributes.cs" />
     <Compile Include="Commands.cs" />
+    <Compile Include="DataStore 1.0\ReadDataBuffer.cs" />
+    <Compile Include="DataStore 1.0\WriteDataBuffer.cs" />
+    <Compile Include="DataStore 1.0\ContainerManagerConverter.cs" />
+    <Compile Include="DataStore 1.0\DataConverter.cs" />
+    <Compile Include="DataStore 1.0\PipeConverter.cs" />
+    <Compile Include="DataStore 1.0\ContainerManagerData.cs" />
+    <Compile Include="DataStore 1.0\OnePointZero.cs" />
+    <Compile Include="DataStore 1.0\Logging.cs" />
+    <Compile Include="DataStore 1.1\PipeFactoryData.cs" />
+    <Compile Include="DataStore 1.1\PipeFactoryConverter.cs" />
+    <Compile Include="DataStore 1.1\ContainerManagerConverter.cs" />
+    <Compile Include="DataStore 1.1\ContainerManagerData.cs" />
+    <Compile Include="DataStore 1.1\DataConverter.cs" />
+    <Compile Include="DataStore 1.1\Logging.cs" />
+    <Compile Include="DataStore 1.1\OnePointOne.cs" />
+    <Compile Include="DataStore 1.1\PipeConverter.cs" />
+    <Compile Include="DataStore 1.1\ReadDataBuffer.cs" />
+    <Compile Include="DataStore 1.1\WriteDataBuffer.cs" />
     <Compile Include="Experimental\Components\UIButton.cs" />
     <Compile Include="Experimental\Components\UICleanup.cs" />
     <Compile Include="Experimental\Components\UIComponentBase.cs" />
@@ -123,7 +141,6 @@
     <Compile Include="ContainerManager.cs" />
     <Compile Include="ContainerHelper.cs" />
     <Compile Include="CuiBase.cs" />
-    <Compile Include="Data.cs" />
     <Compile Include="EntityHooks.cs" />
     <Compile Include="Experimental\Partials\PlayerHelper.cs" />
     <Compile Include="Experimental\Partials\Initialization.cs" />
@@ -133,7 +150,10 @@
     <Compile Include="Experimental\MenuTest.cs" />
     <Compile Include="Messages.cs" />
     <Compile Include="OverlayText.cs" />
-    <Compile Include="PipeFactory.cs" />
+    <Compile Include="PipeData.cs" />
+    <Compile Include="PipeFactory\PipeFactory.cs" />
+    <Compile Include="PipeFactory\PipeFactoryBarrel.cs" />
+    <Compile Include="PipeFactory\PipeFactoryLowWall.cs" />
     <Compile Include="ServerHooks.cs" />
     <Compile Include="Experimental\SidebarMenu.cs" />
     <Compile Include="StorageHelper.cs" />

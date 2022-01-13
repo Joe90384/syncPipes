@@ -185,7 +185,8 @@ namespace Oxide.Plugins
         /// <param name="item">Item being removed</param>
         private void OnItemRemovedFromContainer(ItemContainer container, Item item)
         {
-            if (container?.entityOwner?.GetComponent<PipeSegment>() != null)
+            PipeSegment pipeSegment;
+            if (container?.entityOwner?.TryGetComponent<PipeSegment>(out pipeSegment) ?? false)
                 item?.Remove();
         }
 
@@ -195,6 +196,10 @@ namespace Oxide.Plugins
         /// <param name="item">Item being removed</param>
         /// <param name="targetItem">Stack being added to</param>
         /// <returns>If the item can be stacked</returns>
-        private bool? CanStackItem(Item item, Item targetItem) => targetItem?.parent?.entityOwner?.GetComponent<PipeSegment>() != null ? (bool?)false : null;
+        private bool? CanStackItem(Item item, Item targetItem)
+        {
+            PipeSegment pipeSegment = null;
+            return targetItem?.parent?.entityOwner?.TryGetComponent(out pipeSegment) ?? false ? (bool?)false : null;
+        }
     }
 }

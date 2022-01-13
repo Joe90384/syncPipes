@@ -8,105 +8,7 @@ namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
-        /// <summary>
-        ///     This is the serializable data format for creating, loading or saving pipes with
-        /// </summary>
-        public class PipeData
-        {
-            private BaseEntity _destination;
-            private BaseEntity _source;
-            public ContainerType DestinationContainerType;
-            public uint DestinationId;
-            public int FurnaceSplitterStacks = 1;
-            public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
-            public float Health;
-            public bool IsAutoStart;
-            public bool IsEnabled = true;
-            public bool IsFurnaceSplitter;
-            public bool IsMultiStack = true;
-            public List<int> ItemFilter = new List<int>();
-            public ulong OwnerId;
-            public string OwnerName;
-            public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
-            public ContainerType SourceContainerType;
-            public uint SourceId;
 
-
-            /// <summary>
-            ///     This is required to deserialize from json
-            /// </summary>
-            public PipeData()
-            {
-            }
-
-            /// <summary>
-            ///     Create data from a pipe for saving
-            /// </summary>
-            /// <param name="pipe">Pipe to extract settings from</param>
-            public PipeData(Pipe pipe)
-            {
-                IsEnabled = pipe.IsEnabled;
-                Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage ||
-                           pipe.Source.ContainerType == ContainerType.ResourceExtractor
-                    ? pipe.Source.Container.parentEntity.uid
-                    : pipe.Source.Id;
-                DestinationId =
-                    pipe.Destination.ContainerType == ContainerType.FuelStorage ||
-                    pipe.Destination.ContainerType == ContainerType.ResourceExtractor
-                        ? pipe.Destination.Container.parentEntity.uid
-                        : pipe.Destination.Id;
-                SourceContainerType = pipe.Source.ContainerType;
-                DestinationContainerType = pipe.Destination.ContainerType;
-                Health = pipe.Health;
-                ItemFilter = new List<int>(pipe.FilterItems);
-                IsMultiStack = pipe.IsMultiStack;
-                IsAutoStart = pipe.IsAutoStart;
-                IsFurnaceSplitter = pipe.IsFurnaceSplitterEnabled;
-                FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
-                Priority = pipe.Priority;
-                OwnerId = pipe.OwnerId;
-                OwnerName = pipe.OwnerName;
-            }
-
-            /// <summary>
-            ///     Create a pipe data from the player helper's source and destination
-            /// </summary>
-            /// <param name="playerHelper">Player helper to pull the source and destination from</param>
-            public PipeData(PlayerHelper playerHelper)
-            {
-                OwnerId = playerHelper.Player.userID;
-                OwnerName = playerHelper.Player.displayName;
-                Source = playerHelper.Source;
-                Destination = playerHelper.Destination;
-                SourceId = Source.net.ID;
-                DestinationId = Destination.net.ID;
-                SourceContainerType = ContainerHelper.GetEntityType(playerHelper.Source);
-                DestinationContainerType = ContainerHelper.GetEntityType(playerHelper.Destination);
-                IsEnabled = true;
-            }
-
-            [JsonIgnore]
-            public BaseEntity Source
-            {
-                get { return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType)); }
-                private set { _source = value; }
-            }
-
-            [JsonIgnore]
-            public BaseEntity Destination
-            {
-                get
-                {
-                    return _destination ??
-                           (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
-                }
-                private set { _destination = value; }
-            }
-        }
-
-
-        [JsonConverter(typeof(Converter))]
         public class Pipe
         {
             /// <summary>
@@ -157,20 +59,14 @@ namespace Oxide.Plugins
                 IdGenerationFailed
             }
 
-            // Length of each segment
-            private const float PipeLength = 3f;
-
-            // Offset of every other pipe segment to remove z fighting when wall segments overlap
-            private static readonly Vector3 PipeFightOffset = new Vector3(0.0001f, 0.0001f, 0);
-
             // The random generator used to generate the id for this pipe.
             private static readonly Random RandomGenerator;
-            private PipeFactory _factory;
+            internal PipeFactoryBase Factory { get; set; }
 
             // This is the initial state of the filter. This is the fallback if the filter is not initialized
-            private List<int> _initialFilterItems = new List<int>();
+            public List<int> InitialFilterItems { get; internal set; }= new List<int>();
 
-            private readonly float _initialHealth;
+            public float InitialHealth { get; internal set; }
 
             // Filter object. This remains null until it is needed
             private PipeFilter _pipeFilter;
@@ -182,6 +78,8 @@ namespace Oxide.Plugins
             {
                 RandomGenerator = new Random();
             }
+
+            public Pipe() { }
 
             /// <summary>
             ///     Creates a new pipe from PipeData
@@ -201,105 +99,105 @@ namespace Oxide.Plugins
                 Priority = data.Priority;
                 OwnerId = data.OwnerId;
                 OwnerName = data.OwnerName;
-                _initialFilterItems = data.ItemFilter;
+                InitialFilterItems = data.ItemFilter;
                 Validate();
                 Create();
             }
 
-            private Pipe(JsonReader reader, JsonSerializer serializer)
-            {
-                Id = GenerateId();
-                var depth = 1;
-                if (reader.TokenType != JsonToken.StartObject)
-                    return;
-                uint sourceId = 0, destinationId = 0;
-                ContainerType sourceType = ContainerType.General, destinationType = ContainerType.General;
-                while (reader.Read() && depth > 0)
-                    switch (reader.TokenType)
-                    {
-                        case JsonToken.StartObject:
-                            depth++;
-                            break;
-                        case JsonToken.EndObject:
-                            depth--;
-                            break;
-                        case JsonToken.PropertyName:
-                            switch (reader.Value.ToString())
-                            {
-                                case "enb":
-                                    IsEnabled = reader.ReadAsBoolean() ?? false;
-                                    break;
-                                case "grd":
-                                    Grade = (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
-                                    break;
-                                case "sid":
-                                    reader.Read();
-                                    uint.TryParse(reader.Value.ToString(), out sourceId);
-                                    break;
-                                case "did":
-                                    reader.Read();
-                                    uint.TryParse(reader.Value.ToString(), out destinationId);
-                                    break;
-                                case "sct":
-                                    sourceType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
-                                    break;
-                                case "dct":
-                                    destinationType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
-                                    break;
-                                case "hth":
-                                    _initialHealth = (float)reader.ReadAsDecimal().GetValueOrDefault(0);
-                                    break;
-                                case "mst":
-                                    IsMultiStack = reader.ReadAsBoolean() ?? false;
-                                    break;
-                                case "ast":
-                                    IsAutoStart = reader.ReadAsBoolean() ?? false;
-                                    break;
-                                case "fso":
-                                    IsFurnaceSplitterEnabled = reader.ReadAsBoolean() ?? false;
-                                    break;
-                                case "fss":
-                                    FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
-                                    break;
-                                case "prt":
-                                    Priority = (PipePriority)reader.ReadAsInt32().GetValueOrDefault(0);
-                                    break;
-                                case "oid":
-                                    reader.Read();
-                                    ulong ownerId;
-                                    if (ulong.TryParse(reader.Value.ToString(), out ownerId))
-                                        OwnerId = ownerId;
-                                    break;
-                                case "onm":
-                                    OwnerName = reader.ReadAsString();
-                                    break;
-                                case "nme":
-                                    DisplayName = reader.ReadAsString();
-                                    break;
-                                case "flr":
-                                    var filterIds = new List<int>();
-                                    while (reader.Read() && reader.TokenType != JsonToken.EndArray)
-                                    {
-                                        int value;
-                                        if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
-                                            filterIds.Add(value);
-                                    }
+            //public Pipe(JsonReader reader, JsonSerializer serializer)
+            //{
+            //    Id = GenerateId();
+            //    var depth = 1;
+            //    if (reader.TokenType != JsonToken.StartObject)
+            //        return;
+            //    uint sourceId = 0, destinationId = 0;
+            //    ContainerType sourceType = ContainerType.General, destinationType = ContainerType.General;
+            //    while (reader.Read() && depth > 0)
+            //        switch (reader.TokenType)
+            //        {
+            //            case JsonToken.StartObject:
+            //                depth++;
+            //                break;
+            //            case JsonToken.EndObject:
+            //                depth--;
+            //                break;
+            //            case JsonToken.PropertyName:
+            //                switch (reader.Value.ToString())
+            //                {
+            //                    case "enb":
+            //                        IsEnabled = reader.ReadAsBoolean() ?? false;
+            //                        break;
+            //                    case "grd":
+            //                        Grade = (BuildingGrade.Enum)reader.ReadAsInt32().GetValueOrDefault(0);
+            //                        break;
+            //                    case "sid":
+            //                        reader.Read();
+            //                        uint.TryParse(reader.Value.ToString(), out sourceId);
+            //                        break;
+            //                    case "did":
+            //                        reader.Read();
+            //                        uint.TryParse(reader.Value.ToString(), out destinationId);
+            //                        break;
+            //                    case "sct":
+            //                        sourceType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+            //                        break;
+            //                    case "dct":
+            //                        destinationType = (ContainerType)reader.ReadAsInt32().GetValueOrDefault(0);
+            //                        break;
+            //                    case "hth":
+            //                        InitialHealth = (float)reader.ReadAsDecimal().GetValueOrDefault(0);
+            //                        break;
+            //                    case "mst":
+            //                        IsMultiStack = reader.ReadAsBoolean() ?? false;
+            //                        break;
+            //                    case "ast":
+            //                        IsAutoStart = reader.ReadAsBoolean() ?? false;
+            //                        break;
+            //                    case "fso":
+            //                        IsFurnaceSplitterEnabled = reader.ReadAsBoolean() ?? false;
+            //                        break;
+            //                    case "fss":
+            //                        FurnaceSplitterStacks = reader.ReadAsInt32() ?? 1;
+            //                        break;
+            //                    case "prt":
+            //                        Priority = (PipePriority)reader.ReadAsInt32().GetValueOrDefault(0);
+            //                        break;
+            //                    case "oid":
+            //                        reader.Read();
+            //                        ulong ownerId;
+            //                        if (ulong.TryParse(reader.Value.ToString(), out ownerId))
+            //                            OwnerId = ownerId;
+            //                        break;
+            //                    case "onm":
+            //                        OwnerName = reader.ReadAsString();
+            //                        break;
+            //                    case "nme":
+            //                        DisplayName = reader.ReadAsString();
+            //                        break;
+            //                    case "flr":
+            //                        var filterIds = new List<int>();
+            //                        while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+            //                        {
+            //                            int value;
+            //                            if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
+            //                                filterIds.Add(value);
+            //                        }
 
-                                    _initialFilterItems = filterIds;
-                                    break;
-                            }
+            //                        InitialFilterItems = filterIds;
+            //                        break;
+            //                }
 
-                            break;
-                    }
+            //                break;
+            //        }
 
-                var source = ContainerHelper.Find(sourceId, sourceType);
-                var destination = ContainerHelper.Find(destinationId, destinationType);
-                Source = new PipeEndContainer(source, sourceType, this);
-                Destination = new PipeEndContainer(destination, destinationType, this);
-                Validate();
-                if (Validity != Status.Success)
-                    LogLoadError(Id, Validity, sourceId, destinationId);
-            }
+            //    var source = ContainerHelper.Find(sourceId, sourceType);
+            //    var destination = ContainerHelper.Find(destinationId, destinationType);
+            //    Source = new PipeEndContainer(source, sourceType, this);
+            //    Destination = new PipeEndContainer(destination, destinationType, this);
+            //    Validate();
+            //    if (Validity != Status.Success)
+            //        LogLoadError(Id, Validity, sourceId, destinationId);
+            //}
 
 
             /// <summary>
@@ -307,7 +205,7 @@ namespace Oxide.Plugins
             ///     It will auto-initialize when required
             /// </summary>
             public PipeFilter PipeFilter =>
-                _pipeFilter ?? (_pipeFilter = new PipeFilter(_initialFilterItems, FilterCapacity, this));
+                _pipeFilter ?? (_pipeFilter = new PipeFilter(InitialFilterItems, FilterCapacity, this));
 
             /// <summary>
             ///     This will return all the items in the filter.
@@ -325,33 +223,33 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Is furnace splitter enabled
             /// </summary>
-            public bool IsFurnaceSplitterEnabled { get; private set; }
+            public bool IsFurnaceSplitterEnabled { get; internal set; }
 
             /// <summary>
             ///     Number of stacks to use in the furnace splitter
             /// </summary>
-            public int FurnaceSplitterStacks { get; private set; }
+            public int FurnaceSplitterStacks { get; internal set; }
 
             /// <summary>
             ///     Should the pipe attempt to auto-start the destination container of the pipe.
             ///     Must be and Oven, Recycler or Quarry/Pump Jack
             /// </summary>
-            public bool IsAutoStart { get; private set; }
+            public bool IsAutoStart { get; internal set; }
 
             /// <summary>
             ///     Should the pipe stack to multiple stacks in the destination or a single stack
             /// </summary>
-            public bool IsMultiStack { get; private set; }
+            public bool IsMultiStack { get; internal set; }
 
             /// <summary>
             ///     The Id of the player who built the pipe
             /// </summary>
-            public ulong OwnerId { get; }
+            public ulong OwnerId { get; internal set; }
 
             /// <summary>
             ///     Name of the player who built the pipe
             /// </summary>
-            public string OwnerName { get; }
+            public string OwnerName { get; internal set; }
 
             /// <summary>
             ///     List of all players who are viewing the Pipe menu
@@ -372,7 +270,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     The material grade of the pipe. This determines Filter capacity and Flow Rate.
             /// </summary>
-            public BuildingGrade.Enum Grade { get; private set; }
+            public BuildingGrade.Enum Grade { get; set; }
 
             /// <summary>
             ///     Gets the Filter Capacity based on the Grade of the pipe.
@@ -388,7 +286,7 @@ namespace Oxide.Plugins
             ///     Health of the pipe
             ///     Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => _factory.PrimarySegment.Health();
+            public float Health => Factory.PrimarySegment.Health();
 
             /// <summary>
             ///     Used to indicate this pipe is being repaired to prevent multiple repair triggers
@@ -398,7 +296,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Id of the pipe
             /// </summary>
-            public ulong Id { get; }
+            public uint Id { get; set; }
 
             /// <summary>
             ///     Allows for the filter to be used to reject rather than allow items
@@ -410,7 +308,7 @@ namespace Oxide.Plugins
             ///     The priority of this pipe.
             ///     Each band of priority will be grouped together and if anything is left it will move to the next band down.
             /// </summary>
-            public PipePriority Priority { get; private set; } = PipePriority.Medium;
+            public PipePriority Priority { get; internal set; } = PipePriority.Medium;
 
             /// <summary>
             ///     The validity of the pipe
@@ -421,12 +319,12 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Destination of the Pipe
             /// </summary>
-            public PipeEndContainer Destination { get; private set; }
+            public PipeEndContainer Destination { get; internal set; }
 
             /// <summary>
             ///     Source of the Pipe
             /// </summary>
-            public PipeEndContainer Source { get; private set; }
+            public PipeEndContainer Source { get; internal set; }
 
             /// <summary>
             ///     All pipes that have been created
@@ -444,7 +342,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Controls if the pipe will transfer any items along it
             /// </summary>
-            public bool IsEnabled { get; private set; }
+            public bool IsEnabled { get; set; }
 
             /// <summary>
             ///     Gets information on whether the destination is an entity type that can be auto-started
@@ -461,18 +359,18 @@ namespace Oxide.Plugins
             /// </summary>
             public Quaternion Rotation { get; private set; }
 
-            public BaseEntity PrimarySegment => _factory.PrimarySegment;
+            public BaseEntity PrimarySegment => Factory?.PrimarySegment;
 
             /// <summary>
             ///     Get the save data for all pipes
             /// </summary>
-            /// <returns>Data for all pipes</returns>
+            /// <returns>DataStore for all pipes</returns>
             public static IEnumerable<PipeData> Save()
             {
                 for (var i = 0; i < Pipes.Count; i++) yield return new PipeData(Pipes[i]);
             }
 
-            private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
+            public static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
             {
                 Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
                 Logger.PipeLoader.Log("Status: {0}", status);
@@ -496,7 +394,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Load all data and re-create the saved pipes.
             /// </summary>
-            /// <param name="dataToLoad">Data to create the pipes from</param>
+            /// <param name="dataToLoad">DataStore to create the pipes from</param>
             public static void Load(PipeData[] dataToLoad)
             {
                 if (dataToLoad == null) return;
@@ -518,26 +416,6 @@ namespace Oxide.Plugins
                 Instance.Puts("Successfully loaded {0} pipes", validCount);
             }
 
-            private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
-            {
-                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
-                Logger.PipeLoader.Log("Status: {0}", status);
-                Logger.PipeLoader.Log("Source Id: {0}", sourceId);
-                Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
-                Logger.PipeLoader.Log("Source Type: {0}", Source?.ContainerType);
-                Logger.PipeLoader.Log("Destination Type: {0}", Destination?.ContainerType);
-                Logger.PipeLoader.Log("Material: {0}", Grade);
-                Logger.PipeLoader.Log("Enabled: {0}", IsEnabled);
-                Logger.PipeLoader.Log("Auto-start: {0}", IsAutoStart);
-                Logger.PipeLoader.Log("Health: {0}", _initialHealth);
-                Logger.PipeLoader.Log("Priority: {0}", Priority);
-                Logger.PipeLoader.Log("Splitter Enabled: {0}", IsFurnaceSplitterEnabled);
-                Logger.PipeLoader.Log("Splitter Count: {0}", FurnaceSplitterStacks);
-                Logger.PipeLoader.Log("Item Filter: ({0})", PipeFilter?.Items.Count);
-                for (var i = 0; i < PipeFilter?.Items.Count; i++)
-                    Logger.PipeLoader.Log("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english);
-                Logger.PipeLoader.Log("");
-            }
 
             public void Create()
             {
@@ -545,10 +423,14 @@ namespace Oxide.Plugins
                     return;
                 Distance = Vector3.Distance(Source.Position, Destination.Position);
                 Rotation = GetRotation();
-                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false
-                    ? new PipeFactoryBarrel(this)
-                    : (PipeFactory)new PipeFactoryLowWall(this);
-                _factory.Create();
+                if (Factory == null)
+                {
+                    Factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                        ? new PipeFactoryBarrel(this)
+                        : (PipeFactoryBase) new PipeFactoryLowWall(this);
+                    Factory.Create();
+                }
+
                 if (PrimarySegment == null)
                     return;
                 Source.Attach();
@@ -563,8 +445,8 @@ namespace Oxide.Plugins
                     ConnectedContainers.Add(Source.Id, new Dictionary<uint, bool>());
                 ConnectedContainers[Source.Id][Destination.Id] = true;
                 PlayerHelper.AddPipe(this);
-                if (_initialHealth > 0)
-                    SetHealth(_initialHealth);
+                if (InitialHealth > 0)
+                    SetHealth(InitialHealth);
             }
 
             private Quaternion GetRotation()
@@ -594,15 +476,15 @@ namespace Oxide.Plugins
             ///     Generate a new Id for this pipe
             /// </summary>
             /// <returns></returns>
-            private ulong GenerateId()
+            internal uint GenerateId()
             {
-                ulong id;
+                uint id;
                 var safetyCheck = 0;
                 do
                 {
-                    var buf = new byte[8];
+                    var buf = new byte[4];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong)BitConverter.ToInt64(buf, 0);
+                    id = (uint)BitConverter.ToUInt32(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -620,7 +502,9 @@ namespace Oxide.Plugins
             /// <returns></returns>
             public static Pipe Get(BaseEntity entity)
             {
-                return entity.GetComponent<PipeSegment>()?.Pipe;
+                PipeSegment segment = null;
+                entity?.TryGetComponent(out segment);
+                return segment?.Pipe;
             }
 
             /// <summary>
@@ -701,7 +585,7 @@ namespace Oxide.Plugins
             /// <summary>
             ///     Validates that the pipe has a valid source and destination
             /// </summary>
-            private void Validate()
+            internal void Validate()
             {
                 if (Source == null || Source.Storage == null)
                     Validity = Status.SourceError;
@@ -720,7 +604,7 @@ namespace Oxide.Plugins
                 Source = Destination;
                 Destination = stash;
                 Rotation = GetRotation();
-                _factory.Reverse();
+                Factory.Reverse();
                 RefreshMenu();
             }
 
@@ -800,17 +684,37 @@ namespace Oxide.Plugins
 
             private void KillSegments(bool cleanup)
             {
+                if (cleanup && InstanceConfig.Experimental.PermanentEntities)
+                {
+                    for (var index = 0; index < Factory.Segments.Count; index++)
+                    {
+                        var segment = Factory.Segments[index];
+                        PipeSegment pipeSegmentComponent;
+                        if(segment.TryGetComponent(out pipeSegmentComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentComponent);
+                    }
+
+                    for (var index = 0; index < Factory.Lights.Count; index++)
+                    {
+                        var lights = Factory.Lights[index];
+                        PipeSegmentLights pipeSegmentLightsComponent;
+                        if (lights.TryGetComponent(out pipeSegmentLightsComponent))
+                            UnityEngine.Object.Destroy(pipeSegmentLightsComponent);
+                    }
+                    return;
+                }
+
                 if (cleanup)
                 {
-                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                        _factory.PrimarySegment?.Kill();
+                    if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                        Factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
-                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!Factory.PrimarySegment?.IsDestroyed ?? false)
+                            Factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
@@ -862,7 +766,7 @@ namespace Oxide.Plugins
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                _factory.Upgrade(grade);
+                Factory.Upgrade(grade);
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
                 RefreshMenu();
@@ -874,7 +778,7 @@ namespace Oxide.Plugins
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                _factory.SetHealth(health);
+                Factory.SetHealth(health);
             }
 
             /// <summary>
@@ -942,7 +846,7 @@ namespace Oxide.Plugins
                     PlayersViewingMenu[i].SendSyncPipesConsoleCommand("closemenu", Id);
                 _pipeFilter?.Kill();
                 _pipeFilter = null;
-                _initialFilterItems = new List<int>(pipe.FilterItems);
+                InitialFilterItems = new List<int>(pipe.FilterItems);
                 IsAutoStart = pipe.IsAutoStart;
                 IsEnabled = pipe.IsEnabled;
                 IsFurnaceSplitterEnabled = pipe.IsFurnaceSplitterEnabled;
@@ -950,67 +854,6 @@ namespace Oxide.Plugins
                 InvertFilter = pipe.InvertFilter;
                 FurnaceSplitterStacks = pipe.FurnaceSplitterStacks;
                 Priority = pipe.Priority;
-            }
-
-            public class Converter : JsonConverter
-            {
-                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-                {
-                    var pipe = value as Pipe;
-                    if (pipe == null) return;
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("enb");
-                    writer.WriteValue(pipe.IsEnabled);
-                    writer.WritePropertyName("grd");
-                    writer.WriteValue(pipe.Grade);
-                    writer.WritePropertyName("sid");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType)
-                        ? pipe.Source.Container.parentEntity.uid
-                        : pipe.Source.Id);
-                    writer.WritePropertyName("did");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType)
-                        ? pipe.Destination.Container.parentEntity.uid
-                        : pipe.Destination.Id);
-                    writer.WritePropertyName("sct");
-                    writer.WriteValue(pipe.Source.ContainerType);
-                    writer.WritePropertyName("dct");
-                    writer.WriteValue(pipe.Destination.ContainerType);
-                    writer.WritePropertyName("hth");
-                    writer.WriteValue(pipe.Health);
-                    writer.WritePropertyName("mst");
-                    writer.WriteValue(pipe.IsMultiStack);
-                    writer.WritePropertyName("ast");
-                    writer.WriteValue(pipe.IsAutoStart);
-                    writer.WritePropertyName("fso");
-                    writer.WriteValue(pipe.IsFurnaceSplitterEnabled);
-                    writer.WritePropertyName("fss");
-                    writer.WriteValue(pipe.FurnaceSplitterStacks);
-                    writer.WritePropertyName("prt");
-                    writer.WriteValue(pipe.Priority);
-                    writer.WritePropertyName("oid");
-                    writer.WriteValue(pipe.OwnerId);
-                    writer.WritePropertyName("onm");
-                    writer.WriteValue(pipe.OwnerName);
-                    writer.WritePropertyName("nme");
-                    writer.WriteValue(pipe.DisplayName);
-                    writer.WritePropertyName("flr");
-                    writer.WriteStartArray();
-                    for (var i = 0; i < pipe.PipeFilter.Items.Count; i++)
-                        writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
-                    writer.WriteEndArray();
-                    writer.WriteEndObject();
-                }
-
-                public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
-                    JsonSerializer serializer)
-                {
-                    return new Pipe(reader, serializer);
-                }
-
-                public override bool CanConvert(Type objectType)
-                {
-                    return objectType == typeof(Pipe);
-                }
             }
         }
     }

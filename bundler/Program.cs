@@ -112,8 +112,8 @@ namespace Oxide.Plugins
 
             var seedFile = new FileInfo(@"..\..\..\src\Initialization.cs");
             var seedDirectory = seedFile.Directory;
-            var outputDirectory = Environment.ExpandEnvironmentVariables(args[0]);
-            var outputFile =  Path.Combine(outputDirectory, "SyncPipes.cs");
+            var outputDirectory = args.Length > 0 ? Environment.ExpandEnvironmentVariables(args[0]) : null;
+            var outputFile = string.IsNullOrEmpty(outputDirectory) ? null : Path.Combine(outputDirectory, "SyncPipes.cs");
             var deployFile = Path.Combine(@"..\..\..\", "SyncPipes.cs");
 
             Console.WriteLine("Seed file: {0}", seedFile.FullName);
@@ -125,8 +125,7 @@ namespace Oxide.Plugins
                 Console.ReadKey();
                 return;
             }
-
-            if (!Directory.Exists(outputDirectory))
+            if(!string.IsNullOrEmpty(outputFile) && !Directory.Exists(outputDirectory))
             {
                 Console.WriteLine("Can't find output directory - {0}", outputDirectory);
                 Console.ReadKey();
@@ -313,7 +312,8 @@ namespace Oxide.Plugins
             }
             #endregion
 
-            File.Copy(deployFile, outputFile, true);
+            if(!string.IsNullOrEmpty(outputFile))
+                File.Copy(deployFile, outputFile, true);
         }
 
 

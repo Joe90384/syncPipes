@@ -7,11 +7,10 @@
         /// </summary>
         void OnServerInitialized()
         {
-
-            if (!DataStore1_0.Load())
+            if (!DataStore.OnePointOne.Load())
             {
-                Instance.Puts("Upgrading from old data store");
-                Data.Load();
+                Instance.PrintWarning("Upgrading from V1.0 to V1.1");
+                DataStore.OnePointZero.Load();
             }
         }
 
@@ -20,7 +19,7 @@
         /// </summary>
         void OnServerSave()
         {
-            DataStore1_0.Save();
+            DataStore.OnePointOne.Save();
         }
     }
 }

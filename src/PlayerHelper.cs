@@ -270,8 +270,11 @@ namespace Oxide.Plugins
             /// </summary>
             /// <param name="container">Container to check the permission of</param>
             /// <returns>True if the player can open the container</returns>
-            public bool HasContainerPrivilege(BaseEntity container) =>
-                HasContainerPrivilege(container.GetComponent<StorageContainer>());
+            public bool HasContainerPrivilege(BaseEntity container)
+            {
+                StorageContainer storage = null;
+                return (container?.TryGetComponent(out storage) ?? false) && HasContainerPrivilege(storage);
+            }
 
             public bool HasContainerPrivilege(StorageContainer container) =>
                 container.CanOpenLootPanel(Player, container.panelName) && CanBuild;

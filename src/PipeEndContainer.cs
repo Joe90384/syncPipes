@@ -120,6 +120,8 @@ namespace Oxide.Plugins
                         (Container as Recycler)?.StopRecycling();
                         break;
                     case ContainerType.FuelStorage:
+                        MiningQuarry quarry = null;
+                        Container?.TryGetComponent(out quarry);
                         Container.GetComponentInParent<MiningQuarry>().EngineSwitch(false);
                         break;
                 }

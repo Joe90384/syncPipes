@@ -12,97 +12,70 @@ namespace Oxide.Plugins
         ///     This then allows for items to move through pipes in a more synchronous manner.
         ///     Items can be split evenly between all pipes of the same priority.
         /// </summary>
-        [JsonConverter(typeof(ContainerManager.Converter))]
         public class ContainerManager : MonoBehaviour
         {
-            /// <summary>
-            /// This is the serializable data format fro loading or saving container manager data
-            /// </summary>
-            public class Data
-            {
-                public uint ContainerId;
-                public bool CombineStacks;
-                public string DisplayName;
-                public ContainerType ContainerType;
+            
 
-                /// <summary>
-                /// This is required to deserialize from json
-                /// </summary>
-                public Data() { }
+            ///// <summary>
+            ///// Get the save data for all container managers
+            ///// </summary>
+            ///// <returns>data for all container managers</returns>
+            //public static IEnumerable<DataStore> Save()
+            //{
+            //    using (var enumerator = ManagedContainerLookup.GetEnumerator())
+            //    {
+            //        while (enumerator.MoveNext())
+            //        {
+            //            if (enumerator.Current.Value.HasAnyPipes)
+            //                yield return new DataStore(enumerator.Current.Value);
+            //        }
+            //    }
+            //}
 
-                /// <summary>
-                /// Create data from a container manager for saving
-                /// </summary>
-                /// <param name="containerManager">Container manager to extract settings from</param>
-                public Data(ContainerManager containerManager)
-                {
-                    ContainerId = containerManager.ContainerId;
-                    CombineStacks = containerManager.CombineStacks;
-                    DisplayName = containerManager.DisplayName;
-                    ContainerType = ContainerHelper.GetEntityType(containerManager._container);
-                }
-            }
+            //private static void LogLoadError(DataStore data)
+            //{
+            //    Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
+            //    Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
+            //    Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
+            //    Logger.ContainerLoader.Log("");
+            //}
 
-            /// <summary>
-            /// Get the save data for all container managers
-            /// </summary>
-            /// <returns>data for all container managers</returns>
-            public static IEnumerable<Data> Save()
-            {
-                using (var enumerator = ManagedContainerLookup.GetEnumerator())
-                {
-                    while (enumerator.MoveNext())
-                    {
-                        if (enumerator.Current.Value.HasAnyPipes)
-                            yield return new Data(enumerator.Current.Value);
-                    }
-                }
-            }
-
-            private static void LogLoadError(Data data)
-            {
-                Logger.ContainerLoader.Log("------------------- {0} -------------------", data.ContainerId);
-                Logger.ContainerLoader.Log("Container Type: {0}", data.ContainerType);
-                Logger.ContainerLoader.Log("Display Name: {0}", data.DisplayName);
-                Logger.ContainerLoader.Log("");
-            }
-
-            /// <summary>
-            /// Load all data into the container managers.
-            /// This must be run after Pipe.Load as it only updates container managers created by the pipes.
-            /// </summary>
-            /// <param name="dataToLoad">Data to load into container managers</param>
-            public static void Load(List<Data> dataToLoad)
-            {
-                if (dataToLoad == null) return;
-                var containerCount = 0;
-                for(int i = 0; i < dataToLoad.Count; i++)
-                {
-                    ContainerManager manager;
-                    if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
-                    {
-                        var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
-                        dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
-                    }
-                    if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
-                    {
-                        containerCount++;
-                        manager.DisplayName = dataToLoad[i].DisplayName;
-                        manager.CombineStacks = dataToLoad[i].CombineStacks;
-                    }
-                    else
-                    {
-                        Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
-                        LogLoadError(dataToLoad[i]);
-                    }
-                }
-                Instance.Puts("Successfully loaded {0} managers", containerCount);
-            }
+            ///// <summary>
+            ///// Load all data into the container managers.
+            ///// This must be run after Pipe.Load as it only updates container managers created by the pipes.
+            ///// </summary>
+            ///// <param name="dataToLoad">DataStore to load into container managers</param>
+            //public static void Load(List<DataStore> dataToLoad)
+            //{
+            //    if (dataToLoad == null) return;
+            //    var containerCount = 0;
+            //    for(int i = 0; i < dataToLoad.Count; i++)
+            //    {
+            //        ContainerManager manager;
+            //        if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
+            //        {
+            //            var entity = ContainerHelper.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
+            //            dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
+            //        }
+            //        if (ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
+            //        {
+            //            containerCount++;
+            //            manager.DisplayName = dataToLoad[i].DisplayName;
+            //            manager.CombineStacks = dataToLoad[i].CombineStacks;
+            //        }
+            //        else
+            //        {
+            //            Instance.PrintWarning("Failed to load manager [{0} - {1} - {2}]: Container not found", dataToLoad[i].ContainerId, dataToLoad[i].ContainerType, dataToLoad[i].DisplayName);
+            //            LogLoadError(dataToLoad[i]);
+            //        }
+            //    }
+            //    Instance.Puts("Successfully loaded {0} managers", containerCount);
+            //}
 
             /// <summary>
             ///     Keeps track of all the container managers that have been created.
             /// </summary>
-            private static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
+            internal static readonly Dictionary<uint, ContainerManager> ManagedContainerLookup =
                 new Dictionary<uint, ContainerManager>();
             public static readonly List<ContainerManager> ManagedContainers = new List<ContainerManager>();
 
@@ -112,9 +85,9 @@ namespace Oxide.Plugins
 
             // Pull from multiple stack of the same type whe moving or only move one stack per priority level
             // This has been implemented but the controlling systems have not been developed
-            public bool CombineStacks { get; private set; } = true;
+            public bool CombineStacks { get; internal set; } = true;
 
-            private StorageContainer _container; // The storage container this manager is attached to
+            public StorageContainer Container { get; set; } // The storage container this manager is attached to
             public uint ContainerId; // The id of the storage container this manager is attached to
 
             private float _cumulativeDeltaTime; // Used to keep track of the time between each cycle
@@ -195,7 +168,8 @@ namespace Oxide.Plugins
                     containerManager._attachedPipes.Add(pipe);
                 }
                 containerManager.ContainerId = entity.net.ID;
-                containerManager._container = container;
+                containerManager.Container = container;
+                containerManager.ContainerType = ContainerHelper.GetEntityType(container);
                 return containerManager;
             }
 
@@ -228,19 +202,19 @@ namespace Oxide.Plugins
             {
                 try
                 {
-                    if (_container == null)
+                    if (Container == null)
                         Kill();
                     if (_destroyed || !HasAnyPipes) return;
                     _cumulativeDeltaTime += Time.deltaTime;
                     if (_cumulativeDeltaTime < InstanceConfig.UpdateRate) return;
                     _cumulativeDeltaTime = 0f;
-                    if (_container.inventory.itemList.Count == 0 || _container.inventory.itemList[0] == null)
+                    if (Container.inventory.itemList.Count == 0 || Container.inventory.itemList[0] == null)
                         return;
                     var pipeGroups = new Dictionary<int, Dictionary<int, List<Pipe>>>();
                     for (var i = 0; i < _attachedPipes.Count; i++)
                     {
                         var pipe = _attachedPipes[i];
-                        if (_attachedPipes[i].Source.Container != _container || !_attachedPipes[i].IsEnabled)
+                        if (_attachedPipes[i].Source.Container != Container || !_attachedPipes[i].IsEnabled)
                             continue;
                         var priority = (int) pipe.Priority;
                         var grade = (int) pipe.Grade;
@@ -273,43 +247,34 @@ namespace Oxide.Plugins
             {
                 get
                 {
-                    if (_container is Recycler)
+                    if (Container is Recycler)
                     {
                         var itemList = new List<Item>();
                         for (int i = 6; i < 12; i++)
                         {
-                            var item = _container.inventory.GetSlot(i);
+                            var item = Container.inventory.GetSlot(i);
                             if (item == null) continue;
                             itemList.Add(item);
                         }
                         return itemList;
                     }
 
-                    return _container.inventory.itemList;
+                    return Container.inventory.itemList;
                 }
             }
+
+            public ContainerType ContainerType { get; set; }
 
             private MovableType CanPuItem(Item item)
             {
                 try
                 {
-                    var oven = _container as BaseOven;
-                    if (oven == null) return MovableType.Allowed;
-                    if (
-                        item.info.category != ItemCategory.Resources &&
-                        item.info.category != ItemCategory.Food ||
-                        item.info.shortname.EndsWith("cooked") ||
-                        item.info.shortname.EndsWith("burned")
-                    ) return MovableType.Rejected;
-                    var fuel = item.info.GetComponent<ItemModBurnable>();
-                    if (fuel != null)
-                        return oven.fuelType?.Equals(item.info) ?? false ? MovableType.Fuel : MovableType.Rejected;
-                    var cookable = item.info.GetComponent<ItemModCookable>();
-                    if (cookable != null &&
-                        cookable.lowTemp <= oven.cookingTemperature &&
-                        cookable.highTemp >= oven.cookingTemperature)
-                        return MovableType.Cookable;
-                    return MovableType.Rejected;
+                    if (!(Container is BaseOven)) return MovableType.Allowed;
+                    if (!CanCook(item)) return MovableType.Rejected;
+                    var burnable = OvenFuel(item);
+                    if (burnable.HasValue)
+                        return burnable.GetValueOrDefault() ? MovableType.Fuel : MovableType.Rejected;
+                    return CorrectOven(item) ? MovableType.Cookable : MovableType.Rejected;
                 }
                 catch (Exception e)
                 {
@@ -318,27 +283,44 @@ namespace Oxide.Plugins
                 }
             }
 
+            private static bool CanCook(Item item)
+            {
+                return !(item.info.category != ItemCategory.Resources &&
+                       item.info.category != ItemCategory.Food ||
+                       item.info.shortname.EndsWith("cooked") ||
+                       item.info.shortname.EndsWith("burned"));
+            }
+
+            private bool CorrectOven(Item item)
+            {
+                var oven = Container as BaseOven;
+                if (oven == null) return false;
+                ItemModCookable cookable = null;
+                return item.info.TryGetComponent(out cookable) &&
+                       cookable.lowTemp <= oven.cookingTemperature &&
+                       cookable.highTemp >= oven.cookingTemperature;
+            }
+
+            private bool? OvenFuel(Item item)
+            {
+                var oven = Container as BaseOven;
+                if (oven == null) return null;
+                ItemModBurnable burnable = null;
+                if (item.info.TryGetComponent(out burnable))
+                    return oven.fuelType.Equals(item.info);
+                return null;
+            }
+
             private bool CanTakeItem(Item item)
             {
                 try
                 {
-                    var oven = _container as BaseOven;
-                    if (oven == null) return true;
-                    if (
-                        item.info.category != ItemCategory.Resources &&
-                        item.info.category != ItemCategory.Food ||
-                        item.info.shortname.ToLower().EndsWith("cooked") ||
-                        item.info.shortname.EndsWith("burned")
-                    ) return true;
-                    var fuel = item.info.GetComponent<ItemModBurnable>();
-                    if (fuel != null)
-                        return !oven.fuelType.Equals(item.info);
-                    var cookable = item.info.GetComponent<ItemModCookable>();
-                    if (cookable != null &&
-                        cookable.lowTemp <= oven.cookingTemperature &&
-                        cookable.highTemp >= oven.cookingTemperature)
-                        return false;
-                    return true;
+                    if (!(Container is BaseOven)) return true;
+                    if (!CanCook(item)) return true;
+                    var burnable = OvenFuel(item);
+                    if (burnable.HasValue)
+                        return !burnable.GetValueOrDefault();
+                    return !CorrectOven(item);
                 }
                 catch (Exception e)
                 {
@@ -519,7 +501,7 @@ namespace Oxide.Plugins
                     for (var j = 0; j < pipes.Count; j++)
                     {
                         var pipe = pipes[j];
-                        var item = _container.inventory.itemList.Count > 0 ? _container.inventory.itemList[0] : null;
+                        var item = Container.inventory.itemList.Count > 0 ? Container.inventory.itemList[0] : null;
                         if (item == null) return;
                         GetItemToMove(item, pipe)?.MoveToContainer(pipe.Destination.Storage.inventory);
                     }
@@ -620,38 +602,6 @@ namespace Oxide.Plugins
                         minStackSize = itemStacks[i].amount;
                 }
                 return minStackSize < 0 ? 0 : minStackSize;
-            }
-
-            public class Converter : JsonConverter
-            {
-                public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-                {
-                    var container = value as ContainerManager;
-                    if (container == null) return;
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("ci");
-                    if(container._container is ResourceExtractorFuelStorage)
-                        writer.WriteValue(container._container.parentEntity.uid);
-                    else
-                        writer.WriteValue(container.ContainerId);
-                    writer.WritePropertyName("cs");
-                    writer.WriteValue(container.CombineStacks);
-                    writer.WritePropertyName("dn");
-                    writer.WriteValue(container.DisplayName);
-                    writer.WritePropertyName("ct");
-                    writer.WriteValue(ContainerHelper.GetEntityType(container._container));
-                    writer.WriteEndObject();
-                }
-
-                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
-                {
-                    return null;
-                }
-
-                public override bool CanConvert(Type objectType)
-                {
-                    return objectType == typeof(ContainerManager);
-                }
             }
         }
 

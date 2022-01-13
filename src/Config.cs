@@ -184,6 +184,9 @@ namespace Oxide.Plugins
         {
             [JsonProperty("barrelPipe")]
             public bool BarrelPipe { get; set; }
+
+            [JsonProperty("permEntity")]
+            public bool PermanentEntities { get; set; }
         }
 
         /// <summary>
