@@ -554,7 +554,12 @@ namespace Oxide.Plugins
                 {
                     var distance = Vector3.Distance(playerHelper.Source.CenterPoint(),
                         playerHelper.Destination.CenterPoint());
-                    if (distance > InstanceConfig.MaximumPipeDistance)
+                    if ((playerHelper.Source.ShortPrefabName == ToolCupboardPrefab ||
+                        playerHelper.Destination.ShortPrefabName == ToolCupboardPrefab) && distance > 10f)
+                    {
+                        playerHelper.ShowOverlay(Overlay.TooFarTC);
+                    }
+                    else if (distance > InstanceConfig.MaximumPipeDistance)
                     {
                         playerHelper.ShowOverlay(Overlay.TooFar);
                     }

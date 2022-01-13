@@ -25,6 +25,10 @@ namespace Oxide.Plugins
             TooFar,
 
             [MessageType(MessageType.Warning)]
+            [English("Pipes to the TC are very short. You'll just have to select a closer container.")]
+            TooFarTC,
+
+            [MessageType(MessageType.Warning)]
             [English("There isn't a pipe short enough. You need more space between the containers")]
             TooClose,
 
@@ -35,6 +39,10 @@ namespace Oxide.Plugins
             [MessageType(MessageType.Warning)]
             [English("You're not allowed to connect to monument containers.")]
             MonumentDenied,
+
+            [MessageType(MessageType.Warning)]
+            [English("You can't connect two TCs together.")]
+            CantConnectTwoToolcuboards,
 
             [MessageType(MessageType.Warning)]
             [English("You're not allowed to connect to this type of container.")]
@@ -75,6 +83,14 @@ namespace Oxide.Plugins
             [MessageType(MessageType.Info)]
             [English("Clear a pipe or container name by hitting it with the hammer.")]
             HitToClearName,
+
+            [MessageType(MessageType.Info)]
+            [English("Hit a building to get its building ID")]
+            HitToGetBuildingId,
+
+            [MessageType(MessageType.Info)]
+            [English("Hit a TC to set it to building Id {0}")]
+            HitToSetBuildingId,
 
             [MessageType(MessageType.Warning)]
             [English("Sorry but you're only able to set names on pipe or containers that are attached to pipes.")]

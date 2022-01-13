@@ -25,6 +25,8 @@ namespace Oxide.Plugins
         /// </summary>
         private static SyncPipes Instance;
 
+        private const string ToolCupboardPrefab = "cupboard.tool.deployed";
+
 #pragma warning disable CS0649
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
@@ -66,9 +68,11 @@ namespace Oxide.Plugins
             _messageTypes = new Dictionary<Enum, MessageType> {
                 {Oxide.Plugins.SyncPipes.Overlay.AlreadyConnected, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.TooFar, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.TooFarTC, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.TooClose, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToCreate, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.MonumentDenied, MessageType.Warning},
+                {Oxide.Plugins.SyncPipes.Overlay.CantConnectTwoToolcuboards, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.BlacklistedContainer, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.NoPrivilegeToEdit, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.PipeLimitReached, MessageType.Warning},
@@ -77,6 +81,8 @@ namespace Oxide.Plugins
                 {Oxide.Plugins.SyncPipes.Overlay.HitSecondContainer, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.HitToName, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.HitToClearName, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.HitToGetBuildingId, MessageType.Info},
+                {Oxide.Plugins.SyncPipes.Overlay.HitToSetBuildingId, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.CannotNameContainer, MessageType.Warning},
                 {Oxide.Plugins.SyncPipes.Overlay.CopyFromPipe, MessageType.Info},
                 {Oxide.Plugins.SyncPipes.Overlay.CopyToPipe, MessageType.Info},
@@ -221,6 +227,13 @@ namespace Oxide.Plugins
                     case "n":
                         var name = string.Join(" ", args.Length > 1 ? args[1] : null);
                         Name(playerHelper, name);
+                        break;
+                    case "tc":
+                        if (!playerHelper.IsAdmin) return;
+                        if(playerHelper.State == PlayerHelper.UserState.ToolCupboard) 
+                            playerHelper.StopToolCupboardBuildingId();
+                        else
+                            playerHelper.StartToolCupboardBuildingId();
                         break;
                 }
             }
@@ -590,7 +603,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
 
             [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public ExperimentalConfig Experimental { get; set; }
+            public ExperimentalConfig Experimental { get; set; } = new ExperimentalConfig();
 
             public class PermissionLevel
             {
@@ -1799,6 +1812,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 return;
             var playerHelper = PlayerHelper.Get(player);
             var handled =
+                Handlers.HandleAttachTCContainerHut(playerHelper, hit.HitEntity) ||
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
                 Handlers.HandlePlacementContainerHit(playerHelper, hit.HitEntity) ||
                 Handlers.HandlePipeCopy(playerHelper, hit.HitEntity) ||
@@ -2108,12 +2122,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
                     playerHelper.ShowPlacingOverlay(2f);
+                    return false;
                 }
 
                 if (!ContainerHelper.InMonument(entity))
                 {
                     playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);
+                    return false;
                 }
                 else
                 {
@@ -2124,6 +2140,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     else
                     {
                         playerHelper.Destination = entity;
+                        if (playerHelper.Source.ShortPrefabName == ToolCupboardPrefab &&
+                            playerHelper.Destination?.ShortPrefabName == ToolCupboardPrefab)
+                        {
+                            playerHelper.ShowOverlay(Overlay.CantConnectTwoToolcuboards);
+                            playerHelper.ShowPlacingOverlay(2f);
+                            return false;
+                        }
                         Pipe.TryCreate(playerHelper);
                         return true;
                     }
@@ -2257,6 +2280,21 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 pipe.Upgrade(grade);
                 return null;
+            }
+
+            public static bool HandleAttachTCContainerHut(PlayerHelper playerHelper, BaseEntity hitHitEntity)
+            {
+                if (playerHelper.State != PlayerHelper.UserState.ToolCupboard) return false;
+                var decayEntity = hitHitEntity as DecayEntity;
+                if (decayEntity == null) return false;
+                if (hitHitEntity.ShortPrefabName == ToolCupboardPrefab)
+                {
+                    if (playerHelper.TCAttchBuildingId == 0) return false;
+                    playerHelper.SetToolCupboardBuildingId(decayEntity);
+                    return true;
+                }
+                playerHelper.SetPlayerToolCupboardBuildingId(decayEntity.buildingID);
+                return true;
             }
         }
         #endregion
@@ -2927,9 +2965,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"Chat.StatsUnlimited", "You have {0} pipes\n{2} - running\n{3} - disabled"},
                 {"Overlay.AlreadyConnected", "You already have a pipe between these containers."},
                 {"Overlay.TooFar", "The pipes just don't stretch that far. You'll just have to select a closer container."},
+                {"Overlay.TooFarTC", "Pipes to the TC are very short. You'll just have to select a closer container."},
                 {"Overlay.TooClose", "There isn't a pipe short enough. You need more space between the containers"},
                 {"Overlay.NoPrivilegeToCreate", "This isn't your container to connect to. You'll need to speak nicely to the owner."},
                 {"Overlay.MonumentDenied", "You're not allowed to connect to monument containers."},
+                {"Overlay.CantConnectTwoToolcuboards", "You can't connect two TCs together."},
                 {"Overlay.BlacklistedContainer", "You're not allowed to connect to this type of container."},
                 {"Overlay.NoPrivilegeToEdit", "This pipe won't listen to you. Get the owner to do it for you."},
                 {"Overlay.PipeLimitReached", "You've not got enough pipes to build that I'm afraid."},
@@ -2940,6 +2980,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"Overlay.CancelPipeCreationFromBind", "Press '{0}' to cancel"},
                 {"Overlay.HitToName", "Hit a container or pipe with the hammer to set it's name to '{0}'"},
                 {"Overlay.HitToClearName", "Clear a pipe or container name by hitting it with the hammer."},
+                {"Overlay.HitToGetBuildingId", "Hit a building to get its building ID"},
+                {"Overlay.HitToSetBuildingId", "Hit a TC to set it to building Id {0}"},
                 {"Overlay.CannotNameContainer", "Sorry but you're only able to set names on pipe or containers that are attached to pipes."},
                 {"Overlay.CopyFromPipe", "Hit a pipe with the hammer to copy it's settings."},
                 {"Overlay.CopyToPipe", "Hit another pipe with the hammer to apply the settings you copied"},
@@ -3020,11 +3062,15 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             TooFar,
 
+            TooFarTC,
+
             TooClose,
 
             NoPrivilegeToCreate,
 
             MonumentDenied,
+
+            CantConnectTwoToolcuboards,
 
             BlacklistedContainer,
 
@@ -3045,6 +3091,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             HitToName,
 
             HitToClearName,
+
+            HitToGetBuildingId,
+
+            HitToSetBuildingId,
 
             CannotNameContainer,
 
@@ -3734,7 +3784,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     var distance = Vector3.Distance(playerHelper.Source.CenterPoint(),
                         playerHelper.Destination.CenterPoint());
-                    if (distance > InstanceConfig.MaximumPipeDistance)
+                    if ((playerHelper.Source.ShortPrefabName == ToolCupboardPrefab ||
+                        playerHelper.Destination.ShortPrefabName == ToolCupboardPrefab) && distance > 10f)
+                    {
+                        playerHelper.ShowOverlay(Overlay.TooFarTC);
+                    }
+                    else if (distance > InstanceConfig.MaximumPipeDistance)
                     {
                         playerHelper.ShowOverlay(Overlay.TooFar);
                     }
@@ -4504,6 +4559,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public bool HasBuildPrivilege => IsAdmin || (Player?.GetBuildingPrivilege()?.IsAuthed(Player) ?? false);
 
             /// <summary>
+            /// To help with re-attaching TCs to buildings
+            /// </summary>
+            public uint TCAttchBuildingId = 0;
+
+            /// <summary>
             /// Gets the syncPipes privileges currently held by this player
             /// </summary>
             private IEnumerable<SyncPipesConfig.PermissionLevel> Permissions
@@ -4774,7 +4834,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Copying,
                 Removing,
                 Naming,
-                Completing
+                Completing,
+                ToolCupboard
             }
 
             /// <summary>
@@ -4828,6 +4889,35 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 NamingName = null;
                 OverlayText.Hide(Player);
             }
+
+            public void StartToolCupboardBuildingId()
+            {
+                if (!IsAdmin) return;
+                State = UserState.ToolCupboard;
+                ShowOverlay(Overlay.HitToGetBuildingId);
+            }
+
+            public void SetPlayerToolCupboardBuildingId(uint buildingId)
+            {
+                TCAttchBuildingId = buildingId;
+                if (!IsAdmin) return;
+                ShowOverlay(Overlay.HitToSetBuildingId, TCAttchBuildingId);
+            }
+
+            public void SetToolCupboardBuildingId(DecayEntity toolCupboard)
+            {
+                if (!IsAdmin) return;
+                toolCupboard.buildingID = TCAttchBuildingId;
+                StopToolCupboardBuildingId();
+            }
+
+            public void StopToolCupboardBuildingId()
+            {
+                if (!IsAdmin) return;
+                OverlayText.Hide(Player);
+                State = UserState.None;
+            }
+
 
             /// <summary>
             /// Remove all player helpers from the server
@@ -6356,6 +6446,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
                         {
                             Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
+                            _loading = false;
                             return false;
                         }
 
@@ -7017,7 +7108,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 var pipeSegmentEntity = pipeSegment as TEntity;
                 if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
                 pipeSegmentEntity.Spawn();
 
                 AttachPipeSegment(pipeSegmentEntity);
@@ -7101,12 +7192,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <param name="pipeIndex">The index of this pipe segment</param>
             protected override BuildingBlock PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
             {
-                var pipeSegmentEntity = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
-                if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.grounded = true;
-                pipeSegmentEntity.grade = _pipe.Grade;
-                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
-                pipeSegmentEntity.SetHealthToMax();
+                var pipeSegmentBuildingBlock = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
+                if (pipeSegmentBuildingBlock == null) return null;
+                pipeSegmentBuildingBlock.grounded = true;
+                pipeSegmentBuildingBlock.grade = _pipe.Grade;
+                pipeSegmentBuildingBlock.enableSaving = InstanceConfig.Experimental.PermanentEntities;
+                pipeSegmentBuildingBlock.SetHealthToMax();
+                if (_pipe.Source.Storage.ShortPrefabName == "cupboard.tool.deployed")
+                    pipeSegmentBuildingBlock.buildingID = _pipe.Source.Storage.buildingID;
+                else if (_pipe.Destination.Storage.ShortPrefabName == "cupboard.tool.deployed")
+                    pipeSegmentBuildingBlock.buildingID = _pipe.Destination.Storage.buildingID;
+
                 if (InstanceConfig.AttachXmasLights)
                 {
                     var lights = GameManager.server.CreateEntity(
@@ -7123,7 +7219,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Lights.Add(lights);
                     PipeSegmentLights.Attach(lights, _pipe);
                 }
-                return pipeSegmentEntity;
+                return pipeSegmentBuildingBlock;
             }
 
             public PipeFactoryLowWall(Pipe pipe) : base(pipe) { }
@@ -7149,8 +7245,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 base.AttachPipeSegment(pipeSegmentEntity);
                 var pipeSegmentBuildingBlock = pipeSegmentEntity as BuildingBlock;
-                if(pipeSegmentBuildingBlock != null)
-                    pipeSegmentBuildingBlock.grounded = true;
+                if (pipeSegmentBuildingBlock == null)
+                    return;
+                pipeSegmentBuildingBlock.grounded = true;
             }
 
             public override void Upgrade(BuildingGrade.Enum grade)

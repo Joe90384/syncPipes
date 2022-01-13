@@ -11,6 +11,8 @@ namespace Oxide.Plugins
         /// </summary>
         private static SyncPipesDevelopment Instance;
 
+        private const string ToolCupboardPrefab = "cupboard.tool.deployed";
+
 #pragma warning disable CS0649
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]

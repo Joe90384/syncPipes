@@ -22,12 +22,17 @@ namespace Oxide.Plugins
             /// <param name="pipeIndex">The index of this pipe segment</param>
             protected override BuildingBlock PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
             {
-                var pipeSegmentEntity = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
-                if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.grounded = true;
-                pipeSegmentEntity.grade = _pipe.Grade;
-                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
-                pipeSegmentEntity.SetHealthToMax();
+                var pipeSegmentBuildingBlock = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
+                if (pipeSegmentBuildingBlock == null) return null;
+                pipeSegmentBuildingBlock.grounded = true;
+                pipeSegmentBuildingBlock.grade = _pipe.Grade;
+                pipeSegmentBuildingBlock.enableSaving = InstanceConfig.Experimental.PermanentEntities;
+                pipeSegmentBuildingBlock.SetHealthToMax();
+                if (_pipe.Source.Storage.ShortPrefabName == "cupboard.tool.deployed")
+                    pipeSegmentBuildingBlock.buildingID = _pipe.Source.Storage.buildingID;
+                else if (_pipe.Destination.Storage.ShortPrefabName == "cupboard.tool.deployed")
+                    pipeSegmentBuildingBlock.buildingID = _pipe.Destination.Storage.buildingID;
+
                 if (InstanceConfig.AttachXmasLights)
                 {
                     var lights = GameManager.server.CreateEntity(
@@ -44,7 +49,7 @@ namespace Oxide.Plugins
                     Lights.Add(lights);
                     PipeSegmentLights.Attach(lights, _pipe);
                 }
-                return pipeSegmentEntity;
+                return pipeSegmentBuildingBlock;
             }
 
             public PipeFactoryLowWall(Pipe pipe) : base(pipe) { }
@@ -70,8 +75,9 @@ namespace Oxide.Plugins
             {
                 base.AttachPipeSegment(pipeSegmentEntity);
                 var pipeSegmentBuildingBlock = pipeSegmentEntity as BuildingBlock;
-                if(pipeSegmentBuildingBlock != null)
-                    pipeSegmentBuildingBlock.grounded = true;
+                if (pipeSegmentBuildingBlock == null)
+                    return;
+                pipeSegmentBuildingBlock.grounded = true;
             }
 
             public override void Upgrade(BuildingGrade.Enum grade)

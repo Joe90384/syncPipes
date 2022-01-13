@@ -72,7 +72,7 @@ namespace Oxide.Plugins
             [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
 
             [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public ExperimentalConfig Experimental { get; set; }
+            public ExperimentalConfig Experimental { get; set; } = new ExperimentalConfig();
 
             public class PermissionLevel
             {

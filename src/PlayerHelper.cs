@@ -166,6 +166,11 @@ namespace Oxide.Plugins
             public bool HasBuildPrivilege => IsAdmin || (Player?.GetBuildingPrivilege()?.IsAuthed(Player) ?? false);
 
             /// <summary>
+            /// To help with re-attaching TCs to buildings
+            /// </summary>
+            public uint TCAttchBuildingId = 0;
+
+            /// <summary>
             /// Gets the syncPipes privileges currently held by this player
             /// </summary>
             private IEnumerable<SyncPipesConfig.PermissionLevel> Permissions
@@ -436,7 +441,8 @@ namespace Oxide.Plugins
                 Copying,
                 Removing,
                 Naming,
-                Completing
+                Completing,
+                ToolCupboard
             }
 
             /// <summary>
@@ -490,6 +496,35 @@ namespace Oxide.Plugins
                 NamingName = null;
                 OverlayText.Hide(Player);
             }
+
+            public void StartToolCupboardBuildingId()
+            {
+                if (!IsAdmin) return;
+                State = UserState.ToolCupboard;
+                ShowOverlay(Overlay.HitToGetBuildingId);
+            }
+
+            public void SetPlayerToolCupboardBuildingId(uint buildingId)
+            {
+                TCAttchBuildingId = buildingId;
+                if (!IsAdmin) return;
+                ShowOverlay(Overlay.HitToSetBuildingId, TCAttchBuildingId);
+            }
+
+            public void SetToolCupboardBuildingId(DecayEntity toolCupboard)
+            {
+                if (!IsAdmin) return;
+                toolCupboard.buildingID = TCAttchBuildingId;
+                StopToolCupboardBuildingId();
+            }
+
+            public void StopToolCupboardBuildingId()
+            {
+                if (!IsAdmin) return;
+                OverlayText.Hide(Player);
+                State = UserState.None;
+            }
+
 
             /// <summary>
             /// Remove all player helpers from the server

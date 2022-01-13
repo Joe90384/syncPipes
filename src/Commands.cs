@@ -75,6 +75,13 @@ namespace Oxide.Plugins
                         var name = string.Join(" ", args.Length > 1 ? args[1] : null);
                         Name(playerHelper, name);
                         break;
+                    case "tc":
+                        if (!playerHelper.IsAdmin) return;
+                        if(playerHelper.State == PlayerHelper.UserState.ToolCupboard) 
+                            playerHelper.StopToolCupboardBuildingId();
+                        else
+                            playerHelper.StartToolCupboardBuildingId();
+                        break;
                 }
             }
 

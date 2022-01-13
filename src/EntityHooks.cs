@@ -52,6 +52,7 @@
                 return;
             var playerHelper = PlayerHelper.Get(player);
             var handled =
+                Handlers.HandleAttachTCContainerHut(playerHelper, hit.HitEntity) ||
                 Handlers.HandleNamingContainerHit(playerHelper, hit.HitEntity) ||
                 Handlers.HandlePlacementContainerHit(playerHelper, hit.HitEntity) ||
                 Handlers.HandlePipeCopy(playerHelper, hit.HitEntity) ||

@@ -99,6 +99,7 @@ namespace Oxide.Plugins
                         if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
                         {
                             Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
+                            _loading = false;
                             return false;
                         }
 

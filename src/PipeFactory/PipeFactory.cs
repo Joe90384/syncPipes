@@ -86,7 +86,7 @@ namespace Oxide.Plugins
             {
                 var pipeSegmentEntity = pipeSegment as TEntity;
                 if (pipeSegmentEntity == null) return null;
-                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;;
+                pipeSegmentEntity.enableSaving = InstanceConfig.Experimental.PermanentEntities;
                 pipeSegmentEntity.Spawn();
 
                 AttachPipeSegment(pipeSegmentEntity);

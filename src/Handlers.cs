@@ -76,12 +76,14 @@
                 {
                     playerHelper.ShowOverlay(Overlay.NoPrivilegeToCreate);
                     playerHelper.ShowPlacingOverlay(2f);
+                    return false;
                 }
 
                 if (!ContainerHelper.InMonument(entity))
                 {
                     playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);
+                    return false;
                 }
                 else
                 {
@@ -92,6 +94,13 @@
                     else
                     {
                         playerHelper.Destination = entity;
+                        if (playerHelper.Source.ShortPrefabName == ToolCupboardPrefab &&
+                            playerHelper.Destination?.ShortPrefabName == ToolCupboardPrefab)
+                        {
+                            playerHelper.ShowOverlay(Overlay.CantConnectTwoToolcuboards);
+                            playerHelper.ShowPlacingOverlay(2f);
+                            return false;
+                        }
                         Pipe.TryCreate(playerHelper);
                         return true;
                     }
@@ -225,6 +234,21 @@
                 }
                 pipe.Upgrade(grade);
                 return null;
+            }
+
+            public static bool HandleAttachTCContainerHut(PlayerHelper playerHelper, BaseEntity hitHitEntity)
+            {
+                if (playerHelper.State != PlayerHelper.UserState.ToolCupboard) return false;
+                var decayEntity = hitHitEntity as DecayEntity;
+                if (decayEntity == null) return false;
+                if (hitHitEntity.ShortPrefabName == ToolCupboardPrefab)
+                {
+                    if (playerHelper.TCAttchBuildingId == 0) return false;
+                    playerHelper.SetToolCupboardBuildingId(decayEntity);
+                    return true;
+                }
+                playerHelper.SetPlayerToolCupboardBuildingId(decayEntity.buildingID);
+                return true;
             }
         }
     }
