@@ -79,6 +79,7 @@
     <Reference Include="Oxide.Rust">
       <HintPath>$(RustServerDir)\RustDedicated_Data\Managed\Oxide.Rust.dll</HintPath>
     </Reference>
+    <Reference Include="Rust.Data, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="Rust.Global">
       <HintPath>$(RustServerDir)\RustDedicated_Data\Managed\Rust.Global.dll</HintPath>
     </Reference>

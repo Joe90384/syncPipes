@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.28")]
+    [Info("Sync Pipes", "Joe 90", "0.9.29")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -1325,7 +1325,23 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         for (var i = 0; i < unusedPipes.Count; i++)
                         {
                             var pipe = unusedPipes[i];
-                            if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                            var vendingMachine = pipe.Destination.Storage as VendingMachine;
+                            if (vendingMachine != null)
+                            {
+                                var sellableItem = false;
+                                for (int j = 0; j < vendingMachine.sellOrders.sellOrders.Count; j++)
+                                {
+                                    var sellOrder = vendingMachine.sellOrders.sellOrders[j];
+                                    if (sellOrder.itemToSellID == item[0].info.itemid)
+                                    {
+                                        sellableItem = true;
+                                        break;
+                                    }
+                                }
+                                if (!sellableItem)
+                                    continue;
+                            }
+                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
                                 continue;
                             if (pipe.PipeFilter.Items.Count > 0)
                             {

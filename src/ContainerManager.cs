@@ -402,7 +402,23 @@ namespace Oxide.Plugins
                         for (var i = 0; i < unusedPipes.Count; i++)
                         {
                             var pipe = unusedPipes[i];
-                            if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                            var vendingMachine = pipe.Destination.Storage as VendingMachine;
+                            if (vendingMachine != null)
+                            {
+                                var sellableItem = false;
+                                for (int j = 0; j < vendingMachine.sellOrders.sellOrders.Count; j++)
+                                {
+                                    var sellOrder = vendingMachine.sellOrders.sellOrders[j];
+                                    if (sellOrder.itemToSellID == item[0].info.itemid)
+                                    {
+                                        sellableItem = true;
+                                        break;
+                                    }
+                                }
+                                if (!sellableItem)
+                                    continue;
+                            }
+                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
                                 continue;
                             if (pipe.PipeFilter.Items.Count > 0)
                             {
