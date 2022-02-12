@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
+using UnityEngine;
 
 namespace Oxide.Plugins
 {
@@ -17,8 +19,12 @@ namespace Oxide.Plugins
                         {
                             var buffer = value as WriteDataBuffer;
                             if (buffer == null) return;
-
                             writer.WriteStartObject();
+                            writer.WritePropertyName("positions");
+                            writer.WriteStartArray();
+                            for (int i = 0; i < buffer.QuarryPumpJackPositions.Count; i++)
+                                writer.WriteRawValue(buffer.QuarryPumpJackPositions[i]);
+                            writer.WriteEndArray();
                             writer.WritePropertyName("pipes");
                             writer.WriteStartArray();
                             for (int i = 0; i < buffer.Pipes.Count; i++)
@@ -38,25 +44,36 @@ namespace Oxide.Plugins
                         }
                         catch (Exception e)
                         {
-                            Logger.Runtime.LogException(e, "DataStore1_0.DataConverter.WriteJson");
+                            Logger.Runtime.LogException(e, "DataStore1_1.DataConverter.WriteJson");
                         }
                     }
 
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        serializer.Converters.Add(new PipeConverter());
+                        var buffer = new ReadDataBuffer();
+                        serializer.Converters.Add(new PipeConverter(buffer.EntityFinder));
                         serializer.Converters.Add(new ContainerManagerDataConverter(){IsRead = true});
                         serializer.Converters.Add(new PipeFactoryDataConverter(){IsRead = true});
-                        var buffer = new ReadDataBuffer();
+                        serializer.Converters.Add(new EntityPositionConverter() { IsRead = true });
                         try
                         {
                             while (reader.Read())
                             {
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
+                                    Instance.Puts((string)reader.Value);
                                     switch ((string)reader.Value)
                                     {
+                                        case "positions":
+                                            reader.Read();
+                                            reader.Read();
+                                            while (reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                var positionData = serializer.Deserialize<EntityPositionData>(reader);
+                                                buffer.EntityFinder.Positions.Add(positionData.Id, positionData);
+                                            }
+                                            break;
                                         case "pipes":
                                             reader.Read();
                                             reader.Read();

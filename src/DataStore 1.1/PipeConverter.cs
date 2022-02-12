@@ -12,6 +12,13 @@ namespace Oxide.Plugins
             {
                 public class PipeConverter : JsonConverter
                 {
+                    private readonly EntityFinder _entityFinder;
+                    public PipeConverter() { }
+                    public PipeConverter(EntityFinder entityFinder) 
+                    {
+                        _entityFinder = entityFinder;
+                    }
+
                     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                     {
                         var pipe = value as Pipe;
@@ -171,8 +178,8 @@ namespace Oxide.Plugins
                             }
                         }
 
-                        var source = ContainerHelper.Find(sourceId, sourceType);
-                        var destination = ContainerHelper.Find(destinationId, destinationType);
+                        var source = _entityFinder.Find(sourceId, sourceType);
+                        var destination = _entityFinder.Find(destinationId, destinationType);
                         if(source != null)
                             pipe.Source = new PipeEndContainer(source, sourceType, pipe);
                         if(destination != null)

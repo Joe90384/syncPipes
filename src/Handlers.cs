@@ -79,7 +79,7 @@
                     return false;
                 }
 
-                if (!ContainerHelper.InMonument(entity))
+                if (!playerHelper.IsAdmin && !ContainerHelper.InMonument(entity))
                 {
                     playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);

@@ -15,6 +15,7 @@ namespace Oxide.Plugins
                     public List<string> Pipes { get; } = new List<string>();
                     public List<string> Containers { get; } = new List<string>();
                     public List<string> Factories { get; } = new List<string>();
+                    public List<string> QuarryPumpJackPositions = new List<string>();
                 }
             }
         }

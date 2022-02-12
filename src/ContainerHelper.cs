@@ -97,9 +97,14 @@ namespace Oxide.Plugins
             public static BaseEntity Find(uint parentId, ContainerType containerType)
             {
                 var entity = (BaseEntity) BaseNetworkable.serverEntities.Find(parentId);
+                return Find(entity, containerType);
+            }
+
+            public static BaseEntity Find(BaseEntity entity, ContainerType containerType)
+            {
                 if (entity == null)
                 {
-                    LogFindError(parentId, null, containerType);
+                    LogFindError(entity.net.ID, null, containerType);
                     return null;
                 }
 
@@ -116,15 +121,14 @@ namespace Oxide.Plugins
                             return children[i] as ResourceExtractorFuelStorage;
                     }
 
-                    LogFindError(parentId, entity, containerType, children);
+                    LogFindError(entity.net.ID, entity, containerType, children);
                 }
                 else
                 {
-                    LogFindError(parentId, entity, containerType);
+                    LogFindError(entity.net.ID, entity, containerType);
                 }
                 return null;
             }
-
             public static StorageContainer Find(BaseEntity parent)
             {
                 StorageContainer container = null;

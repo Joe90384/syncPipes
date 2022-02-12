@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.29")]
+    [Info("Sync Pipes", "Joe 90", "0.9.30")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -838,9 +838,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public static BaseEntity Find(uint parentId, ContainerType containerType)
             {
                 var entity = (BaseEntity) BaseNetworkable.serverEntities.Find(parentId);
+                return Find(entity, containerType);
+            }
+
+            public static BaseEntity Find(BaseEntity entity, ContainerType containerType)
+            {
                 if (entity == null)
                 {
-                    LogFindError(parentId, null, containerType);
+                    LogFindError(entity.net.ID, null, containerType);
                     return null;
                 }
 
@@ -857,15 +862,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             return children[i] as ResourceExtractorFuelStorage;
                     }
 
-                    LogFindError(parentId, entity, containerType, children);
+                    LogFindError(entity.net.ID, entity, containerType, children);
                 }
                 else
                 {
-                    LogFindError(parentId, entity, containerType);
+                    LogFindError(entity.net.ID, entity, containerType);
                 }
                 return null;
             }
-
             public static StorageContainer Find(BaseEntity parent)
             {
                 StorageContainer container = null;
@@ -2141,7 +2145,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     return false;
                 }
 
-                if (!ContainerHelper.InMonument(entity))
+                if (!playerHelper.IsAdmin && !ContainerHelper.InMonument(entity))
                 {
                     playerHelper.ShowOverlay(Overlay.MonumentDenied);
                     playerHelper.ShowPlacingOverlay(2f);
@@ -6237,8 +6241,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         {
                             var buffer = value as WriteDataBuffer;
                             if (buffer == null) return;
-
                             writer.WriteStartObject();
+                            writer.WritePropertyName("positions");
+                            writer.WriteStartArray();
+                            for (int i = 0; i < buffer.QuarryPumpJackPositions.Count; i++)
+                                writer.WriteRawValue(buffer.QuarryPumpJackPositions[i]);
+                            writer.WriteEndArray();
                             writer.WritePropertyName("pipes");
                             writer.WriteStartArray();
                             for (int i = 0; i < buffer.Pipes.Count; i++)
@@ -6258,25 +6266,36 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         }
                         catch (Exception e)
                         {
-                            Logger.Runtime.LogException(e, "DataStore1_0.DataConverter.WriteJson");
+                            Logger.Runtime.LogException(e, "DataStore1_1.DataConverter.WriteJson");
                         }
                     }
 
                     public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
                         JsonSerializer serializer)
                     {
-                        serializer.Converters.Add(new PipeConverter());
+                        var buffer = new ReadDataBuffer();
+                        serializer.Converters.Add(new PipeConverter(buffer.EntityFinder));
                         serializer.Converters.Add(new ContainerManagerDataConverter(){IsRead = true});
                         serializer.Converters.Add(new PipeFactoryDataConverter(){IsRead = true});
-                        var buffer = new ReadDataBuffer();
+                        serializer.Converters.Add(new EntityPositionConverter() { IsRead = true });
                         try
                         {
                             while (reader.Read())
                             {
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
+                                    Instance.Puts((string)reader.Value);
                                     switch ((string)reader.Value)
                                     {
+                                        case "positions":
+                                            reader.Read();
+                                            reader.Read();
+                                            while (reader.TokenType != JsonToken.EndArray)
+                                            {
+                                                var positionData = serializer.Deserialize<EntityPositionData>(reader);
+                                                buffer.EntityFinder.Positions.Add(positionData.Id, positionData);
+                                            }
+                                            break;
                                         case "pipes":
                                             reader.Read();
                                             reader.Read();
@@ -6316,12 +6335,197 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
         }
         #endregion
+        #region EntityFinder
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class EntityFinder
+                {
+                    public Dictionary<uint, EntityPositionData> Positions { get; } = new Dictionary<uint, EntityPositionData>();
+
+                    public Dictionary<uint, uint> Adjustments { get; } = new Dictionary<uint, uint>();
+
+                    public uint AdjustedIds(uint savedId)
+                    {
+                        if (Adjustments.ContainsKey(savedId))
+                            return Adjustments[savedId];
+                        return savedId;
+                    }
+
+                    public BaseEntity Find(uint savedId, ContainerType containerType = ContainerType.General)
+                    {
+                        savedId = AdjustedIds(savedId);
+                        var entity = (BaseEntity)BaseNetworkable.serverEntities.Find(savedId);
+                        if (entity != null) return ContainerHelper.Find(entity, containerType);
+                        if (!Positions.ContainsKey(savedId)) return null;
+                        var positionData = Positions[savedId];
+                        var quarries = new List<MiningQuarry>();
+                        Vis.Entities(positionData.Vector, 0f, quarries);
+                        Instance.PrintWarning($"Failed to find {positionData.ShortPrefabName}({positionData.Id}) at {positionData.Vector}");
+                        for (int i = 0; i < quarries.Count; i++)
+                        {
+                            var quarry = quarries[i];
+                            if (quarry == null) continue;
+                            if (quarry.ShortPrefabName == positionData.ShortPrefabName)
+                            {
+                                Instance.PrintWarning($"Found alternate {quarry.ShortPrefabName}({quarry.net.ID}) at {quarry.transform.position}");
+                                Adjustments.Add(savedId, quarry.net.ID);
+                                return ContainerHelper.Find(quarry, containerType);
+                            }
+                        }
+                        return null;
+                    }
+                }
+            }
+        }
+        #endregion
+        #region EntityPositionConverter
+
+        partial class DataStore
+        {
+            partial class OnePointOne
+            {
+                public class EntityPositionConverter : JsonConverter
+                {
+                    public bool IsRead { get; set; }
+
+                    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+                    {
+                        var container = value as ContainerManager;
+                        if (container == null) return;
+                        writer.WriteStartObject();
+                        if (container.Container is ResourceExtractorFuelStorage)
+                        {
+                            var parent = container.Container.GetParentEntity();
+                            writer.WritePropertyName("uid");
+                            writer.WriteValue(parent.net.ID);
+                            writer.WritePropertyName("x");
+                            writer.WriteValue(parent.transform.position.x);
+                            writer.WritePropertyName("y");
+                            writer.WriteValue(parent.transform.position.y);
+                            writer.WritePropertyName("z");
+                            writer.WriteValue(parent.transform.position.z);
+                            writer.WritePropertyName("spn");
+                            writer.WriteValue(parent.ShortPrefabName);
+                        }
+                        else
+                        {
+                            writer.WritePropertyName("uid");
+                            writer.WriteValue(container.Container.net.ID);
+                            writer.WritePropertyName("x");
+                            writer.WriteValue(container.Container.transform.position.x);
+                            writer.WritePropertyName("y");
+                            writer.WriteValue(container.Container.transform.position.y);
+                            writer.WritePropertyName("z");
+                            writer.WriteValue(container.Container.transform.position.z);
+                            writer.WritePropertyName("spn");
+                            writer.WriteValue(container.Container.ShortPrefabName);
+                        }
+                        writer.WriteEndObject();
+                    }
+
+                    public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                        JsonSerializer serializer)
+                    {
+                        var quarryPumpJackData = new EntityPositionData();
+
+                        var depth = 1;
+                        if (reader.TokenType != JsonToken.StartObject)
+                        {
+                            LogLoadError(quarryPumpJackData,
+                                "Json StartObject for container manager is missing...");
+                            return quarryPumpJackData;
+                        }
+
+                        while (reader.Read() && depth > 0)
+                        {
+                            switch (reader.TokenType)
+                            {
+                                case JsonToken.StartObject:
+                                    depth++;
+                                    break;
+                                case JsonToken.EndObject:
+                                    depth--;
+                                    break;
+                                case JsonToken.PropertyName:
+                                    switch (reader.Value.ToString())
+                                    {
+                                        case "uid":
+                                            reader.Read();
+                                            uint id;
+                                            if (uint.TryParse(reader.Value.ToString(), out id))
+                                                quarryPumpJackData.Id = id;
+                                            break;
+                                        case "x":
+                                            reader.Read();
+                                            float x;
+                                            if (float.TryParse(reader.Value.ToString(), out x))
+                                                quarryPumpJackData.X = x;
+                                            break;
+                                        case "y":
+                                            reader.Read();
+                                            float y;
+                                            if (float.TryParse(reader.Value.ToString(), out y))
+                                                quarryPumpJackData.Y = y;
+                                            break;
+                                        case "z":
+                                            reader.Read();
+                                            float z;
+                                            if (float.TryParse(reader.Value.ToString(), out z))
+                                                quarryPumpJackData.Z = z;
+                                            break;
+                                        case "spn":
+                                            quarryPumpJackData.ShortPrefabName = reader.ReadAsString();
+                                            break;
+                                    }
+
+                                    break;
+                            }
+                        }
+
+                        return quarryPumpJackData;
+                    }
+
+                    public override bool CanConvert(Type objectType) => IsRead
+                        ? objectType == typeof(EntityPositionData)
+                        : objectType == typeof(ContainerManager);
+                }
+
+
+                public class EntityPositionData
+                {
+                    public uint Id { get; set; }
+                    public float X { get; set; }
+                    public float Y { get; set; }
+                    public float Z { get; set; }
+                    public string ShortPrefabName { get; set; }
+
+                    public Vector3 Vector => new Vector3(X, Y, Z);
+                }
+            }
+        }
+        #endregion
         #region Logging
 
         partial class DataStore
         {
             partial class OnePointOne
             {
+                private static void LogLoadError(EntityPositionData quarryPumpJackData, string message = null)
+                {
+                    Logger.ContainerLoader.Log("------------------- {0} -------------------",
+                        quarryPumpJackData.Id);
+                    if (!string.IsNullOrEmpty(message))
+                        Logger.ContainerLoader.Log(message);
+                    Logger.ContainerLoader.Log("X: {0}", quarryPumpJackData.X);
+                    Logger.ContainerLoader.Log("Y: {0}", quarryPumpJackData.Y);
+                    Logger.ContainerLoader.Log("Z: {0}", quarryPumpJackData.Z);
+                    Logger.ContainerLoader.Log("Short Prefab Name: {0}", quarryPumpJackData.ShortPrefabName);
+                    Logger.ContainerLoader.Log("");
+                }
+
                 private static void LogLoadError(ContainerManagerData containerManagerData,
                     string message = null)
                 {
@@ -6509,13 +6713,23 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
 
                     Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
+                    var storedIds = new List<uint>();
                     for (int i = 0; i < containerSnapshot.Count; i++)
                     {
                         try
                         {
-                            if (!containerSnapshot[i].HasAnyPipes) continue;
-                            buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None,
+                            var container = containerSnapshot[i];
+                            if (!container.HasAnyPipes) continue;
+                            buffer.Containers.Add(JsonConvert.SerializeObject(container, Formatting.None,
                                 new ContainerManagerDataConverter()));
+                            if (!(container.Container is ResourceExtractorFuelStorage))
+                                continue;
+                            var parentId = container.Container.GetParentEntity().net.ID;
+                            if (storedIds.Contains(parentId))
+                                continue;
+                            storedIds.Add(parentId);
+                            buffer.QuarryPumpJackPositions.Add(JsonConvert.SerializeObject(container, Formatting.None, new EntityPositionConverter()));
+
                         }
                         catch (Exception e)
                         {
@@ -6526,6 +6740,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
 
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
+
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
                     Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
@@ -6545,6 +6760,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             $"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}",
                             readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count,
                             readDataBuffer.Containers.Count);
+
                         var validPipes = 0;
                         for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
                         {
@@ -6632,13 +6848,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                 ContainerManager manager;
                                 if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
                                 {
-                                    var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
-                                        dataToLoad[i].ContainerType);
+                                    var entity = readDataBuffer.EntityFinder.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
                                     dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
                                 }
 
-                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
-                                        out manager))
+                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                                 {
                                     validContainers++;
                                     manager.DisplayName = dataToLoad[i].DisplayName;
@@ -6679,6 +6893,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 public class PipeConverter : JsonConverter
                 {
+                    private readonly EntityFinder _entityFinder;
+                    public PipeConverter() { }
+                    public PipeConverter(EntityFinder entityFinder) 
+                    {
+                        _entityFinder = entityFinder;
+                    }
+
                     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                     {
                         var pipe = value as Pipe;
@@ -6838,8 +7059,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             }
                         }
 
-                        var source = ContainerHelper.Find(sourceId, sourceType);
-                        var destination = ContainerHelper.Find(destinationId, destinationType);
+                        var source = _entityFinder.Find(sourceId, sourceType);
+                        var destination = _entityFinder.Find(destinationId, destinationType);
                         if(source != null)
                             pipe.Source = new PipeEndContainer(source, sourceType, pipe);
                         if(destination != null)
@@ -7020,6 +7241,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     public List<Pipe> Pipes { get; } = new List<Pipe>();
                     public List<PipeFactoryData> Factories { get; } = new List<PipeFactoryData>();
                     public List<ContainerManagerData> Containers { get; } = new List<ContainerManagerData>();
+                    public EntityFinder EntityFinder { get; } = new EntityFinder();
                 }
             }
         }
@@ -7036,6 +7258,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     public List<string> Pipes { get; } = new List<string>();
                     public List<string> Containers { get; } = new List<string>();
                     public List<string> Factories { get; } = new List<string>();
+                    public List<string> QuarryPumpJackPositions = new List<string>();
                 }
             }
         }

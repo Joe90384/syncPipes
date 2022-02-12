@@ -118,6 +118,8 @@
     <Compile Include="DataStore 1.0\ContainerManagerData.cs" />
     <Compile Include="DataStore 1.0\OnePointZero.cs" />
     <Compile Include="DataStore 1.0\Logging.cs" />
+    <Compile Include="DataStore 1.1\EntityFinder.cs" />
+    <Compile Include="DataStore 1.1\EntityPositionConverter.cs" />
     <Compile Include="DataStore 1.1\PipeFactoryData.cs" />
     <Compile Include="DataStore 1.1\PipeFactoryConverter.cs" />
     <Compile Include="DataStore 1.1\ContainerManagerConverter.cs" />

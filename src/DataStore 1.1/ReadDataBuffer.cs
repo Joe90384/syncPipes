@@ -15,6 +15,7 @@ namespace Oxide.Plugins
                     public List<Pipe> Pipes { get; } = new List<Pipe>();
                     public List<PipeFactoryData> Factories { get; } = new List<PipeFactoryData>();
                     public List<ContainerManagerData> Containers { get; } = new List<ContainerManagerData>();
+                    public EntityFinder EntityFinder { get; } = new EntityFinder();
                 }
             }
         }

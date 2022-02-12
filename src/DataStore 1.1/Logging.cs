@@ -8,6 +8,19 @@ namespace Oxide.Plugins
         {
             partial class OnePointOne
             {
+                private static void LogLoadError(EntityPositionData quarryPumpJackData, string message = null)
+                {
+                    Logger.ContainerLoader.Log("------------------- {0} -------------------",
+                        quarryPumpJackData.Id);
+                    if (!string.IsNullOrEmpty(message))
+                        Logger.ContainerLoader.Log(message);
+                    Logger.ContainerLoader.Log("X: {0}", quarryPumpJackData.X);
+                    Logger.ContainerLoader.Log("Y: {0}", quarryPumpJackData.Y);
+                    Logger.ContainerLoader.Log("Z: {0}", quarryPumpJackData.Z);
+                    Logger.ContainerLoader.Log("Short Prefab Name: {0}", quarryPumpJackData.ShortPrefabName);
+                    Logger.ContainerLoader.Log("");
+                }
+
                 private static void LogLoadError(ContainerManagerData containerManagerData,
                     string message = null)
                 {

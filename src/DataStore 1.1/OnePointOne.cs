@@ -146,13 +146,23 @@ namespace Oxide.Plugins
                     }
 
                     Instance.Puts("Saved {0} pipes", buffer.Pipes.Count);
+                    var storedIds = new List<uint>();
                     for (int i = 0; i < containerSnapshot.Count; i++)
                     {
                         try
                         {
-                            if (!containerSnapshot[i].HasAnyPipes) continue;
-                            buffer.Containers.Add(JsonConvert.SerializeObject(containerSnapshot[i], Formatting.None,
+                            var container = containerSnapshot[i];
+                            if (!container.HasAnyPipes) continue;
+                            buffer.Containers.Add(JsonConvert.SerializeObject(container, Formatting.None,
                                 new ContainerManagerDataConverter()));
+                            if (!(container.Container is ResourceExtractorFuelStorage))
+                                continue;
+                            var parentId = container.Container.GetParentEntity().net.ID;
+                            if (storedIds.Contains(parentId))
+                                continue;
+                            storedIds.Add(parentId);
+                            buffer.QuarryPumpJackPositions.Add(JsonConvert.SerializeObject(container, Formatting.None, new EntityPositionConverter()));
+
                         }
                         catch (Exception e)
                         {
@@ -163,6 +173,7 @@ namespace Oxide.Plugins
                     }
 
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
+
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
                     Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
@@ -182,6 +193,7 @@ namespace Oxide.Plugins
                             $"Read {{0}} pipes, {{1}} pipe factories and {{2}} container managers from {filename}",
                             readDataBuffer.Pipes.Count, readDataBuffer.Factories.Count,
                             readDataBuffer.Containers.Count);
+
                         var validPipes = 0;
                         for (int i = 0; i < readDataBuffer.Pipes.Count; i++)
                         {
@@ -269,13 +281,11 @@ namespace Oxide.Plugins
                                 ContainerManager manager;
                                 if (ContainerHelper.IsComplexStorage(dataToLoad[i].ContainerType))
                                 {
-                                    var entity = ContainerHelper.Find(dataToLoad[i].ContainerId,
-                                        dataToLoad[i].ContainerType);
+                                    var entity = readDataBuffer.EntityFinder.Find(dataToLoad[i].ContainerId, dataToLoad[i].ContainerType);
                                     dataToLoad[i].ContainerId = entity?.net.ID ?? 0;
                                 }
 
-                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId,
-                                        out manager))
+                                if (ContainerManager.ManagedContainerLookup.TryGetValue(dataToLoad[i].ContainerId, out manager))
                                 {
                                     validContainers++;
                                     manager.DisplayName = dataToLoad[i].DisplayName;
