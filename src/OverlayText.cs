@@ -73,11 +73,11 @@ namespace Oxide.Plugins
             CancelPipeCreationFromChat,
 
             [BindingCommand]
-            [English("Press '{0}' to cancel")]
+            [English("Press '{0}' to cancel.")]
             CancelPipeCreationFromBind,
 
             [MessageType(MessageType.Info)]
-            [English("Hit a container or pipe with the hammer to set it's name to '{0}'")]
+            [English("Hit a container or pipe with the hammer to set it's name to '{0}'.")]
             HitToName,
 
             [MessageType(MessageType.Info)]
@@ -85,11 +85,11 @@ namespace Oxide.Plugins
             HitToClearName,
 
             [MessageType(MessageType.Info)]
-            [English("Hit a building to get its building ID")]
+            [English("Hit a building to get its building ID.")]
             HitToGetBuildingId,
 
             [MessageType(MessageType.Info)]
-            [English("Hit a TC to set it to building Id {0}")]
+            [English("Hit a TC to set it to building Id {0}.")]
             HitToSetBuildingId,
 
             [MessageType(MessageType.Warning)]
@@ -101,7 +101,7 @@ namespace Oxide.Plugins
             CopyFromPipe,
 
             [MessageType(MessageType.Info)]
-            [English("Hit another pipe with the hammer to apply the settings you copied")]
+            [English("Hit another pipe with the hammer to apply the settings you copied.")]
             CopyToPipe,
 
             [ChatCommand]
@@ -120,7 +120,10 @@ namespace Oxide.Plugins
             CantPickUpLights,
 
             [English("You've not been given permission to use syncPipes.")]
-            NotAuthorisedOnSyncPipes
+            NotAuthorisedOnSyncPipes,
+
+            [English("You can't attach a pipe to this container. {0}")]
+            HookPreventPlace
         }
         static class OverlayText
         {

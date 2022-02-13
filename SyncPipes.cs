@@ -2117,11 +2117,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                StorageContainer conatainer = null;
+               
+                StorageContainer container = null;
                 PipeSegment segment = null;
                 if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    (!entity?.TryGetComponent(out conatainer) ?? false) ||
+                    (!entity?.TryGetComponent(out container) ?? false) ||
                     (entity?.TryGetComponent(out segment) ?? false)
                     ) 
                     return false;
@@ -2153,6 +2154,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 }
                 else
                 {
+                    var blockPipe = Interface.Oxide.CallHook("BlockPipePlacement", playerHelper.Player, container);
+                    if (blockPipe != null && (blockPipe as bool?).GetValueOrDefault(true))
+                    {
+                        playerHelper.ShowOverlay(Overlay.HookPreventPlace, blockPipe is bool ? "" : blockPipe);
+                        playerHelper.ShowPlacingOverlay(2f);
+                        return true;
+                    }
                     if (playerHelper.Source == null)
                     {
                         playerHelper.Source = entity;
@@ -2997,19 +3005,20 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {"Overlay.HitFirstContainer", "Hit a container with the hammer to start your pipe."},
                 {"Overlay.HitSecondContainer", "Hit a different container with the hammer to complete your pipe."},
                 {"Overlay.CancelPipeCreationFromChat", "Type /{0} to cancel."},
-                {"Overlay.CancelPipeCreationFromBind", "Press '{0}' to cancel"},
-                {"Overlay.HitToName", "Hit a container or pipe with the hammer to set it's name to '{0}'"},
+                {"Overlay.CancelPipeCreationFromBind", "Press '{0}' to cancel."},
+                {"Overlay.HitToName", "Hit a container or pipe with the hammer to set it's name to '{0}'."},
                 {"Overlay.HitToClearName", "Clear a pipe or container name by hitting it with the hammer."},
-                {"Overlay.HitToGetBuildingId", "Hit a building to get its building ID"},
-                {"Overlay.HitToSetBuildingId", "Hit a TC to set it to building Id {0}"},
+                {"Overlay.HitToGetBuildingId", "Hit a building to get its building ID."},
+                {"Overlay.HitToSetBuildingId", "Hit a TC to set it to building Id {0}."},
                 {"Overlay.CannotNameContainer", "Sorry but you're only able to set names on pipe or containers that are attached to pipes."},
                 {"Overlay.CopyFromPipe", "Hit a pipe with the hammer to copy it's settings."},
-                {"Overlay.CopyToPipe", "Hit another pipe with the hammer to apply the settings you copied"},
+                {"Overlay.CopyToPipe", "Hit another pipe with the hammer to apply the settings you copied."},
                 {"Overlay.CancelCopy", "Type /{0} c to cancel."},
                 {"Overlay.RemovePipe", "Hit a pipe with the hammer to remove it."},
                 {"Overlay.CancelRemove", "Type /{0} r to cancel."},
                 {"Overlay.CantPickUpLights", "Those lights are needed for the pipe. Hands off."},
                 {"Overlay.NotAuthorisedOnSyncPipes", "You've not been given permission to use syncPipes."},
+                {"Overlay.HookPreventPlace", "You can't attach a pipe to this container. {0}"},
                 {"Button.TurnOn", "Turn On"},
                 {"Button.TurnOff", "Turn Off"},
                 {"Button.SetSingleStack", "Set\nSingle Stack"},
@@ -3130,7 +3139,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             CantPickUpLights,
 
-            NotAuthorisedOnSyncPipes
+            NotAuthorisedOnSyncPipes,
+
+            HookPreventPlace
         }
         static class OverlayText
         {

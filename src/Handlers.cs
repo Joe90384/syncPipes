@@ -1,4 +1,6 @@
-﻿namespace Oxide.Plugins
+﻿using Oxide.Core;
+
+namespace Oxide.Plugins
 {
     public partial class SyncPipesDevelopment
     {
@@ -51,11 +53,12 @@
             /// <returns>True indicates the hit was handled</returns>
             public static bool HandlePlacementContainerHit(PlayerHelper playerHelper, BaseEntity entity)
             {
-                StorageContainer conatainer = null;
+               
+                StorageContainer container = null;
                 PipeSegment segment = null;
                 if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    (!entity?.TryGetComponent(out conatainer) ?? false) ||
+                    (!entity?.TryGetComponent(out container) ?? false) ||
                     (entity?.TryGetComponent(out segment) ?? false)
                     ) 
                     return false;
@@ -87,6 +90,13 @@
                 }
                 else
                 {
+                    var blockPipe = Interface.Oxide.CallHook("BlockPipePlacement", playerHelper.Player, container);
+                    if (blockPipe != null && (blockPipe as bool?).GetValueOrDefault(true))
+                    {
+                        playerHelper.ShowOverlay(Overlay.HookPreventPlace, blockPipe is bool ? "" : blockPipe);
+                        playerHelper.ShowPlacingOverlay(2f);
+                        return true;
+                    }
                     if (playerHelper.Source == null)
                     {
                         playerHelper.Source = entity;
