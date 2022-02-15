@@ -2,7 +2,9 @@ using Rust;
 using System;
 using Oxide.Core;
 using UnityEngine;
+using System.Linq;
 using Newtonsoft.Json;
+using System.Threading;
 using Oxide.Core.Plugins;
 using System.Collections;
 using System.Diagnostics;
@@ -13,9 +15,9 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.25")]
+    [Info("Sync Pipes", "Joe 90", "0.9.26")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
-    class SyncPipes : RustPlugin
+    partial class SyncPipes : RustPlugin
     {
         #region Initialization
 
@@ -24,6 +26,7 @@ namespace Oxide.Plugins
         /// </summary>
         private static SyncPipes Instance;
 
+#pragma warning disable CS0649
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
         [PluginReference]
         Plugin FurnaceSplitter;
@@ -31,6 +34,7 @@ namespace Oxide.Plugins
         // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
         [PluginReference] 
         Plugin QuickSmelt;
+#pragma warning restore CS0649
 
         /// <summary>
         /// Hook: Initializes syncPipes when the server starts to load it
@@ -139,7 +143,10 @@ namespace Oxide.Plugins
             Pipe.Cleanup();
             ContainerManager.Cleanup();
             PlayerHelper.Cleanup();
+            ExperimentalUnload();
         }
+
+        partial void ExperimentalUnload();
 
         #endregion
         #region Commands
@@ -419,7 +426,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// Reverse the direction of the pipe
             /// </summary>
             /// <param name="arg">Used to get the pipe id</param>
-            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirections();
+            public static void SwapPipeDirection(ConsoleSystem.Arg arg) => GetPipe(arg)?.SwapDirection();
 
             /// <summary>
             /// Set the pipe to single or multi stack
@@ -502,6 +509,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         void MenuHelp(ConsoleSystem.Arg arg) => Commands.MenuHelp(arg);
         [SyncPipesConsoleCommand("flushperms")]
         void FlushPlayerPermissions(ConsoleSystem.Arg arg) => Commands.FlushPlayerPermissions(arg);
+
+
         #endregion
 
         /// <summary>
@@ -578,6 +587,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             public Dictionary<string, PermissionLevel> PermissionLevels { get; set; }
 
             [JsonProperty("salvageDestroy")] public bool DestroyWithSalvage { get; set; } = false;
+
+            [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public ExperimentalConfig Experimental { get; set; }
 
             public class PermissionLevel
             {
@@ -683,6 +695,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
             }
+        }
+
+        class ExperimentalConfig
+        {
+            [JsonProperty("barrelPipe")]
+            public bool BarrelPipe { get; set; }
         }
 
         /// <summary>
@@ -871,7 +889,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             Recycler,
             FuelStorage,
             QuarryOutput,
-            PumpJackOutput
+            PumpJackOutput,
+            ResourceExtractor
         }
         #endregion
         #region ContainerManager
@@ -1289,6 +1308,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         for (var i = 0; i < unusedPipes.Count; i++)
                         {
                             var pipe = unusedPipes[i];
+                            if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                                continue;
                             if (pipe.PipeFilter.Items.Count > 0)
                             {
                                 bool found = false;
@@ -1523,6 +1544,237 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         }
 
         #endregion
+        #region CuiBase
+
+        internal abstract class CuiMenuBase: CuiBase, IDisposable
+        {
+            protected PlayerHelper PlayerHelper { get; }
+
+            protected CuiMenuBase(PlayerHelper playerHelper)
+            {
+                PlayerHelper = playerHelper;
+            }
+
+            protected CuiElementContainer Container { get; private set; } = new CuiElementContainer() { };
+            protected string PrimaryPanel { get; set; }
+            protected bool Visible { get; private set; }
+
+            public virtual void Show()
+            {
+                if(PrimaryPanel != null)
+                    CuiHelper.AddUi(PlayerHelper.Player, Container);
+                Visible = true;
+            }
+
+            public virtual void Close()
+            {
+                if (PrimaryPanel != null)
+                    CuiHelper.DestroyUi(PlayerHelper.Player, PrimaryPanel);
+                Visible = false;
+            }
+
+            public virtual void Refresh()
+            {
+                Close();
+                Show();
+            }
+
+            /// <summary>
+            /// Helper to make commands for button actions. It will automatically prefix the command prefix and append to pipe id.
+            /// </summary>
+            /// <param name="commandName">The command name for the action to be performed (what appears after the dot)</param>
+            /// <param name="args">All required for the command (the pipe id is added automatically as the first arg)</param>
+            /// <returns>Fully formed string for the command to be run</returns>
+            protected string MakeCommand(string commandName, params object[] args)
+            {
+                var command = $"{Instance.Name.ToLower()}.{commandName} {string.Join(" ", args)}";
+                return command;
+            }
+
+            protected string AddPanel(string parent, string min, string max, string colour = "0 0 0 0",
+                bool cursorEnabled = false)
+            {
+                CuiPanel panel;
+                return AddPanel(parent, min, max, colour, cursorEnabled, out panel);
+            }
+
+            /// <summary>
+            /// Add a CUI Panel to the main elements container
+            /// </summary>
+            /// <param name="parent">Cui parent Id</param>
+            /// <param name="min">Minimum coordinates of the panel (bottom left)</param>
+            /// <param name="max">Maximum coordinates of the panel (top right)</param>
+            /// <param name="colour">"R G B A" colour of the panel</param>
+            /// <param name="cursorEnabled">Enable Cursor interaction with this panel</param>
+            /// <returns>Panel Id. Used as parent input for other CUI elements</returns>
+            protected string AddPanel(string parent, string min, string max, string colour,
+                bool cursorEnabled, out CuiPanel panel)
+            {
+                panel = MakePanel(min, max, colour, cursorEnabled);
+                return Container.Add(panel, parent);
+            }
+
+            /// <summary>
+            /// Add a CUI Label to the main elements container
+            /// </summary>
+            /// <param name="parent">CUI parent Id</param>
+            /// <param name="text">Text to display</param>
+            /// <param name="fontSize">Text font size</param>
+            /// <param name="alignment">Text Alignment</param>
+            /// <param name="min">Minimum coordinates of the panel (bottom left)</param>
+            /// <param name="max">Maximum coordinates of the panel (top right)</param>
+            /// <param name="colour">"R G B A" colour of the panel</param>
+            protected void AddLabel(string parent, string text, int fontSize, TextAnchor alignment, string min = "0 0", string max = "1 1", string colour = "1 1 1 1") =>
+                Container.Add(MakeLabel(text, fontSize, alignment, min, max, colour), parent);
+
+            protected void AddLabelWithOutline(string parent, string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1",
+                string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1",
+                bool useGraphicAlpha = false)
+            {
+                var labelWithOutline = MakeLabelWithOutline(text, fontSize, alignment, min, max, textColour,
+                    outlineColour, distance, useGraphicAlpha);
+                labelWithOutline.Parent = parent;
+                Container.Add(labelWithOutline);
+            }
+
+            /// <summary>
+            /// Add the CUI Element with an image to the main elements container
+            /// </summary>
+            /// <param name="parent">CUI parent Id</param>
+            /// <param name="min">Minimum coordinates of the panel (bottom left)</param>
+            /// <param name="max">Maximum coordinates of the panel (top right)</param>
+            /// <param name="imageUrl">Url of the image to show</param>
+            /// <param name="colour">"R G B A" colour of the panel</param>
+            protected void AddImage(string parent, string min, string max, string imageUrl, string colour = "1 1 1 1") =>
+                Container.Add(new CuiElement
+                {
+                    Parent = parent,
+                    Components =
+                    {
+                        new CuiRawImageComponent
+                        {
+                            Url = imageUrl,
+                            Sprite = "assets/content/textures/generic/fulltransparent.tga",
+                            Color = colour
+                        },
+                        new CuiRectTransformComponent
+                        {
+                            AnchorMin = min,
+                            AnchorMax = max
+                        }
+                    }
+                });
+
+            /// <summary>
+            /// Add a CUI Button to the main elements container
+            /// </summary>
+            /// <param name="parent">CUI parent Id</param>
+            /// <param name="command">The command to run if the button is click</param>
+            /// <param name="text">Text to display</param>
+            /// <param name="min">Minimum coordinates of the panel (bottom left)</param>
+            /// <param name="max">Maximum coordinates of the panel (top right)</param>
+            /// <param name="colour">"R G B A" colour of the panel</param>
+            /// <param name="elementContainer">Which element container to add this element to. The default is the foreground container</param>
+            protected string AddButton(string parent, string command, string text = null, string min = "0 0", string max = "1 1", string colour = "0 0 0 0") =>
+                Container.Add(MakeButton(command, text, min, max, colour), parent);
+
+            public virtual void Dispose()
+            {
+                Close();
+                Container = null;
+                PrimaryPanel = null;
+            }
+        }
+
+        internal class CuiBase
+        {
+            protected CuiButton MakeButton(string command, string text = null, string min = "0 0", string max = "1 1",
+                string colour = "0 0 0 0") =>
+                new CuiButton
+                {
+                    Button =
+                    {
+                        Command = command,
+                        Color = colour
+                    },
+                    RectTransform =
+                    {
+                        AnchorMin = min,
+                        AnchorMax = max
+                    },
+                    Text =
+                    {
+                        Text = text ?? string.Empty,
+                        Align = TextAnchor.MiddleCenter,
+                        FontSize = 11
+                    }
+                };
+
+            protected CuiLabel MakeLabel(string text, int fontSize, TextAnchor alignment, string min = "0 0", string max = "1 1",
+                string colour = "1 1 1 1") => new CuiLabel
+            {
+                Text =
+                {
+                    Text = text,
+                    Align = alignment,
+                    FontSize = fontSize,
+                    Color = colour
+                },
+                RectTransform =
+                {
+                    AnchorMin = min,
+                    AnchorMax = max
+                }
+            };
+
+            protected CuiElement MakeLabelWithOutline(string text, int fontSize, TextAnchor alignment,
+                string min = "0 0", string max = "1 1", string textColour = "1 1 1 1", string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var label = MakeLabel(text, fontSize, alignment, min, max, textColour);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        label.Text,
+                        label.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
+
+            protected CuiPanel MakePanel(string min, string max, string colour, bool cursorEnabled) => new CuiPanel
+            {
+                Image = { Color = colour },
+                RectTransform = { AnchorMin = min, AnchorMax = max },
+                CursorEnabled = cursorEnabled
+            };
+
+            protected CuiElement MakePanelWithOutline(string min, string max, string colour, bool cursorEnabled, string outlineColour = "0.15 0.15 0.15 0.43", string distance = "1.1 -1.1", bool useGraphicAlpha = false)
+            {
+                var panel = MakePanel(min, max, colour, cursorEnabled);
+                return new CuiElement
+                {
+                    Components =
+                    {
+                        panel.RectTransform,
+                        new CuiOutlineComponent
+                        {
+                            Color = outlineColour,
+                            Distance = distance,
+                            UseGraphicAlpha = useGraphicAlpha
+                        }
+                    }
+                };
+            }
+        }
+
+        #endregion
         #region Data
 
         /// <summary>
@@ -1531,6 +1783,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         //[JsonConverter(typeof(DataConverter))]
         class Data
         {
+
             /// <summary>
             /// The data for all the pipes
             /// </summary>
@@ -1556,6 +1809,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         class DataStore1_0: MonoBehaviour
         {
+            private static UnityEngine.Coroutine _coroutine;
+            private static bool _saving;
+            private static bool _loading;
             private static GameObject _saverGameObject;
             private static DataStore1_0 _dataStore;
 
@@ -1580,32 +1836,39 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 try
                 {
-                    if (backgroundSave && _running)
-                    {
-                        if (DataStore._coroutine != null)
-                            DataStore.StopCoroutine(DataStore._coroutine);
-                        _running = false;
-                    }
-
-                    if (_running)
+                    if (_loading)
                         return false;
-                    _running = true;
-                    if (backgroundSave)
-                        DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
-                    else
+                    if (!backgroundSave && _saving)
                     {
-                        var enumerator = DataStore.BufferedSave(Filename);
-                        while (enumerator.MoveNext())
-                        {
-                        }
+                        if (_coroutine != null)
+                            DataStore.StopCoroutine(_coroutine);
+                        _saving = false;
                     }
+                    else if (_saving)
+                        return false;
 
-                    return true;
+                    try
+                    {
+                        _saving = true;
+                        if (backgroundSave)
+                            _coroutine = DataStore.StartCoroutine(DataStore.BufferedSave(Filename));
+                        else
+                        {
+                            var enumerator = DataStore.BufferedSave(Filename);
+                            while (enumerator.MoveNext()) { }
+                        }
+
+                        return true;
+                    }
+                    finally
+                    {
+                        _saving = false;
+                    }
                 }
                 catch (Exception e)
                 {
                     Logger.Runtime.LogException(e, "DataStore1_0.Save");
-                    _running = false;
+                    _saving = false;
                     return false;
                 }
             }
@@ -1614,6 +1877,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 try
                 {
+                    _loading = true;
                     var filename = Filename;
                     if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
                     {
@@ -1621,20 +1885,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             return false;
                         filename = OldFilename;
                     }
-
-                    _running = true;
-                    DataStore._coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                    
+                    _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
                     return true;
                 }
                 catch (Exception e)
                 {
+                    _loading = false;
                     Logger.Runtime.LogException(e, "DataStore1_0.Load");
                     return false;
                 }
             }
 
-            private UnityEngine.Coroutine _coroutine;
-            private static bool _running;
 
             class Converter : JsonConverter
             {
@@ -1796,25 +2058,32 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                 Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                 sw.Stop();
-                _running = false;
+                _saving = false;
                 yield return null;
             }
 
             IEnumerator BufferedLoad(string filename)
             {
-                yield return null;
-                Instance.Puts("Load v1.0 starting");
-                var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
-                for (int i = 0; i < loader.Pipes.Count; i++)
+                try
                 {
-                    loader.Pipes[i].Create();
+                    yield return null;
+                    Instance.Puts("Load v1.0 starting");
+                    var loader = Interface.Oxide.DataFileSystem.ReadObject<Loader>(filename);
+                    for (int i = 0; i < loader.Pipes.Count; i++)
+                    {
+                        loader.Pipes[i].Create();
+                        yield return null;
+                    }
+
+                    Instance.Puts("Successfully loaded {0} pipes", loader.Pipes.Count);
+                    ContainerManager.Load(loader.Containers);
+                    Instance.Puts("Load v1.0 complete");
                     yield return null;
                 }
-                Instance.Puts("Successfully loaded {0} pipes", loader.Pipes.Count);
-                ContainerManager.Load(loader.Containers);
-                Instance.Puts("Load v1.0 complete");
-                _running = false;
-                yield return null;
+                finally
+                {
+                    _loading = false;
+                }
             }
         }
         #endregion
@@ -2127,7 +2396,9 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 if (playerHelper.State != PlayerHelper.UserState.Placing ||
                     playerHelper.Destination != null ||
-                    entity.GetComponent<StorageContainer>() == null)
+                    entity.GetComponent<StorageContainer>() == null ||
+                    entity.GetComponent<PipeSegment>() != null
+                    ) 
                     return false;
 
                 if (!playerHelper.IsUser)
@@ -2856,6 +3127,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
 
         // All enums that need chat command substitution
+#pragma warning disable CS0649
         private static Dictionary<Enum, bool> _chatCommands;
 
         // All enums that need binding command substitution
@@ -2863,6 +3135,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
         // All enums that have a message type (mainly for overlay text)
         private static Dictionary<Enum, MessageType> _messageTypes;
+#pragma warning restore CS0649
 
         /// <summary>
         /// Message type for helping with overlay messages
@@ -3233,70 +3506,53 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         #region Pipe
 
         /// <summary>
-        /// This is the serializable data format for creating, loading or saving pipes with
+        ///     This is the serializable data format for creating, loading or saving pipes with
         /// </summary>
         public class PipeData
         {
-            public bool IsEnabled = true;
-            public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
-            public uint SourceId;
-            public uint DestinationId;
-            public ContainerType SourceContainerType;
+            private BaseEntity _destination;
+            private BaseEntity _source;
             public ContainerType DestinationContainerType;
-            public float Health;
-            public List<int> ItemFilter = new List<int>();
-            public bool IsMultiStack = true;
-            public bool IsAutoStart = false;
-            public bool IsFurnaceSplitter = false;
+            public uint DestinationId;
             public int FurnaceSplitterStacks = 1;
-            public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
+            public BuildingGrade.Enum Grade = BuildingGrade.Enum.Twigs;
+            public float Health;
+            public bool IsAutoStart;
+            public bool IsEnabled = true;
+            public bool IsFurnaceSplitter;
+            public bool IsMultiStack = true;
+            public List<int> ItemFilter = new List<int>();
             public ulong OwnerId;
             public string OwnerName;
-            private BaseEntity _source;
-            private BaseEntity _destination;
-
-            [JsonIgnore]
-            public BaseEntity Source
-            {
-                get
-                {
-                    return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType));
-                }
-                private set
-                {
-                    _source = value;
-                }
-            }
-
-            [JsonIgnore]
-            public BaseEntity Destination
-            {
-                get
-                {
-                    return _destination ?? (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
-                }
-                private set
-                {
-                    _destination = value;
-                }
-            }
+            public Pipe.PipePriority Priority = Pipe.PipePriority.Medium;
+            public ContainerType SourceContainerType;
+            public uint SourceId;
 
 
             /// <summary>
-            /// This is required to deserialize from json
+            ///     This is required to deserialize from json
             /// </summary>
-            public PipeData() { }
+            public PipeData()
+            {
+            }
 
             /// <summary>
-            /// Create data from a pipe for saving
+            ///     Create data from a pipe for saving
             /// </summary>
             /// <param name="pipe">Pipe to extract settings from</param>
             public PipeData(Pipe pipe)
             {
                 IsEnabled = pipe.IsEnabled;
                 Grade = pipe.Grade == BuildingGrade.Enum.None ? BuildingGrade.Enum.Twigs : pipe.Grade;
-                SourceId = ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id;
-                DestinationId = ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id;
+                SourceId = pipe.Source.ContainerType == ContainerType.FuelStorage ||
+                           pipe.Source.ContainerType == ContainerType.ResourceExtractor
+                    ? pipe.Source.Container.parentEntity.uid
+                    : pipe.Source.Id;
+                DestinationId =
+                    pipe.Destination.ContainerType == ContainerType.FuelStorage ||
+                    pipe.Destination.ContainerType == ContainerType.ResourceExtractor
+                        ? pipe.Destination.Container.parentEntity.uid
+                        : pipe.Destination.Id;
                 SourceContainerType = pipe.Source.ContainerType;
                 DestinationContainerType = pipe.Destination.ContainerType;
                 Health = pipe.Health;
@@ -3311,7 +3567,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Create a pipe data from the player helper's source and destination
+            ///     Create a pipe data from the player helper's source and destination
             /// </summary>
             /// <param name="playerHelper">Player helper to pull the source and destination from</param>
             public PipeData(PlayerHelper playerHelper)
@@ -3326,91 +3582,47 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 DestinationContainerType = ContainerHelper.GetEntityType(playerHelper.Destination);
                 IsEnabled = true;
             }
+
+            [JsonIgnore]
+            public BaseEntity Source
+            {
+                get { return _source ?? (_source = ContainerHelper.Find(SourceId, SourceContainerType)); }
+                private set { _source = value; }
+            }
+
+            [JsonIgnore]
+            public BaseEntity Destination
+            {
+                get
+                {
+                    return _destination ??
+                           (_destination = ContainerHelper.Find(DestinationId, DestinationContainerType));
+                }
+                private set { _destination = value; }
+            }
         }
-        [JsonConverter(typeof(Pipe.Converter))]
+
+
+        [JsonConverter(typeof(Converter))]
         public class Pipe
         {
-
             /// <summary>
-            /// Get the save data for all pipes
-            /// </summary>
-            /// <returns>Data for all pipes</returns>
-            public static IEnumerable<PipeData> Save()
-            {
-                for (int i = 0; i < Pipes.Count; i++)
-                {
-                    yield return new PipeData(Pipes[i]);
-                }
-            }
-
-            private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
-            {
-                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
-                Logger.PipeLoader.Log("Status: {0}", status);
-                Logger.PipeLoader.Log("Source Id: {0}", pipeData.SourceId);
-                Logger.PipeLoader.Log("Destination Id: {0}", pipeData.DestinationId);
-                Logger.PipeLoader.Log("Source Type: {0}", pipeData.SourceContainerType);
-                Logger.PipeLoader.Log("Destination Type: {0}", pipeData.DestinationContainerType);
-                Logger.PipeLoader.Log("Material: {0}", pipeData.Grade);
-                Logger.PipeLoader.Log("Enabled: {0}", pipeData.IsEnabled);
-                Logger.PipeLoader.Log("Auto-start: {0}", pipeData.IsAutoStart);
-                Logger.PipeLoader.Log("Health: {0}", pipeData.Health);
-                Logger.PipeLoader.Log("Priority: {0}", pipeData.Priority);
-                Logger.PipeLoader.Log("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter);
-                Logger.PipeLoader.Log("Splitter Count: {0}", pipeData.FurnaceSplitterStacks);
-                Logger.PipeLoader.Log("Item Filter: ({0})", pipeData.ItemFilter.Count);
-                for (int i = 0; i < pipeData.ItemFilter.Count; i++)
-                    Logger.PipeLoader.Log("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]);
-                Logger.PipeLoader.Log("");
-            }
-
-            /// <summary>
-            /// Load all data and re-create the saved pipes.
-            /// </summary>
-            /// <param name="dataToLoad">Data to create the pipes from</param>
-            public static void Load(PipeData[] dataToLoad)
-            {
-                if (dataToLoad == null) return;
-                var validCount = 0;
-                for (var i = 0; i < dataToLoad.Length; i++)
-                {
-                    var newPipe = new Pipe(dataToLoad[i]);
-                    if (newPipe.Validity != Status.Success)
-                    {
-                        Instance.PrintWarning("Failed to load pipe [{0}]: {1}", newPipe.Id, newPipe.Validity);
-                        LogLoadError(newPipe.Id, newPipe.Validity, dataToLoad[i]);
-                    }
-                    else
-                        validCount++;
-                }
-                Instance.Puts("Successfully loaded {0} pipes", validCount);
-            }
-
-            // Length of each segment
-            const float PipeLength = 3f;
-
-            // Offset of every other pipe segment to remove z fighting when wall segments overlap
-            static readonly Vector3 PipeFightOffset = new Vector3(0.0001f, 0.0001f, 0);
-
-            /// <summary>
-            /// Allowed priority values of the pipe
+            ///     Allowed priority values of the pipe
             /// </summary>
             public enum PipePriority
-            {
-                Highest = 2,
-                High = 1,
-                Medium = 0,
-                Low = -1,
+            { 
+                Highest = 2, High = 1, 
+                Medium = 0, Low = -1, 
                 Lowest = -2,
 
-                //This has not been implemented yet but should allow a pipe to draw required fuel for furnaces when needed
+                //This has not been implemented yet but should allow a pipe to draw required fuel for furnaces when needed 
                 Demand = -3
             }
 
             /// <summary>
-            /// The statuses the pipe can be in.
-            /// Pending until it has initialized.
-            /// Then will indicate any errors.
+            ///     The statuses the pipe can be in.
+            ///     Pending until it has initialized.
+            ///     Then will indicate any errors.
             /// </summary>
             [Flags]
             public enum Status
@@ -3426,11 +3638,26 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 IdGenerationFailed
             }
 
+            // Length of each segment
+            private const float PipeLength = 3f;
+
+            // Offset of every other pipe segment to remove z fighting when wall segments overlap
+            private static readonly Vector3 PipeFightOffset = new Vector3(0.0001f, 0.0001f, 0);
+
             // The random generator used to generate the id for this pipe.
             private static readonly Random RandomGenerator;
+            private PipeFactory _factory;
+
+            // This is the initial state of the filter. This is the fallback if the filter is not initialized
+            private List<int> _initialFilterItems = new List<int>();
+
+            private readonly float _initialHealth;
+
+            // Filter object. This remains null until it is needed
+            private PipeFilter _pipeFilter;
 
             /// <summary>
-            /// Initializes the random generator
+            ///     Initializes the random generator
             /// </summary>
             static Pipe()
             {
@@ -3438,7 +3665,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Creates a new pipe from PipeData
+            ///     Creates a new pipe from PipeData
             /// </summary>
             /// <param name="data">Pipe data used to initialize the pipe.</param>
             public Pipe(PipeData data)
@@ -3460,27 +3687,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Create();
             }
 
-            private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
-            {
-                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
-                Logger.PipeLoader.Log("Status: {0}", status);
-                Logger.PipeLoader.Log("Source Id: {0}", sourceId);
-                Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
-                Logger.PipeLoader.Log("Source Type: {0}", Source?.ContainerType);
-                Logger.PipeLoader.Log("Destination Type: {0}", Destination?.ContainerType);
-                Logger.PipeLoader.Log("Material: {0}", Grade);
-                Logger.PipeLoader.Log("Enabled: {0}", IsEnabled);
-                Logger.PipeLoader.Log("Auto-start: {0}", IsAutoStart);
-                Logger.PipeLoader.Log("Health: {0}", _initialHealth);
-                Logger.PipeLoader.Log("Priority: {0}", Priority);
-                Logger.PipeLoader.Log("Splitter Enabled: {0}", IsFurnaceSplitterEnabled);
-                Logger.PipeLoader.Log("Splitter Count: {0}", FurnaceSplitterStacks);
-                Logger.PipeLoader.Log("Item Filter: ({0})", PipeFilter?.Items.Count);
-                for (int i = 0; i < PipeFilter?.Items.Count; i++)
-                    Logger.PipeLoader.Log("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english);
-                Logger.PipeLoader.Log("");
-            }
-
             private Pipe(JsonReader reader, JsonSerializer serializer)
             {
                 Id = GenerateId();
@@ -3490,7 +3696,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 uint sourceId = 0, destinationId = 0;
                 ContainerType sourceType = ContainerType.General, destinationType = ContainerType.General;
                 while (reader.Read() && depth > 0)
-                {
                     switch (reader.TokenType)
                     {
                         case JsonToken.StartObject:
@@ -3560,12 +3765,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                         if (reader.Value != null && int.TryParse(reader.Value?.ToString(), out value))
                                             filterIds.Add(value);
                                     }
+
                                     _initialFilterItems = filterIds;
                                     break;
                             }
+
                             break;
                     }
-                }
+
                 var source = ContainerHelper.Find(sourceId, sourceType);
                 var destination = ContainerHelper.Find(destinationId, destinationType);
                 Source = new PipeEndContainer(source, sourceType, this);
@@ -3575,202 +3782,285 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     LogLoadError(Id, Validity, sourceId, destinationId);
             }
 
-            public void Create()
-            {
-                if(PrimarySegment != null || Validity != Status.Success)
-                    return;
-                Source.Attach();
-                Destination.Attach();
-                CreatePipeSegmentEntities();
-                if (!PipeLookup.ContainsKey(Id))
-                {
-                    PipeLookup.Add(Id, this);
-                    Pipes.Add(this);
-                }
-                if(!ConnectedContainers.ContainsKey(Source.Id))
-                    ConnectedContainers.Add(Source.Id, new Dictionary<uint, bool>());
-                ConnectedContainers[Source.Id][Destination.Id] = true;
-                PlayerHelper.AddPipe(this);
-                if(_initialHealth > 0)
-                    SetHealth(_initialHealth);
-            }
-
-            // Filter object. This remains null until it is needed
-            private PipeFilter _pipeFilter;
-
-            // This is the initial state of the filter. This is the fallback if the filter is not initialized
-            private List<int> _initialFilterItems = new List<int>();
-
 
             /// <summary>
-            /// The Filter object for this pipe.
-            /// It will auto-initialize when required
+            ///     The Filter object for this pipe.
+            ///     It will auto-initialize when required
             /// </summary>
-            public PipeFilter PipeFilter => _pipeFilter ?? (_pipeFilter = new PipeFilter(_initialFilterItems, FilterCapacity, this));
+            public PipeFilter PipeFilter =>
+                _pipeFilter ?? (_pipeFilter = new PipeFilter(_initialFilterItems, FilterCapacity, this));
 
             /// <summary>
-            /// This will return all the items in the filter.
-            /// If the Filter object has been created then it will pull from that otherwise it will pull from the initial filter items
+            ///     This will return all the items in the filter.
+            ///     If the Filter object has been created then it will pull from that otherwise it will pull from the initial filter
+            ///     items
             /// </summary>
             public IEnumerable<int> FilterItems
             {
                 get
                 {
-                    for (var i = 0; i < PipeFilter.Items.Count; i++)
-                    {
-                        yield return PipeFilter.Items[i].info.itemid;
-                    }
+                    for (var i = 0; i < PipeFilter.Items.Count; i++) yield return PipeFilter.Items[i].info.itemid;
                 }
             }
 
             /// <summary>
-            /// Is furnace splitter enabled
+            ///     Is furnace splitter enabled
             /// </summary>
             public bool IsFurnaceSplitterEnabled { get; private set; }
 
             /// <summary>
-            /// Number of stacks to use in the furnace splitter
+            ///     Number of stacks to use in the furnace splitter
             /// </summary>
             public int FurnaceSplitterStacks { get; private set; }
 
             /// <summary>
-            /// Should the pipe attempt to auto-start the destination container of the pipe.
-            /// Must be and Oven, Recycler or Quarry/Pump Jack
+            ///     Should the pipe attempt to auto-start the destination container of the pipe.
+            ///     Must be and Oven, Recycler or Quarry/Pump Jack
             /// </summary>
             public bool IsAutoStart { get; private set; }
 
             /// <summary>
-            /// Should the pipe stack to multiple stacks in the destination or a single stack
+            ///     Should the pipe stack to multiple stacks in the destination or a single stack
             /// </summary>
             public bool IsMultiStack { get; private set; }
 
             /// <summary>
-            /// The Id of the player who built the pipe
+            ///     The Id of the player who built the pipe
             /// </summary>
-            public ulong OwnerId { get; private set; }
-            /// <summary>
-            /// Name of the player who built the pipe
-            /// </summary>
-            public string OwnerName { get; private set; }
+            public ulong OwnerId { get; }
 
             /// <summary>
-            /// List of all players who are viewing the Pipe menu
+            ///     Name of the player who built the pipe
+            /// </summary>
+            public string OwnerName { get; }
+
+            /// <summary>
+            ///     List of all players who are viewing the Pipe menu
             /// </summary>
             private List<PlayerHelper> PlayersViewingMenu { get; } = new List<PlayerHelper>();
 
-            /// <summary>
-            /// List of all entities that physically make up the pipe in game
-            /// </summary>
-            private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
+            ///// <summary>
+            ///// List of all entities that physically make up the pipe in game
+            ///// </summary>
+            //private List<BaseEntity> Segments { get; } = new List<BaseEntity>();
+
 
             /// <summary>
-            /// The primary physical section of the pipe
-            /// </summary>
-            public BaseEntity PrimarySegment => Segments.Count > 0 ? Segments[0] : null;// Segments.FirstOrDefault();
-
-            /// <summary>
-            /// The name a player has given to the pipe.
+            ///     The name a player has given to the pipe.
             /// </summary>
             public string DisplayName { get; set; }
 
             /// <summary>
-            /// The material grade of the pipe. This determines Filter capacity and Flow Rate.
+            ///     The material grade of the pipe. This determines Filter capacity and Flow Rate.
             /// </summary>
             public BuildingGrade.Enum Grade { get; private set; }
 
             /// <summary>
-            /// Gets the Filter Capacity based on the Grade of the pipe.
+            ///     Gets the Filter Capacity based on the Grade of the pipe.
             /// </summary>
-            public int FilterCapacity => InstanceConfig.FilterSizes[(int) Grade];
+            public int FilterCapacity => InstanceConfig.FilterSizes[(int)Grade];
 
             /// <summary>
-            /// Gets the Flow Rate based on the Grade of the pipe.
+            ///     Gets the Flow Rate based on the Grade of the pipe.
             /// </summary>
             public int FlowRate => InstanceConfig.FlowRates[(int)Grade];
 
             /// <summary>
-            /// Health of the pipe
-            /// Used to ensure the pipe is damaged and repaired evenly
+            ///     Health of the pipe
+            ///     Used to ensure the pipe is damaged and repaired evenly
             /// </summary>
-            public float Health => PrimarySegment.Health();
+            public float Health => _factory.PrimarySegment.Health();
 
-            private float _initialHealth;
             /// <summary>
-            /// Used to indicate this pipe is being repaired to prevent multiple repair triggers
+            ///     Used to indicate this pipe is being repaired to prevent multiple repair triggers
             /// </summary>
             public bool Repairing { get; set; }
 
             /// <summary>
-            /// Id of the pipe
+            ///     Id of the pipe
             /// </summary>
             public ulong Id { get; }
 
             /// <summary>
-            /// Allows for the filter to be used to reject rather than allow items
-            /// Not Yet Implemented
+            ///     Allows for the filter to be used to reject rather than allow items
+            ///     Not Yet Implemented
             /// </summary>
             public bool InvertFilter { get; private set; }
 
             /// <summary>
-            /// The priority of this pipe.
-            /// Each band of priority will be grouped together and if anything is left it will move to the next band down.
+            ///     The priority of this pipe.
+            ///     Each band of priority will be grouped together and if anything is left it will move to the next band down.
             /// </summary>
             public PipePriority Priority { get; private set; } = PipePriority.Medium;
 
             /// <summary>
-            /// The validity of the pipe
-            /// This will indicate any errors in creating the pipe and prevent it from being fully created or stored
+            ///     The validity of the pipe
+            ///     This will indicate any errors in creating the pipe and prevent it from being fully created or stored
             /// </summary>
             public Status Validity { get; private set; } = Status.Pending;
 
             /// <summary>
-            /// Destination of the Pipe
+            ///     Destination of the Pipe
             /// </summary>
             public PipeEndContainer Destination { get; private set; }
 
             /// <summary>
-            /// Source of the Pipe
+            ///     Source of the Pipe
             /// </summary>
             public PipeEndContainer Source { get; private set; }
 
             /// <summary>
-            /// All pipes that have been created
+            ///     All pipes that have been created
             /// </summary>
             public static Dictionary<ulong, Pipe> PipeLookup { get; } = new Dictionary<ulong, Pipe>();
+
             public static List<Pipe> Pipes { get; } = new List<Pipe>();
 
             /// <summary>
-            /// All the connections between containers to prevent duplications
+            ///     All the connections between containers to prevent duplications
             /// </summary>
             public static Dictionary<uint, Dictionary<uint, bool>> ConnectedContainers { get; } =
                 new Dictionary<uint, Dictionary<uint, bool>>();
 
             /// <summary>
-            /// Controls if the pipe will transfer any items along it
+            ///     Controls if the pipe will transfer any items along it
             /// </summary>
             public bool IsEnabled { get; private set; }
 
             /// <summary>
-            /// Gets information on whether the destination is an entity type that can be auto-started
+            ///     Gets information on whether the destination is an entity type that can be auto-started
             /// </summary>
             public bool CanAutoStart => Destination.CanAutoStart;
 
             /// <summary>
-            /// The length of the pipe
+            ///     The length of the pipe
             /// </summary>
             public float Distance { get; private set; }
 
             /// <summary>
-            /// The rotation of the pipe
+            ///     The rotation of the pipe
             /// </summary>
-            private Quaternion Rotation { get; set; }
+            public Quaternion Rotation { get; private set; }
+
+            public BaseEntity PrimarySegment => _factory.PrimarySegment;
 
             /// <summary>
-            /// Checks if there is already a connection between these two containers
+            ///     Get the save data for all pipes
+            /// </summary>
+            /// <returns>Data for all pipes</returns>
+            public static IEnumerable<PipeData> Save()
+            {
+                for (var i = 0; i < Pipes.Count; i++) yield return new PipeData(Pipes[i]);
+            }
+
+            private static void LogLoadError(ulong pipeId, Status status, PipeData pipeData)
+            {
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", pipeData.SourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", pipeData.DestinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", pipeData.SourceContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", pipeData.DestinationContainerType);
+                Logger.PipeLoader.Log("Material: {0}", pipeData.Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", pipeData.IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", pipeData.IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", pipeData.Health);
+                Logger.PipeLoader.Log("Priority: {0}", pipeData.Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", pipeData.IsFurnaceSplitter);
+                Logger.PipeLoader.Log("Splitter Count: {0}", pipeData.FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", pipeData.ItemFilter.Count);
+                for (var i = 0; i < pipeData.ItemFilter.Count; i++)
+                    Logger.PipeLoader.Log("    Filter[{0}]: {1}", i, pipeData.ItemFilter[i]);
+                Logger.PipeLoader.Log("");
+            }
+
+            /// <summary>
+            ///     Load all data and re-create the saved pipes.
+            /// </summary>
+            /// <param name="dataToLoad">Data to create the pipes from</param>
+            public static void Load(PipeData[] dataToLoad)
+            {
+                if (dataToLoad == null) return;
+                var validCount = 0;
+                for (var i = 0; i < dataToLoad.Length; i++)
+                {
+                    var newPipe = new Pipe(dataToLoad[i]);
+                    if (newPipe.Validity != Status.Success)
+                    {
+                        Instance.PrintWarning("Failed to load pipe [{0}]: {1}", newPipe.Id, newPipe.Validity);
+                        LogLoadError(newPipe.Id, newPipe.Validity, dataToLoad[i]);
+                    }
+                    else
+                    {
+                        validCount++;
+                    }
+                }
+
+                Instance.Puts("Successfully loaded {0} pipes", validCount);
+            }
+
+            private void LogLoadError(ulong pipeId, Status status, uint sourceId, uint destinationId)
+            {
+                Logger.PipeLoader.Log("------------------- {0} -------------------", pipeId);
+                Logger.PipeLoader.Log("Status: {0}", status);
+                Logger.PipeLoader.Log("Source Id: {0}", sourceId);
+                Logger.PipeLoader.Log("Destination Id: {0}", destinationId);
+                Logger.PipeLoader.Log("Source Type: {0}", Source?.ContainerType);
+                Logger.PipeLoader.Log("Destination Type: {0}", Destination?.ContainerType);
+                Logger.PipeLoader.Log("Material: {0}", Grade);
+                Logger.PipeLoader.Log("Enabled: {0}", IsEnabled);
+                Logger.PipeLoader.Log("Auto-start: {0}", IsAutoStart);
+                Logger.PipeLoader.Log("Health: {0}", _initialHealth);
+                Logger.PipeLoader.Log("Priority: {0}", Priority);
+                Logger.PipeLoader.Log("Splitter Enabled: {0}", IsFurnaceSplitterEnabled);
+                Logger.PipeLoader.Log("Splitter Count: {0}", FurnaceSplitterStacks);
+                Logger.PipeLoader.Log("Item Filter: ({0})", PipeFilter?.Items.Count);
+                for (var i = 0; i < PipeFilter?.Items.Count; i++)
+                    Logger.PipeLoader.Log("    Item[{0}]: {1}", i, PipeFilter.Items[i]?.info.displayName.english);
+                Logger.PipeLoader.Log("");
+            }
+
+            public void Create()
+            {
+                if (Validity != Status.Success)
+                    return;
+                Distance = Vector3.Distance(Source.Position, Destination.Position);
+                Rotation = GetRotation();
+                _factory = InstanceConfig.Experimental?.BarrelPipe ?? false
+                    ? new PipeFactoryBarrel(this)
+                    : (PipeFactory)new PipeFactoryLowWall(this);
+                _factory.Create();
+                if (PrimarySegment == null)
+                    return;
+                Source.Attach();
+                Destination.Attach();
+                if (!PipeLookup.ContainsKey(Id))
+                {
+                    PipeLookup.Add(Id, this);
+                    Pipes.Add(this);
+                }
+
+                if (!ConnectedContainers.ContainsKey(Source.Id))
+                    ConnectedContainers.Add(Source.Id, new Dictionary<uint, bool>());
+                ConnectedContainers[Source.Id][Destination.Id] = true;
+                PlayerHelper.AddPipe(this);
+                if (_initialHealth > 0)
+                    SetHealth(_initialHealth);
+            }
+
+            private Quaternion GetRotation()
+            {
+                return Quaternion.LookRotation(Destination.Position - Source.Position);
+            }
+
+            /// <summary>
+            ///     Checks if there is already a connection between these two containers
             /// </summary>
             /// <param name="data">Pipe data which includes the source and destination Ids</param>
-            /// <returns>True if the is an overlap to prevent another pipe being created
-            /// False if it is fine to create the pipe</returns>
+            /// <returns>
+            ///     True if the is an overlap to prevent another pipe being created
+            ///     False if it is fine to create the pipe
+            /// </returns>
             private static bool IsOverlapping(PipeData data)
             {
                 var sourceId = data.SourceId;
@@ -3782,7 +4072,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Generate a new Id for this pipe
+            ///     Generate a new Id for this pipe
             /// </summary>
             /// <returns></returns>
             private ulong GenerateId()
@@ -3793,7 +4083,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     var buf = new byte[8];
                     RandomGenerator.NextBytes(buf);
-                    id = (ulong) BitConverter.ToInt64(buf, 0);
+                    id = (ulong)BitConverter.ToInt64(buf, 0);
                     if (safetyCheck++ > 50)
                     {
                         Validity = Status.IdGenerationFailed;
@@ -3805,7 +4095,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Get a pipe object from a pipe entity
+            ///     Get a pipe object from a pipe entity
             /// </summary>
             /// <param name="entity">Entity to get the pipe object from</param>
             /// <returns></returns>
@@ -3815,7 +4105,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Get a pipe from a pipe Id
+            ///     Get a pipe from a pipe Id
             /// </summary>
             /// <param name="id">Id to get the pipe object for</param>
             /// <returns></returns>
@@ -3826,7 +4116,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Enable or disable the pipe.
+            ///     Enable or disable the pipe.
             /// </summary>
             /// <param name="enabled">True will set the pipe to enabled</param>
             public void SetEnabled(bool enabled)
@@ -3836,14 +4126,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Returns if the player has permission to open the pipe settings
+            ///     Returns if the player has permission to open the pipe settings
             /// </summary>
             /// <param name="playerHelper">Player helper of the player to test</param>
             /// <returns>True if the player is allows to open the pipe</returns>
-            public bool CanPlayerOpen(PlayerHelper playerHelper) => playerHelper.Player.userID == OwnerId || playerHelper.HasBuildPrivilege;
+            public bool CanPlayerOpen(PlayerHelper playerHelper)
+            {
+                return playerHelper.Player.userID == OwnerId || playerHelper.HasBuildPrivilege;
+            }
 
             /// <summary>
-            /// Attempt to create a pipe base on the player helper source and destination
+            ///     Attempt to create a pipe base on the player helper source and destination
             /// </summary>
             /// <param name="playerHelper">Player helper of the player trying to place the pipe</param>
             /// <returns>True if the pipe was successfully created</returns>
@@ -3872,11 +4165,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         playerHelper.ShowPipeStatusOverlay(pipe.Validity);
                     }
                 }
+
                 playerHelper.PipePlacingComplete();
             }
 
             /// <summary>
-            /// Remove all pipes and their segments from the server
+            ///     Remove all pipes and their segments from the server
             /// </summary>
             public static void Cleanup()
             {
@@ -3886,7 +4180,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Validates that the pipe has a valid source and destination
+            ///     Validates that the pipe has a valid source and destination
             /// </summary>
             private void Validate()
             {
@@ -3899,137 +4193,17 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Create the pipe segment entities required to join the source and destination containers
+            ///     Reverse the direction of the pipe
             /// </summary>
-            private void CreatePipeSegmentEntities()
-            {
-                GetPositionsAndRotation();
-                var segments = (int) Mathf.Ceil(Distance / PipeLength);
-                var segmentOffset = segments * PipeLength - Distance;
-                var rotationOffset = (Source.Position.y - Destination.Position.y) * Vector3.down * 0.0002f;
-
-                // the position thing centers the pipe if there is only one segment
-                CreatePrimaryPipeSegmentEntity(segments == 1, rotationOffset);
-
-                for (var i = 1; i < segments; i++)
-                {
-                    CreateSecondayPipeSegmentEntity(i, segmentOffset);
-                }
-            }
-
-            /// <summary>
-            /// Create a secondary pipe segment
-            /// </summary>
-            /// <param name="segmentIndex">The index of this segment of the pipe</param>
-            /// <param name="segmentOffset">The offset to get the secondary pipe segments to reach the destination container exactly</param>
-            private void CreateSecondayPipeSegmentEntity(int segmentIndex, float segmentOffset)
-            {
-                var pipe = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    Vector3.forward * (PipeLength * segmentIndex - segmentOffset) + (segmentIndex % 2 == 0
-                        ? Vector3.zero
-                        : PipeFightOffset));
-                PreparePipeSegmentEntity(pipe, segmentIndex);
-            }
-
-            /// <summary>
-            /// Creates the primary pipe segment
-            /// </summary>
-            /// <param name="singleSegmentPipe">If true the pipe will be centered between the containers (and may overlap the containers)</param>
-            /// <param name="rotationOffset">Vertical offset to limit the pipe sticking out the top of the container</param>
-            private void CreatePrimaryPipeSegmentEntity(bool singleSegmentPipe, Vector3 rotationOffset)
-            {
-                var primarySegment = GameManager.server.CreateEntity(
-                    "assets/prefabs/building core/wall.low/wall.low.prefab",
-                    (singleSegmentPipe
-                        ? (Source.Position + Destination.Position) / 2
-                        : Source.Position + Rotation * Vector3.forward * (PipeLength/2)) + rotationOffset + Vector3.down * 0.8f, Rotation);
-                PreparePipeSegmentEntity(primarySegment, 0);
-            }
-
-            /// <summary>
-            /// Reverse the direction of the pipe
-            /// </summary>
-            public void SwapDirections()
+            public void SwapDirection()
             {
                 var stash = Source;
                 Source = Destination;
                 Destination = stash;
+                Rotation = GetRotation();
+                _factory.Reverse();
                 RefreshMenu();
             }
-
-            /// <summary>
-            /// Initialize the properties of a pipe segment entity.
-            /// Adds lights if enabled in the config
-            /// </summary>
-            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
-            /// <param name="pipeIndex">The index of this pipe segment</param>
-            private void PreparePipeSegmentEntity(BaseEntity pipeSegment, int pipeIndex)
-            {
-                pipeSegment.enableSaving = false;
-
-                var block = pipeSegment.GetComponent<BuildingBlock>();
-
-                if (block != null)
-                {
-                    block.grounded = true;
-                    block.grade = Grade;
-                    block.enableSaving = false;
-                    block.Spawn();
-                    block.SetHealthToMax();
-                }
-
-                PipeSegment.Attach(pipeSegment, this);
-
-                if (pipeIndex != 0)
-                    pipeSegment.SetParent(PrimarySegment);
-
-                if (InstanceConfig.AttachXmasLights)
-                {
-                    var lights = GameManager.server.CreateEntity(
-                        "assets/prefabs/misc/xmas/christmas_lights/xmas.lightstring.deployed.prefab",
-                        Vector3.up * 1.025f +
-                        Vector3.forward * 0.13f +
-                        (pipeIndex % 2 == 0
-                            ? Vector3.zero
-                            : PipeFightOffset),
-                        Quaternion.Euler(180, 90, 0));
-                    lights.enableSaving = false;
-                    lights.Spawn();
-                    lights.SetParent(pipeSegment);
-                    PipeSegmentLights.Attach(lights, this);
-                }
-
-                Segments.Add(pipeSegment);
-                //pillars.Add(ent);
-                pipeSegment.enableSaving = false;
-                if (InstanceConfig.NoDecay)
-                {
-                    ((DecayEntity) pipeSegment).upkeep = null;
-                    ((DecayEntity)pipeSegment).decay = null;
-                }
-            }
-
-            /// <summary>
-            /// Get the source and destination positions and the rotation of the pipe
-            /// </summary>
-            private void GetPositionsAndRotation()
-            {
-                Source.Position = GetPosition(Source.Storage);
-                Destination.Position = GetPosition(Destination.Storage);
-                Rotation = Quaternion.LookRotation(Destination.Position - Source.Position) * Quaternion.Euler(0, 0, 0);
-                Distance = Vector3.Distance(Source.Position, Destination.Position);
-                // Adjust position based on the rotation
-                //Source.Position += Rotation * Vector3.forward * PipeSegmentDistance *
-                //    0.4f + Rotation * Vector3.down * 0.7f;
-            }
-
-            /// <summary>
-            /// Get the pipe connection position for the container
-            /// </summary>
-            /// <param name="container">Container entity to get the connection position for</param>
-            /// <returns>The connection position for this container</returns>
-            private Vector3 GetPosition(BaseEntity container) => container.CenterPoint() + StorageHelper.GetOffset(container);
 
             public void OpenMenu(PlayerHelper playerHelper)
             {
@@ -4037,7 +4211,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     playerHelper.Menu.Refresh();
                 }
-                else if(playerHelper.CanBuild)
+                else if (playerHelper.CanBuild)
                 {
                     new PipeMenu(this, playerHelper).Open();
                     PlayersViewingMenu.Add(playerHelper);
@@ -4050,7 +4224,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Close the Pipe Menu for a specific player
+            ///     Close the Pipe Menu for a specific player
             /// </summary>
             /// <param name="playerHelper">Player Helper of the player to close the menu for</param>
             public void CloseMenu(PlayerHelper playerHelper)
@@ -4060,29 +4234,34 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Refresh the Pipe Menu for all players currently viewing it
+            ///     Refresh the Pipe Menu for all players currently viewing it
             /// </summary>
             private void RefreshMenu()
             {
-                for(var i = 0; i < PlayersViewingMenu.Count; i++)
+                for (var i = 0; i < PlayersViewingMenu.Count; i++)
                     PlayersViewingMenu[i].SendSyncPipesConsoleCommand("refreshmenu", Id);
             }
 
             /// <summary>
-            /// Returns if the pipe is still valid and has its source and destination containers
+            ///     Returns if the pipe is still valid and has its source and destination containers
             /// </summary>
             /// <returns>If the pipe is still live</returns>
-            public bool IsAlive() => Source?.Container != null && Destination?.Container != null;
+            public bool IsAlive()
+            {
+                return Source?.Container != null && Destination?.Container != null;
+            }
+
 
             /// <summary>
-            /// Destroy this pipe and ensure it is cleaned from the lookups
+            ///     Destroy this pipe and ensure it is cleaned from the lookups
             /// </summary>
             /// <param name="cleanup">If true then destruction animations are disabled</param>
             public void Kill(bool cleanup = false)
             {
-                for(var i = 0; i < PlayersViewingMenu.Count; i++)
+                for (var i = 0; i < PlayersViewingMenu.Count; i++)
                     PlayersViewingMenu[i]?.SendSyncPipesConsoleCommand("forceclosemenu");
                 PipeFilter?.Kill();
+                KillSegments(cleanup);
                 ContainerManager.Detach(Source.Id, this);
                 ContainerManager.Detach(Destination.Id, this);
                 PlayerHelper.RemovePipe(this);
@@ -4098,42 +4277,45 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     PipeLookup.Remove(Id);
                     Pipes.Remove(this);
                 }
+            }
 
+            private void KillSegments(bool cleanup)
+            {
                 if (cleanup)
                 {
-                    if (!PrimarySegment?.IsDestroyed ?? false)
-                        PrimarySegment?.Kill();
+                    if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                        _factory.PrimarySegment?.Kill();
                 }
                 else
                 {
                     Instance.NextFrame(() =>
                     {
-                        if (!PrimarySegment?.IsDestroyed ?? false)
-                            PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
+                        if (!_factory.PrimarySegment?.IsDestroyed ?? false)
+                            _factory.PrimarySegment?.Kill(BaseNetworkable.DestroyMode.Gib);
                     });
                 }
             }
 
             /// <summary>
-            /// Change the current priority of the pipe
+            ///     Change the current priority of the pipe
             /// </summary>
             /// <param name="priorityChange">The how many levels to change the priority by.</param>
             public void ChangePriority(int priorityChange)
             {
                 var currPriority = Priority;
-                var newPriority = (int) Priority + priorityChange;
-                if (newPriority > (int) PipePriority.Highest)
+                var newPriority = (int)Priority + priorityChange;
+                if (newPriority > (int)PipePriority.Highest)
                     Priority = PipePriority.Highest;
-                else if (newPriority < (int) PipePriority.Lowest)
+                else if (newPriority < (int)PipePriority.Lowest)
                     Priority = PipePriority.Lowest;
                 else
-                    Priority = (PipePriority) newPriority;
+                    Priority = (PipePriority)newPriority;
                 if (currPriority != Priority)
                     RefreshMenu();
             }
 
             /// <summary>
-            /// Remove this pipe
+            ///     Remove this pipe
             /// </summary>
             /// <param name="cleanup">If true it will disable destruction animations of the pipe</param>
             public void Remove(bool cleanup = false)
@@ -4148,54 +4330,36 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Destroy all pipes from the server
+            ///     Destroy all pipes from the server
             /// </summary>
             private static void KillAll()
             {
-                while (Pipes.Count > 0)
-                {
-                    Pipes[0].Kill();
-                }
+                while (Pipes.Count > 0) Pipes[0].Kill(true);
             }
 
             /// <summary>
-            /// Upgrade the pipe and all its segments to a specified building grade
+            ///     Upgrade the pipe and all its segments to a specified building grade
             /// </summary>
             /// <param name="grade">Grade to set the pipe to</param>
             public void Upgrade(BuildingGrade.Enum grade)
             {
-                for (var i = 0; i < Segments.Count; i++)
-                {
-                    var buildingBlock = Segments[i].GetComponent<BuildingBlock>();
-                    if(buildingBlock == null)
-                        continue;
-                    buildingBlock.SetGrade(grade);
-                    buildingBlock.SetHealthToMax();
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.Upgrade(grade);
                 Grade = grade;
                 PipeFilter.Upgrade(FilterCapacity);
                 RefreshMenu();
             }
 
             /// <summary>
-            /// Set all pipe segments to a specified health value
+            ///     Set all pipe segments to a specified health value
             /// </summary>
             /// <param name="health">Health value to set the pipe to</param>
             public void SetHealth(float health)
             {
-                for (var i = 0; i < Segments.Count; i++)
-                {
-                    var buildingBlock = Segments[i].GetComponent<BuildingBlock>();
-                    if (buildingBlock == null)
-                        continue;
-                    buildingBlock.health = health;
-                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
-                }
+                _factory.SetHealth(health);
             }
 
             /// <summary>
-            /// Enable or disable Auto start
+            ///     Enable or disable Auto start
             /// </summary>
             /// <param name="autoStart">If true AutoStart will be enables</param>
             public void SetAutoStart(bool autoStart)
@@ -4205,10 +4369,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Set the pipe to multi-stack or single-stack mode
+            ///     Set the pipe to multi-stack or single-stack mode
             /// </summary>
-            /// <param name="multiStack">If true multi-stack mode will be enabled
-            /// If false single-stack mode will be enabled</param>
+            /// <param name="multiStack">
+            ///     If true multi-stack mode will be enabled
+            ///     If false single-stack mode will be enabled
+            /// </param>
             public void SetMultiStack(bool multiStack)
             {
                 IsMultiStack = multiStack;
@@ -4216,7 +4382,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Enable or disable the furnace stack splitting
+            ///     Enable or disable the furnace stack splitting
             /// </summary>
             /// <param name="enable">If true furnace splitting will be enabled</param>
             public void SetFurnaceStackEnabled(bool enable)
@@ -4226,7 +4392,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Set the number of stacks to use with the furnace stack splitter
+            ///     Set the number of stacks to use with the furnace stack splitter
             /// </summary>
             /// <param name="stackCount">The number of stacks to use</param>
             public void SetFurnaceStackCount(int stackCount)
@@ -4236,19 +4402,19 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             }
 
             /// <summary>
-            /// Open the filter for this pipe.
-            /// It will create the filter if this is the first time it was opened
+            ///     Open the filter for this pipe.
+            ///     It will create the filter if this is the first time it was opened
             /// </summary>
             /// <param name="playerHelper">The player helper of the player opening the filter</param>
             public void OpenFilter(PlayerHelper playerHelper)
             {
                 CloseMenu(playerHelper);
                 playerHelper.Player?.EndLooting();
-                Instance.timer.Once(0.1f, () =>PipeFilter.Open(playerHelper));
+                Instance.timer.Once(0.1f, () => PipeFilter.Open(playerHelper));
             }
 
             /// <summary>
-            /// Copy the settings from another pipe
+            ///     Copy the settings from another pipe
             /// </summary>
             /// <param name="pipe">The pipe to copy the settings from</param>
             public void CopyFrom(Pipe pipe)
@@ -4267,7 +4433,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Priority = pipe.Priority;
             }
 
-            public class Converter: JsonConverter
+            public class Converter : JsonConverter
             {
                 public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
                 {
@@ -4279,9 +4445,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     writer.WritePropertyName("grd");
                     writer.WriteValue(pipe.Grade);
                     writer.WritePropertyName("sid");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType) ? pipe.Source.Container.parentEntity.uid : pipe.Source.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Source.ContainerType)
+                        ? pipe.Source.Container.parentEntity.uid
+                        : pipe.Source.Id);
                     writer.WritePropertyName("did");
-                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType) ? pipe.Destination.Container.parentEntity.uid : pipe.Destination.Id);
+                    writer.WriteValue(ContainerHelper.IsComplexStorage(pipe.Destination.ContainerType)
+                        ? pipe.Destination.Container.parentEntity.uid
+                        : pipe.Destination.Id);
                     writer.WritePropertyName("sct");
                     writer.WriteValue(pipe.Source.ContainerType);
                     writer.WritePropertyName("dct");
@@ -4306,13 +4476,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     writer.WriteValue(pipe.DisplayName);
                     writer.WritePropertyName("flr");
                     writer.WriteStartArray();
-                    for (int i = 0; i < pipe.PipeFilter.Items.Count; i++)
+                    for (var i = 0; i < pipe.PipeFilter.Items.Count; i++)
                         writer.WriteValue(pipe.PipeFilter.Items[i].info.itemid);
                     writer.WriteEndArray();
                     writer.WriteEndObject();
                 }
 
-                public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+                public override object ReadJson(JsonReader reader, Type objectType, object existingValue,
+                    JsonSerializer serializer)
                 {
                     return new Pipe(reader, serializer);
                 }
@@ -4350,6 +4521,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
                 CanAutoStart = ContainerHelper.CanAutoStart(ContainerType);
+                Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 
             /// <summary>
@@ -4364,7 +4536,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The container Id
             /// </summary>
-            public uint Id {get;}
+            public uint Id { get; }
 
             /// <summary>
             /// The container Entity
@@ -4389,7 +4561,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <summary>
             /// The connection position of this container
             /// </summary>
-            public Vector3 Position { get; set; }
+            public Vector3 Position { get; }
 
             /// <summary>
             /// The url of this container to display in the pipe menu
@@ -4409,11 +4581,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn()) 
+                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
-                        if(!((BaseOven)Container).IsOn())
-                            ((BaseOven) Container)?.StartCooking();
+                        if (!((BaseOven)Container).IsOn())
+                            ((BaseOven)Container)?.StartCooking();
                         break;
                     case ContainerType.Recycler:
                         if(!(Container as Recycler)?.IsOn() ?? false)
@@ -4469,6 +4641,210 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     default:
                         return false;
                 }
+            }
+        }
+        #endregion
+        #region PipeFactory
+
+        private abstract class PipeFactory
+        {
+            protected Pipe _pipe;
+            protected int _segmentCount;
+            public BaseEntity PrimarySegment => Segments.FirstOrDefault();
+            protected float _segmentOffset;
+            protected Vector3 _rotationOffset;
+            public List<BaseEntity> Segments = new List<BaseEntity>();
+
+            protected abstract float PipeLength { get; }
+
+            protected abstract string Prefab { get; }
+            protected static readonly Vector3 OverlappingPipeOffset = OverlappingPipeOffset = new Vector3(0.0001f, 0.0001f, 0);
+            //protected 
+            protected PipeFactory(Pipe pipe)
+            {
+                _pipe = pipe;
+                Init();
+            }
+
+            private void Init()
+            {
+                _segmentCount = (int)Mathf.Ceil(_pipe.Distance / PipeLength);
+                _segmentOffset = _segmentCount * PipeLength - _pipe.Distance;
+                _rotationOffset = (_pipe.Source.Position.y - _pipe.Destination.Position.y) * Vector3.down * 0.0002f;
+            }
+
+            protected virtual BaseEntity CreateSegment(Vector3 position, Quaternion rotation = default(Quaternion))
+            {
+                return GameManager.server.CreateEntity(Prefab, position, rotation);
+            }
+
+            public abstract void Create();
+            public virtual void Reverse() { }
+
+            public virtual void Upgrade(BuildingGrade.Enum grade) { }
+
+            public abstract void SetHealth(float health);
+
+            protected abstract Vector3 SourcePosition { get; }
+
+            protected abstract Quaternion Rotation { get; }
+
+            protected abstract Vector3 GetOffsetPosition(int segmentIndex);
+
+            protected virtual BaseEntity CreatePrimarySegment() => CreateSegment(SourcePosition, Rotation);
+
+            protected virtual BaseEntity CreateSecondarySegment(int segmentIndex) => CreateSegment(GetOffsetPosition(segmentIndex));
+        }
+
+        private abstract class PipeFactory<TEntity> : PipeFactory
+        where TEntity: BaseEntity
+        {
+            /// <summary>
+            /// Initialize the properties of a pipe segment entity.
+            /// Adds lights if enabled in the config
+            /// </summary>
+            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
+            /// <param name="pipeIndex">The index of this pipe segment</param>
+            protected virtual TEntity PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
+            {
+                var pipeSegmentEntity = pipeSegment as TEntity;
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.Spawn();
+
+                PipeSegment.Attach(pipeSegmentEntity, _pipe);
+
+                if (PrimarySegment != pipeSegmentEntity)
+                    pipeSegmentEntity.SetParent(PrimarySegment);
+                return pipeSegmentEntity;
+            }
+
+            public override void Create()
+            {
+                Segments.Add(PreparePipeSegmentEntity(0, CreatePrimarySegment()));
+                for (var i = 1; i < _segmentCount; i++)
+                {
+                    Segments.Add(PreparePipeSegmentEntity(i, CreateSecondarySegment(i)));
+                }
+            }
+
+            protected PipeFactory(Pipe pipe) : base(pipe) { }
+        }
+
+        private class PipeFactoryLowWall : PipeFactory<BuildingBlock>
+        {
+            protected override float PipeLength => 3f;
+
+            private const string _prefab = "assets/prefabs/building core/wall.low/wall.low.prefab";
+            protected override string Prefab => _prefab;
+
+            /// <summary>
+            /// Initialize the properties of a pipe segment entity.
+            /// Adds lights if enabled in the config
+            /// </summary>
+            /// <param name="pipeSegment">The pipe segment entity to prepare</param>
+            /// <param name="pipeIndex">The index of this pipe segment</param>
+            protected override BuildingBlock PreparePipeSegmentEntity(int pipeIndex, BaseEntity pipeSegment)
+            {
+                var pipeSegmentEntity = base.PreparePipeSegmentEntity(pipeIndex, pipeSegment);
+                if (pipeSegmentEntity == null) return null;
+                pipeSegmentEntity.grounded = true;
+                pipeSegmentEntity.grade = _pipe.Grade;
+                pipeSegmentEntity.enableSaving = false;
+                pipeSegmentEntity.SetHealthToMax();
+                if (InstanceConfig.AttachXmasLights)
+                {
+                    var lights = GameManager.server.CreateEntity(
+                        "assets/prefabs/misc/xmas/christmas_lights/xmas.lightstring.deployed.prefab",
+                        Vector3.up * 1.025f +
+                        Vector3.forward * 0.13f +
+                        (pipeIndex % 2 == 0
+                            ? Vector3.zero
+                            : OverlappingPipeOffset),
+                        Quaternion.Euler(180, 90, 0));
+                    lights.enableSaving = false;
+                    lights.Spawn();
+                    lights.SetParent(pipeSegment);
+                    PipeSegmentLights.Attach(lights, _pipe);
+                }
+                return pipeSegmentEntity;
+            }
+
+            public PipeFactoryLowWall(Pipe pipe) : base(pipe) { }
+
+            public override void Upgrade(BuildingGrade.Enum grade)
+            {
+                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
+                {
+                    buildingBlock.SetGrade(grade);
+                    buildingBlock.SetHealthToMax();
+                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
+            }
+
+            public override void SetHealth(float health)
+            {
+                foreach (var buildingBlock in Segments.Select(segment => segment.GetComponent<BuildingBlock>()))
+                {
+                    buildingBlock.health = health;
+                    buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.forward * (PipeLength / 2))
+                       + _rotationOffset + Vector3.down * 0.8f;
+
+            protected override Quaternion Rotation => _pipe.Rotation;
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.forward * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+        }
+
+        private class PipeFactoryBarrel : PipeFactory<StorageContainer>
+        {
+            protected override string Prefab => "assets/bundled/prefabs/radtown/loot_barrel_1.prefab";
+
+            public PipeFactoryBarrel(Pipe pipe) : base(pipe) { }
+
+            protected override float PipeLength => 1.14f;
+
+            public override void SetHealth(float health)
+            {
+                foreach (var segment in Segments.OfType<LootContainer>())
+                {
+                    segment.health = health;
+                    segment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+                }
+            }
+
+            protected override Vector3 SourcePosition =>
+                (_segmentCount == 1
+                           ? (_pipe.Source.Position + _pipe.Destination.Position) / 2
+                           : _pipe.Source.Position + _pipe.Rotation * Vector3.back * (PipeLength / 2 - 0.5f)) +
+                       _rotationOffset + Vector3.down * 0.05f;
+
+            protected override Quaternion Rotation =>
+                _pipe.Rotation * Quaternion.AngleAxis(90f, Vector3.forward) * Quaternion.AngleAxis(-90f, Vector3.left);
+
+            protected override Vector3 GetOffsetPosition(int segmentIndex) =>
+                Vector3.up * (PipeLength * segmentIndex - _segmentOffset) + (segmentIndex % 2 == 0
+                    ? Vector3.zero
+                    : OverlappingPipeOffset);
+
+            public override void Reverse()
+            {
+                PrimarySegment.transform.SetPositionAndRotation(SourcePosition, Rotation);
+                PrimarySegment.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
+            }
+
+            protected override BaseEntity CreateSecondarySegment(int segmentIndex)
+            {
+                return CreateSegment(GetOffsetPosition(segmentIndex), Quaternion.Euler(0f, segmentIndex *80f, 0f));
             }
         }
         #endregion
@@ -4542,7 +4918,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// <summary>
         /// Player helper holds additional information and methods for a player that is needed for syncPipes to work correctly
         /// </summary>
-        public class PlayerHelper
+        public partial class PlayerHelper
         {
             /// <summary>
             /// The store of all pipes index by player PlayerPipes[playerId][pipeId] => Pipe
@@ -4605,6 +4981,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 Player = player;
             }
+
+            partial void ExperimentalConstructor();
 
             /// <summary>
             /// Player this player helper is attached to
@@ -5018,10 +5396,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 {
                     OverlayText.Hide(player.Player);
                     player.Menu?.Close(player);
+                    player.ExperimentalCleanup();
                 }
                 Players.Clear();
                 AllPipes.Clear();
             }
+
+            partial void ExperimentalCleanup();
 
             /// <summary>
             /// Sends a console command with the 'syncPipes.' prefix
@@ -5293,9 +5674,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 		}
 
         // This stores an indexed form of the Storage enum list
-		private static Dictionary<Storage, StorageData> _storageDetails;
+#pragma warning disable CS0649
+        private static Dictionary<Storage, StorageData> _storageDetails;
+#pragma warning restore CS0649
 
-		static class StorageHelper
+        static class StorageHelper
         {
 
 			///// <summary>
@@ -5389,7 +5772,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             var damage = hitInfo.damageTypes.Total();
             if (damage > 0)
             {
-                var health = entity.GetComponent<BuildingBlock>()?.health;
+                var health = entity.GetComponent<BaseCombatEntity>()?.health;
                 if (health.HasValue)
                 {
                     health -= damage;
