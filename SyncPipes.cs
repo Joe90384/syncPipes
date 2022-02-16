@@ -15,7 +15,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.26")]
+    [Info("Sync Pipes", "Joe 90", "0.9.27")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -1882,7 +1882,10 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
                     {
                         if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                        {
+                            _loading = false;
                             return false;
+                        }
                         filename = OldFilename;
                     }
                     
@@ -5539,8 +5542,11 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
             if (!DataStore1_0.Load())
             {
-                Instance.Puts("Upgrading from old data store");
-                Data.Load();
+                if (Interface.Oxide.DataFileSystem.ExistsDatafile(Instance.Name))
+                {
+                    Instance.Puts("Upgrading from old data store");
+                    Data.Load();
+                }
             }
         }
 
