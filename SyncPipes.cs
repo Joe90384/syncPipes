@@ -5099,10 +5099,35 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         void OnServerInitialized()
         {
-            if (!DataStore.OnePointOne.Load())
+            if (DataStore.OnePointOne.FileExists) {
+                DataStore.OnePointOne.Load();
+            }
+            else if (DataStore.OnePointZero.FileExists)
             {
                 Instance.PrintWarning("Upgrading from V1.0 to V1.1");
                 DataStore.OnePointZero.Load();
+            }
+            else if(Interface.Oxide.DataFileSystem.ExistsDatafile(Instance.Name))
+            {
+                Instance.PrintError(@"
++------------------------------------------------------------------------------+
+|                     DATA LOAD ERROR UNSUPPORTED VERSION                      |
++------------------------------------------------------------------------------+
+| Direct upgrading from this data store format is not supported.               |
+|                                                                              |
+| To upgrade your existing pipes:                                              |
+|  - Unload SyncPipes                                                          |
+|  - Delete the SyncPipes_v1-1.json file from the data store                   |
+|  - Install (and load) SyncPipes Version 0.9.27                               |
+|  - Re-install this version of SyncPipes                                      |
+|                                                                              |
+| Otherwise ignore this message and any new pipes will be saved as normal.     |
++------------------------------------------------------------------------------+");
+
+            }
+            else
+            {
+                Instance.PrintWarning("No pipe data found.");
             }
         }
 
@@ -5760,20 +5785,31 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
 
+                public static bool FileExists
+                {
+                    get
+                    {
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                        {
+                            if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                            {
+                                Instance.PrintWarning($"Failed to find V1.0 data file ({Filename}).");
+                                return false;
+                            }
+                            _filename = OldFilename;
+                        }
+                        return true;
+                    }
+                }
+
                 public static bool Load()
                 {
                     try
                     {
+                        if (!FileExists)
+                            return false;
                         _loading = true;
-                        var filename = Filename;
-                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
-                        {
-                            if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
-                                return false;
-                            filename = OldFilename;
-                        }
-
-                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(Filename));
                         return true;
                     }
                     catch (Exception e)
@@ -5826,7 +5862,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
-                    Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                     sw.Stop();
                     _saving = false;
@@ -6295,7 +6330,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                             {
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
-                                    Instance.Puts((string)reader.Value);
                                     switch ((string)reader.Value)
                                     {
                                         case "positions":
@@ -6668,20 +6702,28 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     }
                 }
 
-                public static bool Load()
+                public static bool FileExists
                 {
-                    try
+                    get
                     {
-                        _loading = true;
-                        var filename = Filename;
-                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
                         {
                             Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
                             _loading = false;
                             return false;
                         }
+                        return true;
+                    }
+                }
 
-                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                public static bool Load()
+                {
+                    try
+                    {
+                        if (!FileExists)
+                            return false;
+                        _loading = true;
+                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(Filename));
                         return true;
                     }
                     catch (Exception e)
@@ -6753,7 +6795,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
 
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
-                    Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
                     sw.Stop();
                     _saving = false;

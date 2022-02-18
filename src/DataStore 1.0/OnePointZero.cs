@@ -82,20 +82,31 @@ namespace Oxide.Plugins
                     }
                 }
 
+                public static bool FileExists
+                {
+                    get
+                    {
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
+                        {
+                            if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
+                            {
+                                Instance.PrintWarning($"Failed to find V1.0 data file ({Filename}).");
+                                return false;
+                            }
+                            _filename = OldFilename;
+                        }
+                        return true;
+                    }
+                }
+
                 public static bool Load()
                 {
                     try
                     {
+                        if (!FileExists)
+                            return false;
                         _loading = true;
-                        var filename = Filename;
-                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
-                        {
-                            if (!Interface.Oxide.DataFileSystem.ExistsDatafile(OldFilename))
-                                return false;
-                            filename = OldFilename;
-                        }
-
-                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(Filename));
                         return true;
                     }
                     catch (Exception e)
@@ -148,7 +159,6 @@ namespace Oxide.Plugins
 
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
-                    Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v1.0 complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds);
                     sw.Stop();
                     _saving = false;

@@ -90,20 +90,28 @@ namespace Oxide.Plugins
                     }
                 }
 
-                public static bool Load()
+                public static bool FileExists
                 {
-                    try
+                    get
                     {
-                        _loading = true;
-                        var filename = Filename;
-                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(filename))
+                        if (!Interface.Oxide.DataFileSystem.ExistsDatafile(Filename))
                         {
                             Instance.PrintWarning($"Failed to find V{Version} data file ({Filename}).");
                             _loading = false;
                             return false;
                         }
+                        return true;
+                    }
+                }
 
-                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(filename));
+                public static bool Load()
+                {
+                    try
+                    {
+                        if (!FileExists)
+                            return false;
+                        _loading = true;
+                        _coroutine = DataStore.StartCoroutine(DataStore.BufferedLoad(Filename));
                         return true;
                     }
                     catch (Exception e)
@@ -175,7 +183,6 @@ namespace Oxide.Plugins
                     Instance.Puts("Saved {0} managers", buffer.Containers.Count);
 
                     Interface.Oxide.DataFileSystem.WriteObject(filename, buffer);
-                    Interface.Oxide.DataFileSystem.GetDatafile($"{Instance.Name}").Clear();
                     Instance.Puts("Save v{2} complete ({0}.{1:00}s)", sw.Elapsed.Seconds, sw.Elapsed.Milliseconds, Version);
                     sw.Stop();
                     _saving = false;

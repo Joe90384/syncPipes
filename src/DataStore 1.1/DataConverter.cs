@@ -62,7 +62,6 @@ namespace Oxide.Plugins
                             {
                                 if (reader.TokenType == JsonToken.PropertyName)
                                 {
-                                    Instance.Puts((string)reader.Value);
                                     switch ((string)reader.Value)
                                     {
                                         case "positions":
