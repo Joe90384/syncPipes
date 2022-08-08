@@ -61,10 +61,13 @@ namespace Oxide.Plugins
                     Logger.PipeLoader.Log("Priority: {0}", pipe.Priority);
                     Logger.PipeLoader.Log("Splitter Enabled: {0}", pipe.IsFurnaceSplitterEnabled);
                     Logger.PipeLoader.Log("Splitter Count: {0}", pipe.FurnaceSplitterStacks);
-                    Logger.PipeLoader.Log("Item Filter: ({0})", pipe.PipeFilter?.Items.Count);
-                    for (var i = 0; i < pipe.PipeFilter?.Items.Count; i++)
-                        Logger.PipeLoader.Log("    Item[{0}]: {1}", i,
-                            pipe.PipeFilter.Items[i]?.info.displayName.english);
+                    Logger.PipeLoader.Log("Item Filter: ({0})", pipe.InitialFilterItems == null ? 0 : pipe.InitialFilterItems.Count);
+                    if (pipe.InitialFilterItems != null)
+                    {
+                        for (var i = 0; i < pipe.InitialFilterItems.Count; i++)
+                            Logger.PipeLoader.Log("    Item[{0}]: {1}", i,
+                                pipe.InitialFilterItems[i]);
+                    }
                     Logger.PipeLoader.Log("");
                 }
             }

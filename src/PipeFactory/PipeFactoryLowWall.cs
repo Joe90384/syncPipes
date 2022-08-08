@@ -84,7 +84,7 @@ namespace Oxide.Plugins
             {
                 foreach (var buildingBlock in SegmentBuildingBlocks)
                 {
-                    buildingBlock.SetGrade(grade);
+                    buildingBlock.ChangeGrade(grade, true);
                     buildingBlock.SetHealthToMax();
                     buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
                 }

@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.30")]
+    [Info("Sync Pipes", "Joe 90", "0.9.31")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -4248,7 +4248,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 ContainerType = containerType;
                 IconUrl = StorageHelper.GetImageUrl(Container);// ItemIcons.GetIcon(Entity);
                 CanAutoStart = ContainerHelper.CanAutoStart(ContainerType);
-                Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
+                if(container != null)
+                    Position = Container.CenterPoint() + StorageHelper.GetOffset(Container);
             }
 
             /// <summary>
@@ -6611,10 +6612,13 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                     Logger.PipeLoader.Log("Priority: {0}", pipe.Priority);
                     Logger.PipeLoader.Log("Splitter Enabled: {0}", pipe.IsFurnaceSplitterEnabled);
                     Logger.PipeLoader.Log("Splitter Count: {0}", pipe.FurnaceSplitterStacks);
-                    Logger.PipeLoader.Log("Item Filter: ({0})", pipe.PipeFilter?.Items.Count);
-                    for (var i = 0; i < pipe.PipeFilter?.Items.Count; i++)
-                        Logger.PipeLoader.Log("    Item[{0}]: {1}", i,
-                            pipe.PipeFilter.Items[i]?.info.displayName.english);
+                    Logger.PipeLoader.Log("Item Filter: ({0})", pipe.InitialFilterItems == null ? 0 : pipe.InitialFilterItems.Count);
+                    if (pipe.InitialFilterItems != null)
+                    {
+                        for (var i = 0; i < pipe.InitialFilterItems.Count; i++)
+                            Logger.PipeLoader.Log("    Item[{0}]: {1}", i,
+                                pipe.InitialFilterItems[i]);
+                    }
                     Logger.PipeLoader.Log("");
                 }
             }
@@ -7545,7 +7549,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 foreach (var buildingBlock in SegmentBuildingBlocks)
                 {
-                    buildingBlock.SetGrade(grade);
+                    buildingBlock.ChangeGrade(grade, true);
                     buildingBlock.SetHealthToMax();
                     buildingBlock.SendNetworkUpdate(BasePlayer.NetworkQueue.UpdateDistance);
                 }
