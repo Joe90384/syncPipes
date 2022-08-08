@@ -4,7 +4,7 @@ Before I go into detail on what this plugin can do I'd like to say a big thank y
 
 It has been re-written to make the pipes work synchronously with all pipes connected to the same container. This allows for advanced sorting and filtering of items into your containers, shops, furnaces, etc.
 
-# Download
+# Downloads
 
 ### Current Versions
 - Stable Version 0.9.27 - [Download Stable](https://umod.org/plugins/SyncPipes.cs?version=0.9.27&branch=master)
