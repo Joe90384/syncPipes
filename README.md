@@ -4,8 +4,18 @@ Before I go into detail on what this plugin can do I'd like to say a big thank y
 
 It has been re-written to make the pipes work synchronously with all pipes connected to the same container. This allows for advanced sorting and filtering of items into your containers, shops, furnaces, etc.
 
-[TOC]
+# Download
 
+### Current Versions
+- Stable Version 0.9.27 - [Download Stable](https://umod.org/plugins/SyncPipes.cs?version=0.9.27&branch=master)
+- Beta Version 0.9.31 - [Download Beta](https://umod.org/plugins/SyncPipes.cs?version=0.9.31&branch=beta)
+
+For more information on all releases click [here](https://umod.org/community/sync-pipes/38662-beta-and-debug-releases) and watch the post for updates.
+
+Please help me out and download the beta version and help me with my testing. I will always try my best to ensure the beta versions are stable however more servers I can get testing the beta the faster I can find and fix any issues.
+
+### Past Versions
+You can see all versions of SyncPipes on the updates tab. By default this will show you the stable (master) version of the plugin. If you want to help out and test the new version before everyone else you can click on the drop down (master) and select the beta branch to see all beta version.
 # What can it do?
 
 syncPipes allows you to connect multiple containers together to automatically:
@@ -95,7 +105,7 @@ This gives you the final options
 - **Auto Splitter:** This shows if the items should be split into even stacks in the furnace
   - You can turn this on and off using the corresponding button to the right.
 - **Stack Count:** This shows how many stacks the items will be split into in the furnace
-  - You can increase the number of stacks by clicking the '+' button
+  - You can increase the number of stacks by clicking the ' ' button
   - You can decrease the number of stacks by clicking the '-' button
 
 If you need more hints in game click the '?' button and it will give you a description of each item.
