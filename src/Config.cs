@@ -74,6 +74,12 @@ namespace Oxide.Plugins
             [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public ExperimentalConfig Experimental { get; set; } = new ExperimentalConfig();
 
+            [JsonProperty("blacklistTC")]
+            public bool BlacklistTC { get; set; } = false;
+
+            [JsonProperty("useQuickSmelt")] 
+            public bool UseQuickSmelt { get; set; } = true;
+
             public class PermissionLevel
             {
                 [JsonProperty("upgradeLimit")]

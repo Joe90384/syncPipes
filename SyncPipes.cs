@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.31")]
+    [Info("Sync Pipes", "Joe 90", "0.9.32")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -29,8 +29,8 @@ namespace Oxide.Plugins
 
 #pragma warning disable CS0649
         // Reference to the Furnace Splitter plugin https://umod.org/plugins/furnace-splitter
-        [PluginReference]
-        Plugin FurnaceSplitter;
+        // Disabled as 01/09/2022 rust update causes items to vanish
+        Plugin FurnaceSplitter = null;
 
         // Refernce to the Quick Smelt plugin https://umod.org/plugins/quick-smelt
         [PluginReference] 
@@ -605,6 +605,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             [JsonProperty("experimental", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public ExperimentalConfig Experimental { get; set; } = new ExperimentalConfig();
 
+            [JsonProperty("blacklistTC")]
+            public bool BlacklistTC { get; set; } = false;
+
+            [JsonProperty("useQuickSmelt")] 
+            public bool UseQuickSmelt { get; set; } = true;
+
             public class PermissionLevel
             {
                 [JsonProperty("upgradeLimit")]
@@ -762,7 +768,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             /// <returns>True if the container type is blacklisted</returns>
             public static bool IsBlacklisted(BaseEntity container)
             {
-                return container is BaseFuelLightSource || container is Locker || container is ShopFront ||
+                return (InstanceConfig.BlacklistTC && container.ShortPrefabName == ToolCupboardPrefab) || container is BaseFuelLightSource || container is Locker || container is ShopFront ||
                        container is RepairBench || container is LootContainer;
             }
 
@@ -1330,6 +1336,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                         {
                             var pipe = unusedPipes[i];
                             var vendingMachine = pipe.Destination.Storage as VendingMachine;
+                            var oven = pipe.Destination.Storage as BaseOven;
                             if (vendingMachine != null)
                             {
                                 var sellableItem = false;
@@ -1345,8 +1352,18 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                                 if (!sellableItem)
                                     continue;
                             }
-                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                            else if (oven != null)
+                            {
+                                var allowedSlots = oven.GetAllowedSlots(item[0]);
+                                if (!allowedSlots.HasValue)
+                                    continue;
+                            }
+                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) ==
+                                     ItemContainer.CanAcceptResult.CannotAccept)
+                            {
                                 continue;
+                            }
+
                             if (pipe.PipeFilter.Items.Count > 0)
                             {
                                 bool found = false;
@@ -4309,7 +4326,7 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
+                        if (InstanceConfig.UseQuickSmelt && Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
                         if (!((BaseOven)Container).IsOn())
@@ -6860,7 +6877,6 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
 
                                     factory.AttachLights(lights);
                                 }
-                                Instance.Puts("Pipe Validity: {0}", pipe.Validity);
 
                                 //If any segments or lights are missing remove them all and let the factory recreate.
                                 if (

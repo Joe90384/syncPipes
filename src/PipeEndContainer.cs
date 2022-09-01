@@ -89,7 +89,7 @@ namespace Oxide.Plugins
                 switch (ContainerType)
                 {
                     case ContainerType.Oven:
-                        if (Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
+                        if (InstanceConfig.UseQuickSmelt && Instance.QuickSmelt != null && !((BaseOven)Container).IsOn())
                             Instance.QuickSmelt?.Call("OnOvenToggle", Container,
                                 BasePlayer.Find(_pipe.OwnerId.ToString()));
                         if (!((BaseOven)Container).IsOn())

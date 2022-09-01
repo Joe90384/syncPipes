@@ -21,7 +21,7 @@ namespace Oxide.Plugins
             /// <returns>True if the container type is blacklisted</returns>
             public static bool IsBlacklisted(BaseEntity container)
             {
-                return container is BaseFuelLightSource || container is Locker || container is ShopFront ||
+                return (InstanceConfig.BlacklistTC && container.ShortPrefabName == ToolCupboardPrefab) || container is BaseFuelLightSource || container is Locker || container is ShopFront ||
                        container is RepairBench || container is LootContainer;
             }
 

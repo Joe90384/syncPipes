@@ -403,6 +403,7 @@ namespace Oxide.Plugins
                         {
                             var pipe = unusedPipes[i];
                             var vendingMachine = pipe.Destination.Storage as VendingMachine;
+                            var oven = pipe.Destination.Storage as BaseOven;
                             if (vendingMachine != null)
                             {
                                 var sellableItem = false;
@@ -418,8 +419,18 @@ namespace Oxide.Plugins
                                 if (!sellableItem)
                                     continue;
                             }
-                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) == ItemContainer.CanAcceptResult.CannotAccept)
+                            else if (oven != null)
+                            {
+                                var allowedSlots = oven.GetAllowedSlots(item[0]);
+                                if (!allowedSlots.HasValue)
+                                    continue;
+                            }
+                            else if (pipe.Destination.Storage.inventory.CanAcceptItem(item[0], 0) ==
+                                     ItemContainer.CanAcceptResult.CannotAccept)
+                            {
                                 continue;
+                            }
+
                             if (pipe.PipeFilter.Items.Count > 0)
                             {
                                 bool found = false;

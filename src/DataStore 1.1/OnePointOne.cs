@@ -244,7 +244,6 @@ namespace Oxide.Plugins
 
                                     factory.AttachLights(lights);
                                 }
-                                Instance.Puts("Pipe Validity: {0}", pipe.Validity);
 
                                 //If any segments or lights are missing remove them all and let the factory recreate.
                                 if (
