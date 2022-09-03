@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.32")]
+    [Info("Sync Pipes", "Joe 90", "0.9.33")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -5449,11 +5449,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
         /// </summary>
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
-        /// <returns>False if it is a pipe, null if it isn't</returns>
-        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player)
+        /// <returns>Null if it is not a pipe</returns>
+        object OnStructureRotate(BaseCombatEntity entity, BasePlayer player)
         {
             PipeSegment segment = null;
-            return !entity?.TryGetComponent(out segment);
+            entity?.TryGetComponent(out segment);
+            return segment;
         }
 
         /// <summary>

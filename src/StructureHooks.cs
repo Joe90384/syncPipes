@@ -104,11 +104,12 @@ namespace Oxide.Plugins
         /// </summary>
         /// <param name="entity">Entity to check if it is a pipe</param>
         /// <param name="player">Player trying to rotate the entity</param>
-        /// <returns>False if it is a pipe, null if it isn't</returns>
-        bool? OnStructureRotate(BaseCombatEntity entity, BasePlayer player)
+        /// <returns>Null if it is not a pipe</returns>
+        object OnStructureRotate(BaseCombatEntity entity, BasePlayer player)
         {
             PipeSegment segment = null;
-            return !entity?.TryGetComponent(out segment);
+            entity?.TryGetComponent(out segment);
+            return segment;
         }
 
         /// <summary>
