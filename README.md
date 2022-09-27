@@ -7,8 +7,8 @@ It has been re-written to make the pipes work synchronously with all pipes conne
 # Downloads
 
 ### Current Versions
-- Stable Version 0.9.27 - [Download Stable](https://umod.org/plugins/SyncPipes.cs?version=0.9.27&branch=master)
-- Beta Version 0.9.31 - [Download Beta](https://umod.org/plugins/SyncPipes.cs?version=0.9.31&branch=beta)
+- Stable Version 0.9.32 - [Download Stable](https://umod.org/plugins/SyncPipes.cs?version=0.9.31&branch=master)
+- Beta Version 0.9.34 - [Download Beta](https://umod.org/plugins/SyncPipes.cs?version=0.9.34&branch=beta)
 
 For more information on all releases click [here](https://umod.org/community/sync-pipes/38662-beta-and-debug-releases) and watch the post for updates.
 
