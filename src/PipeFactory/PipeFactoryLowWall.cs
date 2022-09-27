@@ -28,10 +28,6 @@ namespace Oxide.Plugins
                 pipeSegmentBuildingBlock.grade = _pipe.Grade;
                 pipeSegmentBuildingBlock.enableSaving = InstanceConfig.Experimental.PermanentEntities;
                 pipeSegmentBuildingBlock.SetHealthToMax();
-                if (_pipe.Source.Storage.ShortPrefabName == "cupboard.tool.deployed")
-                    pipeSegmentBuildingBlock.buildingID = _pipe.Source.Storage.buildingID;
-                else if (_pipe.Destination.Storage.ShortPrefabName == "cupboard.tool.deployed")
-                    pipeSegmentBuildingBlock.buildingID = _pipe.Destination.Storage.buildingID;
 
                 if (InstanceConfig.AttachXmasLights)
                 {

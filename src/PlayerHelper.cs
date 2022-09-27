@@ -514,7 +514,7 @@ namespace Oxide.Plugins
             public void SetToolCupboardBuildingId(DecayEntity toolCupboard)
             {
                 if (!IsAdmin) return;
-                toolCupboard.buildingID = TCAttchBuildingId;
+                toolCupboard.AttachToBuilding(TCAttchBuildingId);
                 StopToolCupboardBuildingId();
             }
 

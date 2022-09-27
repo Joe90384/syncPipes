@@ -195,6 +195,34 @@ namespace Oxide.Plugins
                 }
             }
 
+
+            public BuildingBlock GetNearbyBuildingBlock(DecayEntity decayEntity)
+            {
+                float num1 = float.MaxValue;
+                BuildingBlock nearbyBuildingBlock = (BuildingBlock)null;
+                Vector3 position = decayEntity.PivotPoint();
+                List<BuildingBlock> list = Facepunch.Pool.GetList<BuildingBlock>();
+                Vis.Entities<BuildingBlock>(position, 1.5f, list, 2097152);
+                for (int index = 0; index < list.Count; ++index)
+                {
+                    BuildingBlock buildingBlock = list[index];
+                    PipeSegment segment = null;
+                    if (buildingBlock.isServer == decayEntity.isServer && !buildingBlock.TryGetComponent(out segment))
+                    {
+                        float num2 = buildingBlock.SqrDistance(position);
+                        if (!buildingBlock.grounded)
+                            ++num2;
+                        if ((double)num2 < (double)num1)
+                        {
+                            num1 = num2;
+                            nearbyBuildingBlock = buildingBlock;
+                        }
+                    }
+                }
+                Facepunch.Pool.FreeList<BuildingBlock>(ref list);
+                return nearbyBuildingBlock;
+            }
+
             /// <summary>
             /// Hook: Check container and if still valid and cycle time has elapsed then move items along pipes
             /// </summary>
@@ -202,6 +230,15 @@ namespace Oxide.Plugins
             {
                 try
                 {
+                    if (Container.buildingID == 0)
+                    {
+                        Instance.Puts("Re-attaching containers to building after building split");
+                        var building = GetNearbyBuildingBlock(Container).GetBuilding();
+                        if (building != null)
+                        {
+                            Container.AttachToBuilding(building.ID);
+                        }
+                    }
                     if (Container == null)
                         Kill();
                     if (_destroyed || !HasAnyPipes) return;
