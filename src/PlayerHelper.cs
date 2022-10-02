@@ -177,33 +177,14 @@ namespace Oxide.Plugins
             {
                 get
                 {
+                    var permissions2 = InstanceConfig.PermissionLevels;// Instance.permission.GetUserPermissions(Player?.UserIDString);
                     var permissions = Instance.permission.GetUserPermissions(Player?.UserIDString);
-                    for (var i = 0; i < permissions.Length; i++)
+                    foreach (var permission in permissions2)
                     {
-                        var permission = GetPermission(permissions[i]);
-                        if (permission != null)
-                        {
-                            yield return permission;
-                        }
+                        if(Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name.ToLower()}.level.{permission.Key}"))
+                            yield return permission.Value;  
                     }
                 }
-            }
-
-
-            /// <summary>
-            /// Get the syncPipes permission based on the user permission given.
-            /// Will return null if it isn't a valid syncPipes permission
-            /// </summary>
-            /// <param name="userPermission">Permission string to search for</param>
-            /// <returns>syncPipes permission
-            /// If not found will return null</returns>
-            private SyncPipesConfig.PermissionLevel GetPermission(string userPermission)
-            {
-                userPermission = userPermission.ToLower().Replace($"{Instance.Name.ToLower()}.level.", "");
-                SyncPipesConfig.PermissionLevel permission;
-                if (InstanceConfig.PermissionLevels == null)
-                    return null;
-                return InstanceConfig.PermissionLevels.TryGetValue(userPermission, out permission) ? permission : null;
             }
 
             /// <summary>

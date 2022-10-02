@@ -14,7 +14,7 @@ using Oxide.Core.Libraries.Covalence;
 using System.Runtime.CompilerServices;
 namespace Oxide.Plugins
 {
-    [Info("Sync Pipes", "Joe 90", "0.9.34")]
+    [Info("Sync Pipes", "Joe 90", "0.9.35")]
     [Description("Allows players to transfer items between containers. All pipes from a container are used synchronously to enable advanced sorting and splitting.")]
     partial class SyncPipes : RustPlugin
     {
@@ -1075,6 +1075,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 Destroy(this);
             }
 
+            private bool _isNotAttachedToABuilding  = false;
+
             /// <summary>
             ///     Locate exist container manager for this container or create a new one then attach it to the container.
             /// </summary>
@@ -1103,6 +1105,8 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
                 containerManager.ContainerId = entity.net.ID;
                 containerManager.Container = container;
                 containerManager.ContainerType = ContainerHelper.GetEntityType(container);
+                if(container.buildingID == 0)
+                    containerManager._isNotAttachedToABuilding = true;
                 return containerManager;
             }
 
@@ -1163,12 +1167,12 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 try
                 {
-                    if (Container.buildingID == 0)
+                    if (!_isNotAttachedToABuilding && Container.buildingID == 0)
                     {
-                        Instance.Puts("Re-attaching containers to building after building split");
-                        var building = GetNearbyBuildingBlock(Container).GetBuilding();
+                        var building = GetNearbyBuildingBlock(Container)?.GetBuilding();
                         if (building != null)
                         {
+                            Instance.Puts("Re-attaching containers to building after building split");
                             Container.AttachToBuilding(building.ID);
                         }
                     }
@@ -4656,33 +4660,14 @@ Based on <color=#80c5ff>j</color>Pipes by TheGreatJ");
             {
                 get
                 {
+                    var permissions2 = InstanceConfig.PermissionLevels;// Instance.permission.GetUserPermissions(Player?.UserIDString);
                     var permissions = Instance.permission.GetUserPermissions(Player?.UserIDString);
-                    for (var i = 0; i < permissions.Length; i++)
+                    foreach (var permission in permissions2)
                     {
-                        var permission = GetPermission(permissions[i]);
-                        if (permission != null)
-                        {
-                            yield return permission;
-                        }
+                        if(Instance.permission.UserHasPermission(Player.UserIDString, $"{Instance.Name.ToLower()}.level.{permission.Key}"))
+                            yield return permission.Value;  
                     }
                 }
-            }
-
-
-            /// <summary>
-            /// Get the syncPipes permission based on the user permission given.
-            /// Will return null if it isn't a valid syncPipes permission
-            /// </summary>
-            /// <param name="userPermission">Permission string to search for</param>
-            /// <returns>syncPipes permission
-            /// If not found will return null</returns>
-            private SyncPipesConfig.PermissionLevel GetPermission(string userPermission)
-            {
-                userPermission = userPermission.ToLower().Replace($"{Instance.Name.ToLower()}.level.", "");
-                SyncPipesConfig.PermissionLevel permission;
-                if (InstanceConfig.PermissionLevels == null)
-                    return null;
-                return InstanceConfig.PermissionLevels.TryGetValue(userPermission, out permission) ? permission : null;
             }
 
             /// <summary>

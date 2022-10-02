@@ -142,6 +142,8 @@ namespace Oxide.Plugins
                 Destroy(this);
             }
 
+            private bool _isNotAttachedToABuilding  = false;
+
             /// <summary>
             ///     Locate exist container manager for this container or create a new one then attach it to the container.
             /// </summary>
@@ -170,6 +172,8 @@ namespace Oxide.Plugins
                 containerManager.ContainerId = entity.net.ID;
                 containerManager.Container = container;
                 containerManager.ContainerType = ContainerHelper.GetEntityType(container);
+                if(container.buildingID == 0)
+                    containerManager._isNotAttachedToABuilding = true;
                 return containerManager;
             }
 
@@ -230,12 +234,12 @@ namespace Oxide.Plugins
             {
                 try
                 {
-                    if (Container.buildingID == 0)
+                    if (!_isNotAttachedToABuilding && Container.buildingID == 0)
                     {
-                        Instance.Puts("Re-attaching containers to building after building split");
-                        var building = GetNearbyBuildingBlock(Container).GetBuilding();
+                        var building = GetNearbyBuildingBlock(Container)?.GetBuilding();
                         if (building != null)
                         {
+                            Instance.Puts("Re-attaching containers to building after building split");
                             Container.AttachToBuilding(building.ID);
                         }
                     }
