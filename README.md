@@ -1,3 +1,11 @@
+# RIP SyncPipes...
+As you may, or may not have seen, february's update will be bringing pipes to vanilla Rust. This makes this plugin redundant. 
+With that I will no longer be updating this plugin. 
+Thank you to everyone who has downloaded, given feedback and helped me with developing this plugin.
+
+Joe 90
+
+
 ![Logo](https://github.com/Joe90384/syncPipes/blob/main/images/logo.png?raw=true)
 
 Before I go into detail on what this plugin can do I'd like to say a big thank you to TheGreatJ who made the amazing jPipes plugin, which this is based on.
